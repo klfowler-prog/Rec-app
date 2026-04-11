@@ -239,11 +239,11 @@ async function quickAdd(btn, data) {
             const entryData = await entryResp.json();
             const entryId = entryData.entry ? entryData.entry.id : null;
 
+            const ratingColors = (n) => n <= 3 ? 'bg-coral' : n <= 5 ? 'bg-amber-400' : n <= 7 ? 'bg-yellow-500' : n <= 9 ? 'bg-emerald-400' : 'bg-emerald-500';
             container.innerHTML = `
                 <div class="flex items-center gap-0.5">
-                    <span class="text-[10px] text-sage font-medium mr-1">Rate:</span>
-                    ${[2,4,6,8,10].map(n => `
-                        <button onclick="rateItem(this, ${entryId}, ${n})" class="w-6 h-6 rounded-full text-[10px] font-bold border border-border-light dark:border-border-dark hover:bg-coral hover:text-white hover:border-coral transition-base">${n}</button>
+                    ${[1,2,3,4,5,6,7,8,9,10].map(n => `
+                        <button onclick="rateItem(this, ${entryId}, ${n})" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:${ratingColors(n)} transition-base text-[8px] font-bold text-transparent hover:text-white" title="${n}/10">${n}</button>
                     `).join('')}
                 </div>
             `;
