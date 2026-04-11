@@ -184,7 +184,7 @@ async def top_picks(user: User = Depends(require_user), db: Session = Depends(ge
     try:
         import google.generativeai as genai
 
-        genai.configure(api_key=settings.gemini_api_key)
+        genai.configure(api_key=settings.gemini_api_key, transport="rest")
         model = genai.GenerativeModel(model_name="gemini-3.1-flash-lite-preview")
 
         prompt = f"""You are a media recommendation expert. Based on this taste profile, pick the BEST next thing this person should try in EACH of these 4 categories. Be specific and bold.
@@ -292,7 +292,7 @@ async def home_suggestions(user: User = Depends(require_user), db: Session = Dep
     try:
         import google.generativeai as genai
 
-        genai.configure(api_key=settings.gemini_api_key)
+        genai.configure(api_key=settings.gemini_api_key, transport="rest")
         model = genai.GenerativeModel(model_name="gemini-3.1-flash-lite-preview")
 
         prompt = f"""Based on this user's taste profile, suggest 3 items for EACH of these categories: {', '.join(missing_labels)}.

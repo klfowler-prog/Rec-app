@@ -200,7 +200,7 @@ async def predict_ratings(user: User = Depends(require_user), db: Session = Depe
         batch = predict_lines[i:i + 30]
         try:
             import google.generativeai as genai
-            genai.configure(api_key=settings.gemini_api_key)
+            genai.configure(api_key=settings.gemini_api_key, transport="rest")
             model = genai.GenerativeModel(model_name="gemini-3.1-flash-lite-preview")
 
             prompt = f"""You are a media taste predictor. Based on this user's rated items, predict how much they would enjoy each unrated item on a scale of 1-10.

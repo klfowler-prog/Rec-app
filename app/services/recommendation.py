@@ -107,7 +107,7 @@ async def stream_recommendation(
         yield f'data: {{"error": "Gemini API key not configured. Add GEMINI_API_KEY to your .env file."}}\n\n'
         return
 
-    genai.configure(api_key=settings.gemini_api_key)
+    genai.configure(api_key=settings.gemini_api_key, transport="rest")
     model = genai.GenerativeModel(
         model_name="gemini-3.1-flash-lite-preview",
         system_instruction=system_prompt,
