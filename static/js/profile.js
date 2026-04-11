@@ -89,8 +89,8 @@ function profileEntry(entry) {
 
     const ratingDots = [1,2,3,4,5,6,7,8,9,10].map(n => {
         const active = entry.rating && n <= entry.rating;
-        const color = active ? (n <= 4 ? 'bg-coral/60' : n <= 7 ? 'bg-coral/80' : 'bg-coral') : 'bg-border-light dark:bg-border-dark';
-        return `<button onclick="inlineRate(${entry.id}, ${n}, this)" class="w-5 h-5 rounded-full ${color} hover:bg-coral transition-base text-[8px] font-bold ${active ? 'text-white' : 'text-transparent hover:text-white'}" title="${n}/10">${n}</button>`;
+        const color = active ? ratingColor(n) : 'bg-border-light dark:bg-border-dark';
+        return `<button onclick="inlineRate(${entry.id}, ${n}, this)" class="w-5 h-5 rounded-full ${color} hover:bg-sage transition-base text-[8px] font-bold ${active ? 'text-white' : 'text-transparent hover:text-white'}" title="${n}/10">${n}</button>`;
     }).join('');
 
     return `
@@ -105,7 +105,7 @@ function profileEntry(entry) {
                 </div>
                 <div class="flex items-center gap-0.5 mt-2" id="rating-row-${entry.id}">
                     ${ratingDots}
-                    ${entry.rating ? `<span class="text-xs font-semibold text-coral ml-1.5">${entry.rating}/10</span>` : `<span class="text-[10px] text-txt-muted ml-1.5">rate</span>`}
+                    ${entry.rating ? `<span class="text-xs font-semibold ml-1.5 ${entry.rating <= 3 ? 'text-coral' : entry.rating <= 5 ? 'text-amber-500' : entry.rating <= 7 ? 'text-yellow-600' : 'text-emerald-500'}">${entry.rating}/10</span>` : `<span class="text-[10px] text-txt-muted ml-1.5">rate</span>`}
                 </div>
             </div>
             <div class="flex gap-1 flex-shrink-0">
@@ -150,6 +150,15 @@ editForm.addEventListener('submit', async (e) => {
     loadProfile();
 });
 
+function ratingColor(n) {
+    // Coral (bad) -> Amber (mid) -> Green (good)
+    if (n <= 3) return 'bg-coral';
+    if (n <= 5) return 'bg-amber-400';
+    if (n <= 7) return 'bg-yellow-500';
+    if (n <= 9) return 'bg-emerald-400';
+    return 'bg-emerald-500';
+}
+
 async function inlineRate(entryId, rating, btn) {
     // Optimistic UI update — recolor dots immediately
     const row = document.getElementById(`rating-row-${entryId}`);
@@ -157,11 +166,12 @@ async function inlineRate(entryId, rating, btn) {
     dots.forEach((dot, i) => {
         const n = i + 1;
         const active = n <= rating;
-        dot.className = `w-5 h-5 rounded-full ${active ? (n <= 4 ? 'bg-coral/60' : n <= 7 ? 'bg-coral/80' : 'bg-coral') : 'bg-border-light dark:bg-border-dark'} hover:bg-coral transition-base text-[8px] font-bold ${active ? 'text-white' : 'text-transparent hover:text-white'}`;
+        dot.className = `w-5 h-5 rounded-full ${active ? ratingColor(n) : 'bg-border-light dark:bg-border-dark'} hover:bg-sage transition-base text-[8px] font-bold ${active ? 'text-white' : 'text-transparent hover:text-white'}`;
     });
     // Update label
     const label = row.querySelector('span:last-child');
-    if (label) { label.className = 'text-xs font-semibold text-coral ml-1.5'; label.textContent = `${rating}/10`; }
+    const labelColor = rating <= 3 ? 'text-coral' : rating <= 5 ? 'text-amber-500' : rating <= 7 ? 'text-yellow-600' : 'text-emerald-500';
+    if (label) { label.className = `text-xs font-semibold ml-1.5 ${labelColor}`; label.textContent = `${rating}/10`; }
 
     await fetch(`/api/profile/${entryId}`, {
         method: 'PUT',
