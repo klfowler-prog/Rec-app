@@ -1,0 +1,12 @@
+.git
+__pycache__
+*.pyc
+*.db
+*.db-journal
+.env
+.venv
+venv
+.mypy_cache
+.pytest_cache
+.ruff_cache
+static/img/*.png
