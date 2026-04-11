@@ -27,19 +27,22 @@ class BulkSearchRequest(BaseModel):
 
 @router.post("/bulk-search")
 async def bulk_search(req: BulkSearchRequest):
-    """Search for multiple titles with explicit media types."""
+    """Search for multiple titles with explicit media types — in parallel."""
+    import asyncio
+
     from app.services.unified_search import unified_search
 
-    results = {}
-    for item in req.items:
-        title = item.title.strip()
-        if not title:
-            continue
-        matches = await unified_search(title, item.media_type)
-        matches = _rank_by_title_match(title, matches)
-        results[title] = matches[:3] if matches else []
+    items = [(item.title.strip(), item.media_type) for item in req.items if item.title.strip()]
+    if not items:
+        return {}
 
-    return results
+    async def search_one(title, media_type):
+        matches = await unified_search(title, media_type)
+        matches = _rank_by_title_match(title, matches)
+        return title, matches[:3] if matches else []
+
+    found = await asyncio.gather(*[search_one(t, mt) for t, mt in items])
+    return {title: matches for title, matches in found}
 
 
 def _rank_by_title_match(query: str, results: list[MediaResult]) -> list[MediaResult]:
@@ -123,18 +126,19 @@ Rules:
             text = text.rsplit("```", 1)[0]
         picks = json.loads(text)
 
-        # Search for each pick to get poster images
-        results = []
-        for pick in picks[:3]:
+        # Search for each pick to get poster images — in parallel
+        import asyncio
+
+        async def search_pick(pick):
             title = pick.get("title", "")
             mt = pick.get("media_type", None)
             if title.lower() in existing_titles:
-                continue
+                return None
             matches = await unified_search(title, mt)
             matches = _rank_by_title_match(title, matches)
             if matches:
                 best = matches[0]
-                results.append({
+                return {
                     "title": best.title,
                     "media_type": best.media_type,
                     "year": best.year,
@@ -144,21 +148,21 @@ Rules:
                     "description": best.description,
                     "reason": pick.get("reason", ""),
                     "genres": best.genres,
-                })
-            else:
-                results.append({
-                    "title": title,
-                    "media_type": mt or "movie",
-                    "year": pick.get("year"),
-                    "image_url": None,
-                    "external_id": "",
-                    "source": "",
-                    "description": None,
-                    "reason": pick.get("reason", ""),
-                    "genres": [],
-                })
+                }
+            return {
+                "title": title,
+                "media_type": mt or "movie",
+                "year": pick.get("year"),
+                "image_url": None,
+                "external_id": "",
+                "source": "",
+                "description": None,
+                "reason": pick.get("reason", ""),
+                "genres": [],
+            }
 
-        return results
+        found = await asyncio.gather(*[search_pick(p) for p in picks[:3]])
+        return [r for r in found if r is not None]
     except Exception:
         return []
 
@@ -220,7 +224,52 @@ Only include categories from this list: {', '.join(missing_types)}"""
             text = text.split("\n", 1)[1] if "\n" in text else text[3:]
             text = text.rsplit("```", 1)[0]
         parsed = json.loads(text)
-        return {"suggestions": parsed}
+
+        # Search for poster images in parallel
+        import asyncio
+
+        from app.services.unified_search import unified_search
+
+        async def enrich(item, media_type):
+            title = item.get("title", "")
+            matches = await unified_search(title, media_type)
+            matches = _rank_by_title_match(title, matches)
+            if matches:
+                best = matches[0]
+                return {
+                    "title": best.title,
+                    "year": best.year,
+                    "reason": item.get("reason", ""),
+                    "image_url": best.image_url,
+                    "external_id": best.external_id,
+                    "source": best.source,
+                    "media_type": best.media_type,
+                }
+            return {
+                "title": title,
+                "year": item.get("year"),
+                "reason": item.get("reason", ""),
+                "image_url": None,
+                "external_id": "",
+                "source": "",
+                "media_type": media_type,
+            }
+
+        enriched = {}
+        all_tasks = []
+        task_keys = []
+        for media_type, items in parsed.items():
+            if not isinstance(items, list):
+                continue
+            for item in items:
+                all_tasks.append(enrich(item, media_type))
+                task_keys.append(media_type)
+
+        results = await asyncio.gather(*all_tasks)
+        for key, result in zip(task_keys, results):
+            enriched.setdefault(key, []).append(result)
+
+        return {"suggestions": enriched}
     except Exception:
         return {"suggestions": {}}
 

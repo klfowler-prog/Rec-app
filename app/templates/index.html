@@ -289,18 +289,23 @@ async function loadSuggestions() {
         for (const [type, items] of Object.entries(suggestions)) {
             const lane = document.getElementById(`suggestions-${type}`);
             if (lane && items && items.length > 0) {
-                lane.innerHTML = items.map(item => `
-                    <div class="swim-lane-item flex-shrink-0">
-                        <div class="bg-bg-light dark:bg-bg-dark rounded-lg border border-border-light dark:border-border-dark border-dashed p-4 h-full flex flex-col justify-between">
-                            <div>
-                                <p class="text-xs font-medium mb-1">${escapeHtml(item.title)}</p>
-                                ${item.year ? `<p class="text-[10px] text-txt-muted mb-2">${item.year}</p>` : ''}
-                                <p class="text-[11px] text-txt-muted leading-relaxed">${escapeHtml(item.reason)}</p>
+                lane.innerHTML = items.map(item => {
+                    const link = item.external_id ? `/media/${item.media_type || type}/${item.external_id}?source=${item.source}` : `/search`;
+                    const image = item.image_url
+                        ? `<img src="${item.image_url}" alt="" class="w-full aspect-[2/3] object-cover" loading="lazy">`
+                        : `<div class="w-full aspect-[2/3] bg-sage/10 flex items-center justify-center"><span class="text-sage text-xl">${escapeHtml((item.title || '?')[0])}</span></div>`;
+                    return `
+                        <a href="${link}" class="swim-lane-item flex-shrink-0">
+                            <div class="rounded-lg overflow-hidden transition-base card-hover shadow-sm border border-border-light dark:border-border-dark border-dashed">
+                                ${image}
+                                <div class="bg-surface-light dark:bg-surface-dark p-2.5">
+                                    <p class="text-xs font-medium truncate">${escapeHtml(item.title)}</p>
+                                    <p class="text-[10px] text-txt-muted mt-0.5 truncate">${escapeHtml(item.reason || '')}</p>
+                                </div>
                             </div>
-                            <a href="/search" class="text-[10px] text-sage hover:underline mt-2 inline-block">Search to add &rarr;</a>
-                        </div>
-                    </div>
-                `).join('');
+                        </a>
+                    `;
+                }).join('');
             } else if (lane) {
                 lane.innerHTML = `<p class="text-sm text-txt-muted py-3 px-1">Search to add items &rarr;</p>`;
             }
