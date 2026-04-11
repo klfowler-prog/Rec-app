@@ -48,7 +48,7 @@ def add_to_profile(entry: MediaEntryCreate, db: Session = Depends(get_db)):
     db.add(db_entry)
     db.commit()
     db.refresh(db_entry)
-    cache.invalidate()  # Profile changed — bust all caches
+    cache.mark_profile_changed()
     return db_entry
 
 
@@ -73,7 +73,7 @@ def delete_entry(entry_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Entry not found")
     db.delete(entry)
     db.commit()
-    cache.invalidate()
+    cache.mark_profile_changed()
     return {"ok": True}
 
 

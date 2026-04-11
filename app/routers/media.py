@@ -74,6 +74,15 @@ async def get_trending(media_type: str = "all", limit: int = 10):
     return await get_trending(media_type, "week", limit)
 
 
+@router.post("/refresh-recommendations")
+async def refresh_recommendations():
+    """Explicitly clear recommendation caches so they regenerate on next load."""
+    from app import cache
+
+    cache.force_refresh()
+    return {"ok": True}
+
+
 @router.get("/top-picks")
 async def top_picks(db: Session = Depends(get_db)):
     """Get 3 personalized top recommendations with poster images. Cached for 2 hours."""

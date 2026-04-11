@@ -84,7 +84,13 @@
             </span>
             Picked for you
         </h2>
-        <p class="text-sm text-txt-muted mb-4">Personalized recommendations based on your taste.</p>
+        <div class="flex items-center gap-3 mb-4">
+            <p class="text-sm text-txt-muted">Personalized recommendations based on your taste.</p>
+            <button onclick="refreshRecs()" id="refresh-btn" class="text-xs text-txt-muted hover:text-sage transition-base flex items-center gap-1" title="Get fresh recommendations">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h4.586M20 20v-5h-4.586M4.929 9A8 8 0 0119.07 9M19.071 15A8 8 0 014.93 15"/></svg>
+                Refresh
+            </button>
+        </div>
         <div id="top-picks" class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div class="col-span-full text-center py-8">
                 <div class="inline-block w-5 h-5 border-2 border-coral/30 border-t-coral rounded-full animate-spin"></div>
@@ -323,6 +329,18 @@ function escapeAttr(str) {
 }
 
 {% if total > 0 %}
+async function refreshRecs() {
+    const btn = document.getElementById('refresh-btn');
+    btn.innerHTML = '<span class="w-3 h-3 border-2 border-sage/30 border-t-sage rounded-full animate-spin inline-block"></span> Refreshing...';
+    btn.disabled = true;
+    try {
+        await fetch('/api/media/refresh-recommendations', { method: 'POST' });
+        await Promise.all([loadTopPicks(), loadSuggestions()]);
+    } catch {}
+    btn.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h4.586M20 20v-5h-4.586M4.929 9A8 8 0 0119.07 9M19.071 15A8 8 0 014.93 15"/></svg> Refresh';
+    btn.disabled = false;
+}
+
 async function loadTopPicks() {
     const container = document.getElementById('top-picks');
     try {
