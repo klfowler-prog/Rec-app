@@ -87,6 +87,12 @@ function profileEntry(entry) {
         ? `<img src="${entry.image_url}" alt="" class="w-12 h-16 object-cover rounded">`
         : `<div class="w-12 h-16 bg-sage/10 rounded flex items-center justify-center"><span class="text-sage text-sm">${escapeHtml(entry.title[0])}</span></div>`;
 
+    const ratingDots = [1,2,3,4,5,6,7,8,9,10].map(n => {
+        const active = entry.rating && n <= entry.rating;
+        const color = active ? (n <= 4 ? 'bg-coral/60' : n <= 7 ? 'bg-coral/80' : 'bg-coral') : 'bg-border-light dark:bg-border-dark';
+        return `<button onclick="inlineRate(${entry.id}, ${n}, this)" class="w-5 h-5 rounded-full ${color} hover:bg-coral transition-base text-[8px] font-bold ${active ? 'text-white' : 'text-transparent hover:text-white'}" title="${n}/10">${n}</button>`;
+    }).join('');
+
     return `
         <div class="bg-surface-light dark:bg-surface-dark rounded-lg border border-border-light dark:border-border-dark p-4 flex items-center gap-4 transition-base hover:border-sage/30">
             <a href="/media/${entry.media_type}/${entry.external_id}?source=${entry.source}" class="flex-shrink-0">${image}</a>
@@ -97,14 +103,16 @@ function profileEntry(entry) {
                     <span class="px-1.5 py-0.5 ${statusColors[entry.status] || ''} text-[10px] font-medium rounded">${statusLabels[entry.status] || entry.status}</span>
                     ${entry.year ? `<span class="text-xs text-txt-muted">${entry.year}</span>` : ''}
                 </div>
-                ${entry.notes ? `<p class="text-xs text-txt-muted mt-1 truncate">${escapeHtml(entry.notes)}</p>` : ''}
+                <div class="flex items-center gap-0.5 mt-2" id="rating-row-${entry.id}">
+                    ${ratingDots}
+                    ${entry.rating ? `<span class="text-xs font-semibold text-coral ml-1.5">${entry.rating}/10</span>` : `<span class="text-[10px] text-txt-muted ml-1.5">rate</span>`}
+                </div>
             </div>
-            ${entry.rating ? `<div class="text-right flex-shrink-0"><span class="text-lg font-semibold text-coral">${entry.rating}</span><span class="text-xs text-txt-muted">/10</span></div>` : ''}
             <div class="flex gap-1 flex-shrink-0">
-                <button onclick="openEdit(${entry.id}, '${entry.status}', ${entry.rating || 'null'}, ${entry.notes ? "'" + escapeHtml(entry.notes).replace(/'/g, "\\'") + "'" : 'null'}, ${entry.tags ? "'" + escapeHtml(entry.tags).replace(/'/g, "\\'") + "'" : 'null'})" class="p-1.5 text-txt-muted hover:text-sage transition-base rounded hover:bg-sage/10">
+                <button onclick="openEdit(${entry.id}, '${entry.status}', ${entry.rating || 'null'}, ${entry.notes ? "'" + escapeHtml(entry.notes).replace(/'/g, "\\'") + "'" : 'null'}, ${entry.tags ? "'" + escapeHtml(entry.tags).replace(/'/g, "\\'") + "'" : 'null'})" class="p-1.5 text-txt-muted hover:text-sage transition-base rounded hover:bg-sage/10" title="Edit details">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                 </button>
-                <button onclick="deleteEntry(${entry.id})" class="p-1.5 text-txt-muted hover:text-red-500 transition-base rounded hover:bg-red-50 dark:hover:bg-red-900/20">
+                <button onclick="deleteEntry(${entry.id})" class="p-1.5 text-txt-muted hover:text-red-500 transition-base rounded hover:bg-red-50 dark:hover:bg-red-900/20" title="Remove">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                 </button>
             </div>
@@ -141,6 +149,26 @@ editForm.addEventListener('submit', async (e) => {
     editModal.classList.add('hidden');
     loadProfile();
 });
+
+async function inlineRate(entryId, rating, btn) {
+    // Optimistic UI update — recolor dots immediately
+    const row = document.getElementById(`rating-row-${entryId}`);
+    const dots = row.querySelectorAll('button');
+    dots.forEach((dot, i) => {
+        const n = i + 1;
+        const active = n <= rating;
+        dot.className = `w-5 h-5 rounded-full ${active ? (n <= 4 ? 'bg-coral/60' : n <= 7 ? 'bg-coral/80' : 'bg-coral') : 'bg-border-light dark:bg-border-dark'} hover:bg-coral transition-base text-[8px] font-bold ${active ? 'text-white' : 'text-transparent hover:text-white'}`;
+    });
+    // Update label
+    const label = row.querySelector('span:last-child');
+    if (label) { label.className = 'text-xs font-semibold text-coral ml-1.5'; label.textContent = `${rating}/10`; }
+
+    await fetch(`/api/profile/${entryId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rating }),
+    });
+}
 
 async function deleteEntry(id) {
     if (!confirm('Remove this from your profile?')) return;
