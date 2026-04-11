@@ -222,68 +222,79 @@ async def import_goodreads(file: UploadFile = File(...), db: Session = Depends(g
             "isbn": row.get("ISBN13", "").strip().replace('="', "").replace('"', "") or row.get("ISBN", "").strip().replace('="', "").replace('"', ""),
         })
 
-    # Search Open Library for each book in parallel to get covers
-    async def enrich_and_save(row_data):
+    # Build set of existing titles to skip
+    existing_titles = {
+        e.title.lower()
+        for e in db.query(MediaEntry).filter(MediaEntry.media_type == "book").all()
+    }
+
+    # Filter out already-imported books
+    new_rows = []
+    skipped_results = []
+    for row_data in rows:
+        if row_data["title"].lower() in existing_titles:
+            skipped_results.append({"title": row_data["title"], "status": "skipped", "reason": "already in profile"})
+        else:
+            new_rows.append(row_data)
+
+    # Search Open Library for covers — parallel, no DB access
+    async def search_cover(row_data):
         title = row_data["title"]
-        # Check if already in profile
-        existing = (
-            db.query(MediaEntry)
-            .filter(MediaEntry.title == title, MediaEntry.media_type == "book")
-            .first()
-        )
-        if existing:
-            return {"title": title, "status": "skipped", "reason": "already in profile"}
-
-        # Search for cover image
-        image_url = None
-        external_id = ""
-        source = "open_library"
-        genres = None
-        description = None
-
+        query = f"{title} {row_data['author']}" if row_data["author"] else title
         try:
-            results = await search_books(title + " " + row_data["author"] if row_data["author"] else title)
-            if results:
-                best = results[0]
-                image_url = best.image_url
-                external_id = best.external_id
-                genres = ", ".join(best.genres) if best.genres else None
-                description = best.description
+            matches = await search_books(query)
+            if matches:
+                best = matches[0]
+                return {
+                    "image_url": best.image_url,
+                    "external_id": best.external_id,
+                    "genres": ", ".join(best.genres) if best.genres else None,
+                    "description": best.description,
+                }
         except Exception:
             pass
+        return {
+            "image_url": None,
+            "external_id": row_data["isbn"] or title.lower().replace(" ", "-")[:50],
+            "genres": None,
+            "description": None,
+        }
 
-        if not external_id:
-            # Use ISBN as fallback ID
-            external_id = row_data["isbn"] or title.lower().replace(" ", "-")[:50]
+    # Search in batches of 5
+    enriched = []
+    for i in range(0, len(new_rows), 5):
+        batch = new_rows[i : i + 5]
+        batch_results = await asyncio.gather(*[search_cover(r) for r in batch])
+        enriched.extend(zip(batch, batch_results))
 
+    # Save to DB sequentially
+    added_results = []
+    for row_data, cover_data in enriched:
         entry = MediaEntry(
-            external_id=external_id,
-            source=source,
-            title=title,
+            external_id=cover_data["external_id"] or row_data["title"].lower().replace(" ", "-")[:50],
+            source="open_library",
+            title=row_data["title"],
             media_type="book",
-            image_url=image_url,
+            image_url=cover_data["image_url"],
             year=row_data["year"],
             creator=row_data["author"],
-            genres=genres,
-            description=description,
+            genres=cover_data["genres"],
+            description=cover_data["description"],
             status=row_data["status"],
             rating=row_data["rating"],
         )
         try:
             db.add(entry)
             db.commit()
-            return {"title": title, "status": "added", "rating": row_data["rating"], "image_url": image_url}
+            added_results.append({
+                "title": row_data["title"], "status": "added",
+                "rating": row_data["rating"], "image_url": cover_data["image_url"],
+            })
         except Exception:
             db.rollback()
-            return {"title": title, "status": "skipped", "reason": "duplicate"}
+            added_results.append({"title": row_data["title"], "status": "skipped", "reason": "duplicate"})
 
-    # Process in batches of 5 to avoid overwhelming APIs
-    results = []
-    for i in range(0, len(rows), 5):
-        batch = rows[i : i + 5]
-        batch_results = await asyncio.gather(*[enrich_and_save(r) for r in batch])
-        results.extend(batch_results)
-
+    results = added_results + skipped_results
     added = sum(1 for r in results if r["status"] == "added")
     skipped = sum(1 for r in results if r["status"] == "skipped")
 
