@@ -301,11 +301,11 @@ async function rateItem(btn, entryId, rating) {
     const ratingColor = rating <= 3 ? 'text-coral' : rating <= 5 ? 'text-amber-500' : rating <= 7 ? 'text-yellow-600' : 'text-emerald-500';
     container.innerHTML = `<span class="text-xs font-semibold ${ratingColor}">${rating}/10 ✓</span>`;
     // Gray out the card to show it's been rated
-    const card = btn.closest('.rounded-xl') || btn.closest('.swim-lane-item') || btn.closest('.rounded-lg');
+    const card = container.closest('[data-rec-card]') || container.closest('.swim-lane-item') || container.closest('.rounded-lg');
     if (card) {
-        card.style.transition = 'opacity 0.4s';
-        card.style.opacity = '0.45';
-        card.style.filter = 'grayscale(40%)';
+        card.style.transition = 'opacity 0.5s, filter 0.5s';
+        card.style.opacity = '0.4';
+        card.style.filter = 'grayscale(50%)';
     }
 }
 
@@ -325,7 +325,7 @@ function recCard(item, reason) {
     const verb = {movie:'Watched',tv:'Watched',book:'Read',podcast:'Listened'}[item.media_type] || 'Done';
 
     return `
-        <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm">
+        <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm" data-rec-card>
             <a href="${link}">
                 ${image}
             </a>
