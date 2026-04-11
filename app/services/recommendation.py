@@ -100,10 +100,12 @@ async def stream_recommendation(
     if media_type:
         message = f"[Looking specifically for {media_type}s] {message}"
 
-    import os
     import google.generativeai as genai
 
-    os.environ["GOOGLE_API_KEY"] = settings.gemini_api_key
+    if not settings.gemini_api_key:
+        yield f'data: {{"error": "Gemini API key not configured. Add GEMINI_API_KEY to your .env file."}}\n\n'
+        return
+
     genai.configure(api_key=settings.gemini_api_key)
     model = genai.GenerativeModel(
         model_name="gemini-2.0-flash",
