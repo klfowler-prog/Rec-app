@@ -95,6 +95,7 @@ function profileEntry(entry) {
 
     return `
         <div class="bg-surface-light dark:bg-surface-dark rounded-lg border border-border-light dark:border-border-dark p-4 flex items-center gap-4 transition-base hover:border-sage/30">
+            <input type="checkbox" class="entry-checkbox w-4 h-4 accent-coral rounded flex-shrink-0" data-id="${entry.id}" onchange="updateBulkBar()">
             <a href="/media/${entry.media_type}/${entry.external_id}?source=${entry.source}" class="flex-shrink-0">${image}</a>
             <div class="flex-1 min-w-0">
                 <a href="/media/${entry.media_type}/${entry.external_id}?source=${entry.source}" class="text-sm font-medium hover:text-sage transition-base">${escapeHtml(entry.title)}</a>
@@ -183,6 +184,36 @@ async function inlineRate(entryId, rating, btn) {
 async function deleteEntry(id) {
     if (!confirm('Remove this from your profile?')) return;
     await fetch(`/api/profile/${id}`, { method: 'DELETE' });
+    loadProfile();
+}
+
+function updateBulkBar() {
+    const checked = document.querySelectorAll('.entry-checkbox:checked');
+    const bar = document.getElementById('bulk-bar');
+    const count = document.getElementById('selected-count');
+    if (checked.length > 0) {
+        bar.classList.remove('hidden');
+        count.textContent = checked.length;
+    } else {
+        bar.classList.add('hidden');
+    }
+}
+
+function toggleSelectAll(checked) {
+    document.querySelectorAll('.entry-checkbox').forEach(cb => cb.checked = checked);
+    updateBulkBar();
+}
+
+async function bulkDelete() {
+    const checked = document.querySelectorAll('.entry-checkbox:checked');
+    if (checked.length === 0) return;
+    if (!confirm(`Delete ${checked.length} items from your profile?`)) return;
+
+    for (const cb of checked) {
+        await fetch(`/api/profile/${cb.dataset.id}`, { method: 'DELETE' });
+    }
+    document.getElementById('select-all').checked = false;
+    updateBulkBar();
     loadProfile();
 }
 

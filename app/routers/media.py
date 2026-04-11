@@ -87,7 +87,8 @@ async def top_picks(db: Session = Depends(get_db)):
         return []
 
     entries = db.query(MediaEntry).filter(MediaEntry.status == "consumed").all()
-    existing_titles = {e.title.lower() for e in entries}
+    all_entries = db.query(MediaEntry).all()
+    existing_titles = {e.title.lower() for e in all_entries}
 
     # Build taste summary
     high_rated = sorted([e for e in entries if e.rating and e.rating >= 7], key=lambda e: e.rating, reverse=True)[:12]

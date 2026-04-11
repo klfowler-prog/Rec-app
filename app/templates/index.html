@@ -260,8 +260,19 @@ async function rateItem(btn, entryId, rating) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rating }),
     });
+    // Show confirmation then fade out the card
     const container = btn.parentElement;
-    container.innerHTML = `<span class="text-xs font-semibold text-coral">${rating}/10 ✓</span>`;
+    container.innerHTML = `<span class="text-xs font-semibold text-emerald-500">${rating}/10 ✓</span>`;
+    // Find the parent card and fade it out
+    const card = btn.closest('.rounded-xl') || btn.closest('.swim-lane-item');
+    if (card) {
+        setTimeout(() => {
+            card.style.transition = 'opacity 0.4s, transform 0.4s';
+            card.style.opacity = '0';
+            card.style.transform = 'scale(0.95)';
+            setTimeout(() => card.remove(), 400);
+        }, 800);
+    }
 }
 
 function recCard(item, reason) {
