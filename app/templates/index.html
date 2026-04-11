@@ -246,21 +246,32 @@ async function quickAdd(btn, data) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
         });
-        if (resp.ok || resp.status === 409) {
-            // Replace button with rating dots
-            const container = btn.parentElement;
-            const entryResp = await fetch(`/api/profile/check/${data.source}/${data.external_id}`);
-            const entryData = await entryResp.json();
-            const entryId = entryData.entry ? entryData.entry.id : null;
 
-            const ratingColors = (n) => n <= 3 ? 'bg-coral' : n <= 5 ? 'bg-amber-400' : n <= 7 ? 'bg-yellow-500' : n <= 9 ? 'bg-emerald-400' : 'bg-emerald-500';
+        let entryId = null;
+        if (resp.ok) {
+            const created = await resp.json();
+            entryId = created.id;
+        } else if (resp.status === 409) {
+            // Already exists — look it up
+            const checkResp = await fetch(`/api/profile/check/${encodeURIComponent(data.source)}/${encodeURIComponent(data.external_id)}`);
+            const checkData = await checkResp.json();
+            entryId = checkData.entry ? checkData.entry.id : null;
+        }
+
+        if (entryId) {
+            const container = btn.parentElement;
             container.innerHTML = `
                 <div class="flex items-center gap-0.5">
-                    ${[1,2,3,4,5,6,7,8,9,10].map(n => `
-                        <button onclick="rateItem(this, ${entryId}, ${n})" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:${ratingColors(n)} transition-base text-[8px] font-bold text-transparent hover:text-white" title="${n}/10">${n}</button>
-                    `).join('')}
+                    <button onclick="rateItem(this,${entryId},2)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-coral transition-base text-[8px] font-bold text-transparent hover:text-white" title="2/10">2</button>
+                    <button onclick="rateItem(this,${entryId},4)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-amber-400 transition-base text-[8px] font-bold text-transparent hover:text-white" title="4/10">4</button>
+                    <button onclick="rateItem(this,${entryId},6)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-yellow-500 transition-base text-[8px] font-bold text-transparent hover:text-white" title="6/10">6</button>
+                    <button onclick="rateItem(this,${entryId},8)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-emerald-400 transition-base text-[8px] font-bold text-transparent hover:text-white" title="8/10">8</button>
+                    <button onclick="rateItem(this,${entryId},10)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-emerald-500 transition-base text-[8px] font-bold text-transparent hover:text-white" title="10/10">10</button>
                 </div>
             `;
+        } else {
+            btn.innerHTML = '✓ Added';
+            btn.className = 'px-3 py-1.5 text-sage text-xs font-medium';
         }
     } catch {
         btn.textContent = 'Error';
