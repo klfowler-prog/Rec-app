@@ -77,7 +77,7 @@ async function loadDetail() {
         detailContent.classList.remove('hidden');
 
         // Update page title
-        document.title = `${currentMedia.title} — Rec`;
+        document.title = `${currentMedia.title} — NextUp`;
     } catch (err) {
         detailLoading.innerHTML = `<p class="text-txt-muted">Could not load details for this item.</p>`;
     }

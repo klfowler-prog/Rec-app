@@ -70,7 +70,7 @@ def _build_profile_context(db: Session) -> str:
     return "\n".join(lines)
 
 
-SYSTEM_PROMPT = """You are a personal media recommendation assistant called Rec. You have deep knowledge of the user's taste profile (provided below) and are an expert in movies, TV shows, books, and podcasts.
+SYSTEM_PROMPT = """You are a personal media recommendation assistant called NextUp. You have deep knowledge of the user's taste profile (provided below) and are an expert in movies, TV shows, books, and podcasts.
 
 {profile_context}
 

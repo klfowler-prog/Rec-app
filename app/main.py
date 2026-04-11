@@ -6,7 +6,7 @@ from app.routers import media, pages, profile, recommend
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Rec", description="Personal media recommendation engine")
+app = FastAPI(title="NextUp", description="Personal media recommendation engine")
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
