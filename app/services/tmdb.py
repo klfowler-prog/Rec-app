@@ -134,6 +134,50 @@ async def get_watch_providers(media_type: str, tmdb_id: str, region: str = "US")
     return providers
 
 
+async def get_trending(media_type: str = "all", time_window: str = "week", limit: int = 10) -> list[MediaResult]:
+    """Get trending movies/TV from TMDB."""
+    if not settings.tmdb_api_key:
+        return []
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            f"{BASE_URL}/trending/{media_type}/{time_window}", headers=_headers()
+        )
+        if resp.status_code != 200:
+            return []
+        data = resp.json()
+
+    results = []
+    for item in data.get("results", [])[:limit]:
+        mt = item.get("media_type", "movie")
+        if mt not in ("movie", "tv"):
+            continue
+        title = item.get("title") or item.get("name", "")
+        date = item.get("release_date") or item.get("first_air_date", "")
+        year = int(date[:4]) if date and len(date) >= 4 else None
+        poster = f"{IMAGE_BASE}{item['poster_path']}" if item.get("poster_path") else None
+        backdrop = f"https://image.tmdb.org/t/p/w1280{item['backdrop_path']}" if item.get("backdrop_path") else None
+        genre_ids = item.get("genre_ids", [])
+        genres = [GENRE_MAP.get(gid, "") for gid in genre_ids]
+        genres = [g for g in genres if g]
+
+        results.append(
+            MediaResult(
+                external_id=str(item["id"]),
+                source="tmdb",
+                media_type=mt,
+                title=title,
+                image_url=poster,
+                year=year,
+                creator=None,
+                genres=genres,
+                description=item.get("overview"),
+                external_url=f"https://www.themoviedb.org/{mt}/{item['id']}",
+                backdrop_url=backdrop,
+            )
+        )
+    return results
+
+
 # TMDB genre ID to name mapping
 GENRE_MAP = {
     28: "Action", 12: "Adventure", 16: "Animation", 35: "Comedy", 80: "Crime",

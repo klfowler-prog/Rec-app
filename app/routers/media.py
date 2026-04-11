@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
+from app.database import get_db
 from app.schemas import MediaResult
 
 router = APIRouter()
@@ -92,6 +94,76 @@ def _rank_by_title_match(query: str, results: list[MediaResult]) -> list[MediaRe
         return (overlap / max(len(query_words), 1)) * 40
 
     return sorted(results, key=score, reverse=True)
+
+
+@router.get("/trending/{media_type}")
+async def get_trending(media_type: str = "all", limit: int = 10):
+    """Get trending movies/TV from TMDB."""
+    from app.services.tmdb import get_trending
+
+    return await get_trending(media_type, "week", limit)
+
+
+@router.get("/suggestions/home")
+async def home_suggestions(db: Session = Depends(get_db)):
+    """Get AI-powered suggestions for empty swim lanes on the home page."""
+    import json
+
+    from app.config import settings
+    from app.models import MediaEntry
+
+    consumed = db.query(MediaEntry).filter(MediaEntry.status == "consumed").all()
+    want = db.query(MediaEntry).filter(MediaEntry.status == "want_to_consume").all()
+
+    # Figure out which types are missing from the queue
+    queue_types = {item.media_type for item in want}
+    all_types = {"movie", "tv", "book", "podcast"}
+    missing_types = all_types - queue_types
+
+    if not missing_types or not settings.gemini_api_key:
+        return {"suggestions": {}}
+
+    # Build a brief taste summary
+    taste_lines = []
+    high_rated = sorted([e for e in consumed if e.rating and e.rating >= 7], key=lambda e: e.rating, reverse=True)[:10]
+    for e in high_rated:
+        taste_lines.append(f"- {e.title} ({e.media_type}, {e.year or '?'}) rated {e.rating}/10")
+
+    taste_summary = "\n".join(taste_lines) if taste_lines else "No rated items yet — suggest popular, well-regarded picks."
+
+    type_labels = {"movie": "movies", "tv": "TV shows", "book": "books", "podcast": "podcasts"}
+    missing_labels = [type_labels[t] for t in missing_types]
+
+    try:
+        import google.generativeai as genai
+
+        genai.configure(api_key=settings.gemini_api_key)
+        model = genai.GenerativeModel(model_name="gemini-3.1-flash-lite-preview")
+
+        prompt = f"""Based on this user's taste profile, suggest 3 items for EACH of these categories: {', '.join(missing_labels)}.
+
+User's highly rated items:
+{taste_summary}
+
+Return ONLY valid JSON with this structure — no markdown, no explanation:
+{{
+  "movie": [{{"title": "...", "year": 2020, "reason": "one short sentence"}}],
+  "tv": [{{"title": "...", "year": 2020, "reason": "one short sentence"}}],
+  "book": [{{"title": "...", "year": 2020, "reason": "one short sentence"}}],
+  "podcast": [{{"title": "...", "year": 2020, "reason": "one short sentence"}}]
+}}
+
+Only include categories from this list: {', '.join(missing_types)}"""
+
+        response = model.generate_content(prompt)
+        text = response.text.strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+            text = text.rsplit("```", 1)[0]
+        parsed = json.loads(text)
+        return {"suggestions": parsed}
+    except Exception:
+        return {"suggestions": {}}
 
 
 @router.get("/{media_type}/{external_id}")

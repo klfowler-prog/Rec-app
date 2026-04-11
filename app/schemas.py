@@ -14,6 +14,7 @@ class MediaResult(BaseModel):
     genres: list[str] = []
     description: str | None = None
     external_url: str | None = None
+    backdrop_url: str | None = None
     watch_providers: list[dict] | None = None
 
 
