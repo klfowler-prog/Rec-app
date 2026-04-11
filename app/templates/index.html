@@ -252,30 +252,36 @@ async function quickAdd(btn, data) {
             const created = await resp.json();
             entryId = created.id;
         } else if (resp.status === 409) {
-            // Already exists — look it up
-            const checkResp = await fetch(`/api/profile/check/${encodeURIComponent(data.source)}/${encodeURIComponent(data.external_id)}`);
-            const checkData = await checkResp.json();
-            entryId = checkData.entry ? checkData.entry.id : null;
+            // Already exists — try to find it
+            try {
+                const checkResp = await fetch(`/api/profile/check/${encodeURIComponent(data.source || '_')}/${encodeURIComponent(data.external_id || '_')}`);
+                const checkData = await checkResp.json();
+                entryId = checkData.entry ? checkData.entry.id : null;
+            } catch {}
         }
 
+        const container = btn.parentElement;
         if (entryId) {
-            const container = btn.parentElement;
-            container.innerHTML = `
-                <div class="flex items-center gap-0.5">
-                    <button onclick="rateItem(this,${entryId},2)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-coral transition-base text-[8px] font-bold text-transparent hover:text-white" title="2/10">2</button>
-                    <button onclick="rateItem(this,${entryId},4)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-amber-400 transition-base text-[8px] font-bold text-transparent hover:text-white" title="4/10">4</button>
-                    <button onclick="rateItem(this,${entryId},6)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-yellow-500 transition-base text-[8px] font-bold text-transparent hover:text-white" title="6/10">6</button>
-                    <button onclick="rateItem(this,${entryId},8)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-emerald-400 transition-base text-[8px] font-bold text-transparent hover:text-white" title="8/10">8</button>
-                    <button onclick="rateItem(this,${entryId},10)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-emerald-500 transition-base text-[8px] font-bold text-transparent hover:text-white" title="10/10">10</button>
-                </div>
-            `;
+            showRatingDots(container, entryId);
         } else {
-            btn.innerHTML = '✓ Added';
-            btn.className = 'px-3 py-1.5 text-sage text-xs font-medium';
+            // Even without an ID, show success — they can rate from profile
+            container.innerHTML = '<span class="text-xs font-medium text-sage">✓ Added — rate from profile</span>';
         }
     } catch {
         btn.textContent = 'Error';
     }
+}
+
+function showRatingDots(container, entryId) {
+    container.innerHTML = `
+        <div class="flex items-center gap-0.5">
+            <button onclick="rateItem(this,${entryId},2)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-coral transition-base text-[8px] font-bold text-transparent hover:text-white" title="2/10">2</button>
+            <button onclick="rateItem(this,${entryId},4)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-amber-400 transition-base text-[8px] font-bold text-transparent hover:text-white" title="4/10">4</button>
+            <button onclick="rateItem(this,${entryId},6)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-yellow-500 transition-base text-[8px] font-bold text-transparent hover:text-white" title="6/10">6</button>
+            <button onclick="rateItem(this,${entryId},8)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-emerald-400 transition-base text-[8px] font-bold text-transparent hover:text-white" title="8/10">8</button>
+            <button onclick="rateItem(this,${entryId},10)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-emerald-500 transition-base text-[8px] font-bold text-transparent hover:text-white" title="10/10">10</button>
+        </div>
+    `;
 }
 
 async function rateItem(btn, entryId, rating) {
