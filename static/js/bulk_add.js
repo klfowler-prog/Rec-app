@@ -25,7 +25,7 @@ async function doBulkSearch() {
 
     stepInput.classList.add('hidden');
     stepLoading.classList.remove('hidden');
-    loadingProgress.textContent = `Searching for ${titles.length} titles...`;
+    loadingProgress.textContent = `Classifying ${titles.length} titles with AI, then searching...`;
 
     try {
         const resp = await fetch('/api/media/bulk-search', {
