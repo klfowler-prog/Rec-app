@@ -7,10 +7,10 @@ from app.config import settings
 from app.models import MediaEntry, UserPreferences
 
 
-def _build_profile_context(db: Session) -> str:
+def _build_profile_context(db: Session, user_id: int) -> str:
     """Build a structured summary of the user's taste profile for the AI."""
-    entries = db.query(MediaEntry).all()
-    prefs = db.query(UserPreferences).filter(UserPreferences.id == "default").first()
+    entries = db.query(MediaEntry).filter(MediaEntry.user_id == user_id).all()
+    prefs = db.query(UserPreferences).filter(UserPreferences.user_id == user_id).first()
 
     if not entries:
         return "The user's profile is empty — they haven't added any media yet. Ask them about their general preferences to give recommendations."
@@ -92,9 +92,10 @@ async def stream_recommendation(
     media_type: str | None,
     history: list[dict],
     db: Session,
+    user_id: int = 0,
 ) -> AsyncGenerator[str, None]:
     """Stream a recommendation response from Gemini."""
-    profile_context = _build_profile_context(db)
+    profile_context = _build_profile_context(db, user_id)
     system_prompt = SYSTEM_PROMPT.format(profile_context=profile_context)
 
     if media_type:
@@ -130,7 +131,7 @@ async def stream_recommendation(
 
         # Save to recommendation history
         from app.models import Recommendation
-        rec = Recommendation(query=message, response=full_response, media_type_filter=media_type)
+        rec = Recommendation(user_id=user_id, query=message, response=full_response, media_type_filter=media_type)
         db.add(rec)
         db.commit()
 

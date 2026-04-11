@@ -4,23 +4,25 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from app.auth import require_user
 from app.database import get_db
-from app.models import MediaEntry
+from app.models import MediaEntry, User
 
 templates = Jinja2Templates(directory="app/templates")
 router = APIRouter()
 
 
-def _get_greeting_context() -> dict:
+def _get_greeting_context(user_name: str) -> dict:
     """Generate time-aware greeting and content suggestion context."""
     now = datetime.now()
     hour = now.hour
-    weekday = now.weekday()  # 0=Monday, 6=Sunday
+    weekday = now.weekday()
     is_weekend = weekday >= 5
+    first_name = user_name.split()[0] if user_name else ""
 
     if hour < 12:
         time_of_day = "morning"
-        greeting = "Good morning"
+        greeting = f"Good morning, {first_name}"
         if is_weekend:
             suggestion = "Perfect time to start a new book or catch up on a film."
             suggested_types = ["book", "movie"]
@@ -29,7 +31,7 @@ def _get_greeting_context() -> dict:
             suggested_types = ["podcast", "book"]
     elif hour < 17:
         time_of_day = "afternoon"
-        greeting = "Good afternoon"
+        greeting = f"Good afternoon, {first_name}"
         if is_weekend:
             suggestion = "Great day for a movie marathon or diving into a new book."
             suggested_types = ["movie", "book"]
@@ -38,7 +40,7 @@ def _get_greeting_context() -> dict:
             suggested_types = ["podcast", "tv"]
     else:
         time_of_day = "evening"
-        greeting = "Good evening"
+        greeting = f"Good evening, {first_name}"
         if is_weekend:
             suggestion = "Settle in with a great show or lose yourself in a book."
             suggested_types = ["tv", "book", "movie"]
@@ -56,19 +58,17 @@ def _get_greeting_context() -> dict:
 
 
 @router.get("/")
-async def home(request: Request, db: Session = Depends(get_db)):
-    consuming = db.query(MediaEntry).filter(MediaEntry.status == "consuming").all()
-    want_to_consume = db.query(MediaEntry).filter(MediaEntry.status == "want_to_consume").all()
-    consumed = db.query(MediaEntry).filter(MediaEntry.status == "consumed").all()
-    total = db.query(MediaEntry).count()
+async def home(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    consuming = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.status == "consuming").all()
+    want_to_consume = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.status == "want_to_consume").all()
+    consumed = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.status == "consumed").all()
+    total = db.query(MediaEntry).filter(MediaEntry.user_id == user.id).count()
 
-    # Group "want to consume" into swim lanes by type, sorted by predicted rating
     queue_by_type: dict[str, list] = {}
     queue_total: dict[str, int] = {}
     type_order = ["movie", "tv", "book", "podcast"]
     for item in want_to_consume:
         queue_by_type.setdefault(item.media_type, []).append(item)
-    # Sort each lane by predicted_rating descending, show top 12
     for mt in queue_by_type:
         queue_total[mt] = len(queue_by_type[mt])
         queue_by_type[mt] = sorted(
@@ -77,12 +77,10 @@ async def home(request: Request, db: Session = Depends(get_db)):
             reverse=True,
         )[:12]
 
-    # Check if predictions need to be generated
     needs_predictions = any(
         item.predicted_rating is None for item in want_to_consume
     ) if want_to_consume else False
 
-    # Profile stats
     genre_counts: dict[str, int] = {}
     ratings = []
     type_counts: dict[str, int] = {}
@@ -100,12 +98,13 @@ async def home(request: Request, db: Session = Depends(get_db)):
     avg_rating = round(sum(ratings) / len(ratings), 1) if ratings else None
     genres_explored = len(genre_counts)
 
-    greeting_ctx = _get_greeting_context()
+    greeting_ctx = _get_greeting_context(user.name)
 
     return templates.TemplateResponse(
         "index.html",
         {
             "request": request,
+            "user": user,
             "consuming": consuming,
             "queue_by_type": queue_by_type,
             "queue_total": queue_total,
@@ -125,33 +124,33 @@ async def home(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/search")
-async def search_page(request: Request):
-    return templates.TemplateResponse("search.html", {"request": request})
+async def search_page(request: Request, user: User = Depends(require_user)):
+    return templates.TemplateResponse("search.html", {"request": request, "user": user})
 
 
 @router.get("/profile")
-async def profile_page(request: Request):
-    return templates.TemplateResponse("profile.html", {"request": request})
+async def profile_page(request: Request, user: User = Depends(require_user)):
+    return templates.TemplateResponse("profile.html", {"request": request, "user": user})
 
 
 @router.get("/recommend")
-async def recommend_page(request: Request):
-    return templates.TemplateResponse("recommend.html", {"request": request})
+async def recommend_page(request: Request, user: User = Depends(require_user)):
+    return templates.TemplateResponse("recommend.html", {"request": request, "user": user})
 
 
 @router.get("/bulk-add")
-async def bulk_add_page(request: Request):
-    return templates.TemplateResponse("bulk_add.html", {"request": request})
+async def bulk_add_page(request: Request, user: User = Depends(require_user)):
+    return templates.TemplateResponse("bulk_add.html", {"request": request, "user": user})
 
 
 @router.get("/import/goodreads")
-async def goodreads_import_page(request: Request):
-    return templates.TemplateResponse("goodreads_import.html", {"request": request})
+async def goodreads_import_page(request: Request, user: User = Depends(require_user)):
+    return templates.TemplateResponse("goodreads_import.html", {"request": request, "user": user})
 
 
 @router.get("/media/{media_type}/{external_id}")
-async def media_detail_page(request: Request, media_type: str, external_id: str):
+async def media_detail_page(request: Request, media_type: str, external_id: str, user: User = Depends(require_user)):
     return templates.TemplateResponse(
         "media_detail.html",
-        {"request": request, "media_type": media_type, "external_id": external_id},
+        {"request": request, "user": user, "media_type": media_type, "external_id": external_id},
     )

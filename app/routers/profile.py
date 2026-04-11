@@ -2,11 +2,12 @@ import asyncio
 import csv
 import io
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from sqlalchemy.orm import Session
 
+from app.auth import require_user
 from app.database import get_db
-from app.models import MediaEntry
+from app.models import MediaEntry, User
 from app.schemas import MediaEntryCreate, MediaEntryResponse, MediaEntryUpdate, ProfileStats
 
 router = APIRouter()
@@ -17,9 +18,10 @@ def list_profile(
     media_type: str | None = None,
     status: str | None = None,
     sort: str = "recent",
+    user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    query = db.query(MediaEntry)
+    query = db.query(MediaEntry).filter(MediaEntry.user_id == user.id)
     if media_type:
         query = query.filter(MediaEntry.media_type == media_type)
     if status:
@@ -34,17 +36,17 @@ def list_profile(
 
 
 @router.post("/", response_model=MediaEntryResponse)
-def add_to_profile(entry: MediaEntryCreate, db: Session = Depends(get_db)):
+def add_to_profile(entry: MediaEntryCreate, user: User = Depends(require_user), db: Session = Depends(get_db)):
     from app import cache
 
     existing = (
         db.query(MediaEntry)
-        .filter(MediaEntry.external_id == entry.external_id, MediaEntry.source == entry.source)
+        .filter(MediaEntry.user_id == user.id, MediaEntry.external_id == entry.external_id, MediaEntry.source == entry.source)
         .first()
     )
     if existing:
         raise HTTPException(status_code=409, detail="Already in your profile")
-    db_entry = MediaEntry(**entry.model_dump())
+    db_entry = MediaEntry(user_id=user.id, **entry.model_dump())
     db.add(db_entry)
     db.commit()
     db.refresh(db_entry)
@@ -53,8 +55,8 @@ def add_to_profile(entry: MediaEntryCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{entry_id}", response_model=MediaEntryResponse)
-def update_entry(entry_id: int, updates: MediaEntryUpdate, db: Session = Depends(get_db)):
-    entry = db.query(MediaEntry).filter(MediaEntry.id == entry_id).first()
+def update_entry(entry_id: int, updates: MediaEntryUpdate, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    entry = db.query(MediaEntry).filter(MediaEntry.id == entry_id, MediaEntry.user_id == user.id).first()
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
     for field, value in updates.model_dump(exclude_unset=True).items():
@@ -65,10 +67,10 @@ def update_entry(entry_id: int, updates: MediaEntryUpdate, db: Session = Depends
 
 
 @router.delete("/{entry_id}")
-def delete_entry(entry_id: int, db: Session = Depends(get_db)):
+def delete_entry(entry_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
     from app import cache
 
-    entry = db.query(MediaEntry).filter(MediaEntry.id == entry_id).first()
+    entry = db.query(MediaEntry).filter(MediaEntry.id == entry_id, MediaEntry.user_id == user.id).first()
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
     db.delete(entry)
@@ -78,10 +80,10 @@ def delete_entry(entry_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/check/{source}/{external_id}")
-def check_in_profile(source: str, external_id: str, db: Session = Depends(get_db)):
+def check_in_profile(source: str, external_id: str, user: User = Depends(require_user), db: Session = Depends(get_db)):
     entry = (
         db.query(MediaEntry)
-        .filter(MediaEntry.external_id == external_id, MediaEntry.source == source)
+        .filter(MediaEntry.user_id == user.id, MediaEntry.external_id == external_id, MediaEntry.source == source)
         .first()
     )
     if entry:
@@ -90,8 +92,8 @@ def check_in_profile(source: str, external_id: str, db: Session = Depends(get_db
 
 
 @router.get("/stats", response_model=ProfileStats)
-def profile_stats(db: Session = Depends(get_db)):
-    entries = db.query(MediaEntry).all()
+def profile_stats(user: User = Depends(require_user), db: Session = Depends(get_db)):
+    entries = db.query(MediaEntry).filter(MediaEntry.user_id == user.id).all()
     if not entries:
         return ProfileStats(total_entries=0, by_type={}, by_status={}, avg_rating=None, top_genres=[])
 
@@ -124,15 +126,13 @@ def profile_stats(db: Session = Depends(get_db)):
 
 
 @router.get("/fit-scores")
-def get_fit_scores(db: Session = Depends(get_db)):
-    """Calculate fit scores for 'want to consume' items based on genre overlap with highly-rated consumed items."""
-    consumed = db.query(MediaEntry).filter(MediaEntry.status == "consumed").all()
-    want = db.query(MediaEntry).filter(MediaEntry.status == "want_to_consume").all()
+def get_fit_scores(user: User = Depends(require_user), db: Session = Depends(get_db)):
+    consumed = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.status == "consumed").all()
+    want = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.status == "want_to_consume").all()
 
     if not consumed or not want:
         return []
 
-    # Build genre preference weights from consumed items
     genre_weights: dict[str, float] = {}
     for e in consumed:
         if not e.genres:
@@ -143,34 +143,23 @@ def get_fit_scores(db: Session = Depends(get_db)):
             if g:
                 genre_weights[g] = genre_weights.get(g, 0) + rating_boost
 
-    # Normalize weights
     max_weight = max(genre_weights.values()) if genre_weights else 1
     genre_weights = {g: w / max_weight for g, w in genre_weights.items()}
 
-    # Score each want-to-consume item
     scored = []
     for item in want:
         score = 0.0
-        item_genres = []
-        if item.genres:
-            item_genres = [g.strip() for g in item.genres.split(",") if g.strip()]
+        item_genres = [g.strip() for g in item.genres.split(",") if g.strip()] if item.genres else []
         if item_genres:
             matches = sum(genre_weights.get(g, 0) for g in item_genres)
             score = min(10, round((matches / len(item_genres)) * 10, 1))
         else:
-            score = 5.0  # Neutral score for items without genre data
+            score = 5.0
 
         scored.append({
-            "id": item.id,
-            "external_id": item.external_id,
-            "source": item.source,
-            "title": item.title,
-            "media_type": item.media_type,
-            "image_url": item.image_url,
-            "year": item.year,
-            "creator": item.creator,
-            "genres": item.genres,
-            "score": score,
+            "id": item.id, "external_id": item.external_id, "source": item.source,
+            "title": item.title, "media_type": item.media_type, "image_url": item.image_url,
+            "year": item.year, "creator": item.creator, "genres": item.genres, "score": score,
         })
 
     scored.sort(key=lambda x: x["score"], reverse=True)
@@ -178,8 +167,7 @@ def get_fit_scores(db: Session = Depends(get_db)):
 
 
 @router.post("/predict-ratings")
-async def predict_ratings(db: Session = Depends(get_db)):
-    """Use AI to predict how much the user would enjoy their want-to-consume items."""
+async def predict_ratings(user: User = Depends(require_user), db: Session = Depends(get_db)):
     import json
 
     from app.config import settings
@@ -187,36 +175,29 @@ async def predict_ratings(db: Session = Depends(get_db)):
     if not settings.gemini_api_key:
         return {"predicted": 0}
 
-    consumed = db.query(MediaEntry).filter(MediaEntry.status == "consumed", MediaEntry.rating.isnot(None)).all()
-    want = db.query(MediaEntry).filter(MediaEntry.status == "want_to_consume").all()
+    consumed = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.status == "consumed", MediaEntry.rating.isnot(None)).all()
+    want = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.status == "want_to_consume").all()
 
     if not consumed or not want:
         return {"predicted": 0}
 
-    # Build taste profile
     rated = sorted(consumed, key=lambda e: e.rating or 0, reverse=True)
-    taste_lines = []
-    for e in rated[:20]:
-        taste_lines.append(f"- {e.title} ({e.media_type}) — {e.rating}/10 [{e.genres or 'no genres'}]")
+    taste_lines = [f"- {e.title} ({e.media_type}) — {e.rating}/10 [{e.genres or 'no genres'}]" for e in rated[:20]]
 
-    # Build list of items to predict
     predict_lines = []
     want_map = {}
     for e in want:
         if e.predicted_rating is not None:
-            continue  # Already predicted
+            continue
         predict_lines.append(f"- id:{e.id} | {e.title} by {e.creator or 'unknown'} ({e.media_type}) [{e.genres or 'no genres'}]")
         want_map[e.id] = e
 
     if not predict_lines:
         return {"predicted": 0, "message": "all items already have predictions"}
 
-    # Batch in groups of 30 to stay within token limits
     total_predicted = 0
     for i in range(0, len(predict_lines), 30):
         batch = predict_lines[i:i + 30]
-        batch_ids = [int(line.split("id:")[1].split(" |")[0]) for line in batch]
-
         try:
             import google.generativeai as genai
             genai.configure(api_key=settings.gemini_api_key)
@@ -232,9 +213,7 @@ Predict ratings for these items:
 
 Return ONLY valid JSON — a list of objects with "id" (the number after "id:") and "predicted_rating" (1-10, can use decimals like 7.5). No markdown, no explanation.
 
-Example: [{{"id": 123, "predicted_rating": 8.5}}, {{"id": 456, "predicted_rating": 4.0}}]
-
-Be honest — not everything will be a high rating. Use the full 1-10 range based on genre match, style similarity, and the user's demonstrated preferences."""
+Be honest — not everything will be a high rating. Use the full 1-10 range."""
 
             response = model.generate_content(prompt)
             text = response.text.strip()
@@ -258,12 +237,11 @@ Be honest — not everything will be a high rating. Use the full 1-10 range base
 
 
 @router.post("/import/goodreads")
-async def import_goodreads(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    """Import books from a Goodreads CSV export."""
+async def import_goodreads(file: UploadFile = File(...), user: User = Depends(require_user), db: Session = Depends(get_db)):
     from app.services.open_library import search as search_books
 
     content = await file.read()
-    text = content.decode("utf-8-sig")  # utf-8-sig handles BOM
+    text = content.decode("utf-8-sig")
     reader = csv.DictReader(io.StringIO(text))
 
     rows = []
@@ -288,7 +266,6 @@ async def import_goodreads(file: UploadFile = File(...), db: Session = Depends(g
             except ValueError:
                 pass
 
-        # Map Goodreads shelf to our status
         if shelf == "currently-reading":
             status = "consuming"
         elif shelf == "to-read":
@@ -296,25 +273,18 @@ async def import_goodreads(file: UploadFile = File(...), db: Session = Depends(g
         else:
             status = "consumed"
 
-        # Convert 1-5 rating to 1-10 (0 = unrated)
         rating = gr_rating * 2 if gr_rating > 0 else None
-
         rows.append({
-            "title": title,
-            "author": author,
-            "year": year,
-            "status": status,
-            "rating": rating,
+            "title": title, "author": author, "year": year,
+            "status": status, "rating": rating,
             "isbn": row.get("ISBN13", "").strip().replace('="', "").replace('"', "") or row.get("ISBN", "").strip().replace('="', "").replace('"', ""),
         })
 
-    # Build set of existing titles to skip
     existing_titles = {
         e.title.lower()
-        for e in db.query(MediaEntry).filter(MediaEntry.media_type == "book").all()
+        for e in db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.media_type == "book").all()
     }
 
-    # Filter out already-imported books
     new_rows = []
     skipped_results = []
     for row_data in rows:
@@ -323,7 +293,6 @@ async def import_goodreads(file: UploadFile = File(...), db: Session = Depends(g
         else:
             new_rows.append(row_data)
 
-    # Search Open Library for covers — parallel, no DB access
     async def search_cover(row_data):
         title = row_data["title"]
         query = f"{title} {row_data['author']}" if row_data["author"] else title
@@ -331,51 +300,34 @@ async def import_goodreads(file: UploadFile = File(...), db: Session = Depends(g
             matches = await search_books(query)
             if matches:
                 best = matches[0]
-                return {
-                    "image_url": best.image_url,
-                    "external_id": best.external_id,
-                    "genres": ", ".join(best.genres) if best.genres else None,
-                    "description": best.description,
-                }
+                return {"image_url": best.image_url, "external_id": best.external_id,
+                        "genres": ", ".join(best.genres) if best.genres else None, "description": best.description}
         except Exception:
             pass
-        return {
-            "image_url": None,
-            "external_id": row_data["isbn"] or title.lower().replace(" ", "-")[:50],
-            "genres": None,
-            "description": None,
-        }
+        return {"image_url": None, "external_id": row_data["isbn"] or title.lower().replace(" ", "-")[:50],
+                "genres": None, "description": None}
 
-    # Search in batches of 5
     enriched = []
     for i in range(0, len(new_rows), 5):
         batch = new_rows[i : i + 5]
         batch_results = await asyncio.gather(*[search_cover(r) for r in batch])
         enriched.extend(zip(batch, batch_results))
 
-    # Save to DB sequentially
     added_results = []
     for row_data, cover_data in enriched:
         entry = MediaEntry(
+            user_id=user.id,
             external_id=cover_data["external_id"] or row_data["title"].lower().replace(" ", "-")[:50],
-            source="open_library",
-            title=row_data["title"],
-            media_type="book",
-            image_url=cover_data["image_url"],
-            year=row_data["year"],
-            creator=row_data["author"],
-            genres=cover_data["genres"],
-            description=cover_data["description"],
-            status=row_data["status"],
-            rating=row_data["rating"],
+            source="open_library", title=row_data["title"], media_type="book",
+            image_url=cover_data["image_url"], year=row_data["year"], creator=row_data["author"],
+            genres=cover_data["genres"], description=cover_data["description"],
+            status=row_data["status"], rating=row_data["rating"],
         )
         try:
             db.add(entry)
             db.commit()
-            added_results.append({
-                "title": row_data["title"], "status": "added",
-                "rating": row_data["rating"], "image_url": cover_data["image_url"],
-            })
+            added_results.append({"title": row_data["title"], "status": "added",
+                                  "rating": row_data["rating"], "image_url": cover_data["image_url"]})
         except Exception:
             db.rollback()
             added_results.append({"title": row_data["title"], "status": "skipped", "reason": "duplicate"})

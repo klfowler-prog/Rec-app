@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.auth import require_user
 from app.database import get_db
+from app.models import User
 from app.schemas import MediaResult
 
 router = APIRouter()
@@ -84,8 +86,8 @@ async def refresh_recommendations():
 
 
 @router.get("/top-picks")
-async def top_picks(db: Session = Depends(get_db)):
-    """Get 3 personalized top recommendations with poster images. Cached for 2 hours."""
+async def top_picks(user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """Get 4 personalized top recommendations with poster images. Cached per user."""
     import json
 
     from app import cache
@@ -93,15 +95,16 @@ async def top_picks(db: Session = Depends(get_db)):
     from app.models import MediaEntry
     from app.services.unified_search import unified_search
 
-    cached = cache.get("top_picks")
+    cache_key = f"top_picks:{user.id}"
+    cached = cache.get(cache_key)
     if cached is not None:
         return cached
 
     if not settings.gemini_api_key:
         return []
 
-    entries = db.query(MediaEntry).filter(MediaEntry.status == "consumed").all()
-    all_entries = db.query(MediaEntry).all()
+    entries = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.status == "consumed").all()
+    all_entries = db.query(MediaEntry).filter(MediaEntry.user_id == user.id).all()
     existing_titles = {e.title.lower() for e in all_entries}
 
     # Build taste summary
@@ -182,27 +185,28 @@ Rules:
 
         found = await asyncio.gather(*[search_pick(p) for p in picks[:4]])
         results = [r for r in found if r is not None]
-        cache.set("top_picks", results, ttl_seconds=7200)  # 2 hours
+        cache.set(cache_key, results, ttl_seconds=7200)
         return results
     except Exception:
         return []
 
 
 @router.get("/suggestions/home")
-async def home_suggestions(db: Session = Depends(get_db)):
-    """Get AI-powered suggestions for empty swim lanes. Cached for 6 hours."""
+async def home_suggestions(user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """Get AI-powered suggestions for empty swim lanes. Cached per user."""
     import json
 
     from app import cache
     from app.config import settings
     from app.models import MediaEntry
 
-    cached = cache.get("suggestions_home")
+    cache_key = f"suggestions_home:{user.id}"
+    cached = cache.get(cache_key)
     if cached is not None:
         return cached
 
-    consumed = db.query(MediaEntry).filter(MediaEntry.status == "consumed").all()
-    want = db.query(MediaEntry).filter(MediaEntry.status == "want_to_consume").all()
+    consumed = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.status == "consumed").all()
+    want = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.status == "want_to_consume").all()
 
     # Figure out which types are missing from the queue
     queue_types = {item.media_type for item in want}
@@ -296,7 +300,7 @@ Only include categories from this list: {', '.join(missing_types)}"""
             enriched.setdefault(key, []).append(result)
 
         result = {"suggestions": enriched}
-        cache.set("suggestions_home", result, ttl_seconds=21600)  # 6 hours
+        cache.set(cache_key, result, ttl_seconds=21600)
         return result
     except Exception:
         return {"suggestions": {}}

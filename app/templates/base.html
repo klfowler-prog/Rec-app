@@ -76,7 +76,22 @@
                     Import
                 </a>
             </div>
-            <div class="p-4 border-t border-border-light dark:border-border-dark">
+            <div class="p-4 border-t border-border-light dark:border-border-dark space-y-2">
+                {% if user is defined and user %}
+                <div class="flex items-center gap-2.5 px-3 py-2">
+                    {% if user.picture %}
+                    <img src="{{ user.picture }}" alt="" class="w-7 h-7 rounded-full">
+                    {% else %}
+                    <div class="w-7 h-7 rounded-full bg-sage/20 flex items-center justify-center text-xs font-bold text-sage">{{ user.name[0] }}</div>
+                    {% endif %}
+                    <div class="flex-1 min-w-0">
+                        <p class="text-xs font-medium truncate">{{ user.name }}</p>
+                    </div>
+                    <a href="/auth/logout" class="text-txt-muted hover:text-coral transition-base" title="Sign out">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                    </a>
+                </div>
+                {% endif %}
                 <button id="theme-toggle" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-txt-muted hover:bg-sage/10 transition-base w-full">
                     <svg id="theme-icon-light" class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
                     <svg id="theme-icon-dark" class="w-5 h-5 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>

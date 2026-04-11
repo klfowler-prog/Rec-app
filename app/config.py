@@ -13,6 +13,9 @@ class Settings:
     gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
     tmdb_api_key: str = os.getenv("TMDB_API_KEY", "")
     google_books_api_key: str = os.getenv("GOOGLE_BOOKS_API_KEY", "")
+    google_client_id: str = os.getenv("GOOGLE_CLIENT_ID", "")
+    google_client_secret: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
+    secret_key: str = os.getenv("SECRET_KEY", "nextup-dev-secret-change-in-production")
     database_url: str = f"sqlite:///{BASE_DIR}/rec.db"
 
 

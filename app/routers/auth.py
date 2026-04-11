@@ -1,0 +1,108 @@
+import secrets
+from urllib.parse import urlencode
+
+import httpx
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import RedirectResponse
+from sqlalchemy.orm import Session
+
+from app.config import settings
+from app.database import get_db
+from app.models import User
+
+router = APIRouter()
+
+GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
+GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
+
+
+@router.get("/login")
+async def login(request: Request):
+    """Redirect to Google OAuth consent screen."""
+    state = secrets.token_urlsafe(32)
+    request.session["oauth_state"] = state
+
+    redirect_uri = str(request.url_for("auth_callback"))
+    params = {
+        "client_id": settings.google_client_id,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "state": state,
+        "access_type": "offline",
+        "prompt": "select_account",
+    }
+    return RedirectResponse(f"{GOOGLE_AUTH_URL}?{urlencode(params)}")
+
+
+@router.get("/callback")
+async def auth_callback(request: Request, code: str = "", state: str = "", db: Session = Depends(get_db)):
+    """Handle Google OAuth callback."""
+    # Verify state
+    saved_state = request.session.pop("oauth_state", None)
+    if not state or state != saved_state:
+        return RedirectResponse("/?error=invalid_state")
+
+    if not code:
+        return RedirectResponse("/?error=no_code")
+
+    redirect_uri = str(request.url_for("auth_callback"))
+
+    # Exchange code for token
+    async with httpx.AsyncClient() as client:
+        token_resp = await client.post(
+            GOOGLE_TOKEN_URL,
+            data={
+                "client_id": settings.google_client_id,
+                "client_secret": settings.google_client_secret,
+                "code": code,
+                "redirect_uri": redirect_uri,
+                "grant_type": "authorization_code",
+            },
+        )
+        if token_resp.status_code != 200:
+            return RedirectResponse("/?error=token_failed")
+        tokens = token_resp.json()
+
+        # Get user info
+        userinfo_resp = await client.get(
+            GOOGLE_USERINFO_URL,
+            headers={"Authorization": f"Bearer {tokens['access_token']}"},
+        )
+        if userinfo_resp.status_code != 200:
+            return RedirectResponse("/?error=userinfo_failed")
+        userinfo = userinfo_resp.json()
+
+    # Find or create user
+    google_id = userinfo["id"]
+    user = db.query(User).filter(User.google_id == google_id).first()
+    if not user:
+        user = User(
+            google_id=google_id,
+            email=userinfo.get("email", ""),
+            name=userinfo.get("name", ""),
+            picture=userinfo.get("picture"),
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    else:
+        # Update name/picture in case they changed
+        user.name = userinfo.get("name", user.name)
+        user.picture = userinfo.get("picture", user.picture)
+        db.commit()
+
+    # Set session
+    request.session["user_id"] = user.id
+    request.session["user_name"] = user.name
+    request.session["user_picture"] = user.picture
+
+    return RedirectResponse("/")
+
+
+@router.get("/logout")
+async def logout(request: Request):
+    """Clear session and redirect to login."""
+    request.session.clear()
+    return RedirectResponse("/auth/login")
