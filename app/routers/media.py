@@ -110,7 +110,11 @@ async def top_picks(db: Session = Depends(get_db)):
     for e in high_rated:
         taste_lines.append(f"- {e.title} ({e.media_type}, {e.year or '?'}) rated {e.rating}/10 [{e.genres or ''}]")
 
-    taste_summary = "\n".join(taste_lines) if taste_lines else "No rated items yet — suggest 3 universally acclaimed picks across different media types."
+    taste_summary = "\n".join(taste_lines) if taste_lines else "No rated items yet — suggest universally acclaimed picks across different media types."
+
+    # Build a list of titles to avoid
+    avoid_titles = list(existing_titles)[:50]
+    avoid_str = ", ".join(avoid_titles) if avoid_titles else "none"
 
     try:
         import google.generativeai as genai
@@ -133,7 +137,7 @@ Return ONLY valid JSON — no markdown:
 
 Rules:
 - Exactly 4 items — one movie, one TV show, one book, one podcast
-- Don't recommend anything they've already consumed
+- Do NOT recommend any of these titles (already in their library): {avoid_str}
 - Pick things they'd LOVE, not just things that are popular"""
 
         response = model.generate_content(prompt)
@@ -149,8 +153,6 @@ Rules:
         async def search_pick(pick):
             title = pick.get("title", "")
             mt = pick.get("media_type", None)
-            if title.lower() in existing_titles:
-                return None
             matches = await unified_search(title, mt)
             matches = _rank_by_title_match(title, matches)
             if matches:
