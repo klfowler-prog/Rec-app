@@ -76,12 +76,17 @@ async def get_trending(media_type: str = "all", limit: int = 10):
 
 @router.get("/top-picks")
 async def top_picks(db: Session = Depends(get_db)):
-    """Get 3 personalized top recommendations with poster images."""
+    """Get 3 personalized top recommendations with poster images. Cached for 2 hours."""
     import json
 
+    from app import cache
     from app.config import settings
     from app.models import MediaEntry
     from app.services.unified_search import unified_search
+
+    cached = cache.get("top_picks")
+    if cached is not None:
+        return cached
 
     if not settings.gemini_api_key:
         return []
@@ -163,18 +168,25 @@ Rules:
             }
 
         found = await asyncio.gather(*[search_pick(p) for p in picks[:3]])
-        return [r for r in found if r is not None]
+        results = [r for r in found if r is not None]
+        cache.set("top_picks", results, ttl_seconds=7200)  # 2 hours
+        return results
     except Exception:
         return []
 
 
 @router.get("/suggestions/home")
 async def home_suggestions(db: Session = Depends(get_db)):
-    """Get AI-powered suggestions for empty swim lanes on the home page."""
+    """Get AI-powered suggestions for empty swim lanes. Cached for 6 hours."""
     import json
 
+    from app import cache
     from app.config import settings
     from app.models import MediaEntry
+
+    cached = cache.get("suggestions_home")
+    if cached is not None:
+        return cached
 
     consumed = db.query(MediaEntry).filter(MediaEntry.status == "consumed").all()
     want = db.query(MediaEntry).filter(MediaEntry.status == "want_to_consume").all()
@@ -270,7 +282,9 @@ Only include categories from this list: {', '.join(missing_types)}"""
         for key, result in zip(task_keys, results):
             enriched.setdefault(key, []).append(result)
 
-        return {"suggestions": enriched}
+        result = {"suggestions": enriched}
+        cache.set("suggestions_home", result, ttl_seconds=21600)  # 6 hours
+        return result
     except Exception:
         return {"suggestions": {}}
 

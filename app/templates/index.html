@@ -384,8 +384,8 @@ async function loadSuggestions() {
     }
 }
 
-loadTopPicks();
-loadSuggestions();
+// Load both in parallel
+Promise.all([loadTopPicks(), loadSuggestions()]);
 
 {% if needs_predictions %}
 // Auto-generate predicted ratings for queue items that don't have them yet

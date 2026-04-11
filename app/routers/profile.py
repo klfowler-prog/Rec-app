@@ -35,6 +35,8 @@ def list_profile(
 
 @router.post("/", response_model=MediaEntryResponse)
 def add_to_profile(entry: MediaEntryCreate, db: Session = Depends(get_db)):
+    from app import cache
+
     existing = (
         db.query(MediaEntry)
         .filter(MediaEntry.external_id == entry.external_id, MediaEntry.source == entry.source)
@@ -46,6 +48,7 @@ def add_to_profile(entry: MediaEntryCreate, db: Session = Depends(get_db)):
     db.add(db_entry)
     db.commit()
     db.refresh(db_entry)
+    cache.invalidate()  # Profile changed — bust all caches
     return db_entry
 
 
@@ -63,11 +66,14 @@ def update_entry(entry_id: int, updates: MediaEntryUpdate, db: Session = Depends
 
 @router.delete("/{entry_id}")
 def delete_entry(entry_id: int, db: Session = Depends(get_db)):
+    from app import cache
+
     entry = db.query(MediaEntry).filter(MediaEntry.id == entry_id).first()
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
     db.delete(entry)
     db.commit()
+    cache.invalidate()
     return {"ok": True}
 
 
