@@ -7,16 +7,17 @@
     .swim-lane::-webkit-scrollbar { display: none; }
     .swim-lane-item { min-width: 150px; max-width: 150px; }
     .pick-card { min-width: 260px; }
-    .gradient-sage { background: linear-gradient(135deg, #7C9A8E 0%, #5E7D71 100%); }
-    .gradient-coral { background: linear-gradient(135deg, #D4A090 0%, #B8806E 100%); }
-    .gradient-blue { background: linear-gradient(135deg, #6B8DD6 0%, #4A6FB5 100%); }
-    .gradient-purple { background: linear-gradient(135deg, #9B8EC4 0%, #7B6EA4 100%); }
-    .gradient-amber { background: linear-gradient(135deg, #D4A556 0%, #B88A3E 100%); }
-    .section-divider { height: 2px; background: linear-gradient(to right, transparent, rgba(124,154,142,0.3), transparent); }
-    .type-stripe-movie { border-left: 3px solid #6B8DD6; }
-    .type-stripe-tv { border-left: 3px solid #9B8EC4; }
-    .type-stripe-book { border-left: 3px solid #D4A556; }
-    .type-stripe-podcast { border-left: 3px solid #48BB78; }
+    .gradient-sage { background: linear-gradient(135deg, #8B9E6B 0%, #6E8350 100%); }
+    .gradient-coral { background: linear-gradient(135deg, #E8734A 0%, #C55A34 100%); }
+    .gradient-navy { background: linear-gradient(135deg, #2B3A4E 0%, #1E2A3A 100%); }
+    .gradient-blue { background: linear-gradient(135deg, #3D5068 0%, #2B3A4E 100%); }
+    .gradient-purple { background: linear-gradient(135deg, #6B5B8A 0%, #524470 100%); }
+    .gradient-amber { background: linear-gradient(135deg, #B8A97E 0%, #9A8C62 100%); }
+    .section-divider { height: 2px; background: linear-gradient(to right, transparent, rgba(139,158,107,0.3), transparent); }
+    .type-stripe-movie { border-left: 3px solid #2B3A4E; }
+    .type-stripe-tv { border-left: 3px solid #6B5B8A; }
+    .type-stripe-book { border-left: 3px solid #B8A97E; }
+    .type-stripe-podcast { border-left: 3px solid #8B9E6B; }
 </style>
 {% endblock %}
 
@@ -24,7 +25,7 @@
 <div class="space-y-10">
 
     <!-- Greeting -->
-    <div class="gradient-sage rounded-2xl p-8 text-white">
+    <div class="gradient-navy rounded-2xl p-8 text-white">
         <h2 class="text-3xl font-bold mb-1.5">{{ greeting }}</h2>
         <p class="text-base text-white/75">{{ suggestion }}</p>
     </div>
