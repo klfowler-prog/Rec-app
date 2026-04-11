@@ -101,33 +101,17 @@ async def stream_recommendation(
     if media_type:
         message = f"[Looking specifically for {media_type}s] {message}"
 
-    import google.generativeai as genai
-
     if not settings.gemini_api_key:
         yield f'data: {{"error": "Gemini API key not configured. Add GEMINI_API_KEY to your .env file."}}\n\n'
         return
 
-    genai.configure(api_key=settings.gemini_api_key, transport="rest")
-    model = genai.GenerativeModel(
-        model_name="gemini-3.1-flash-lite-preview",
-        system_instruction=system_prompt,
-    )
-
-    # Build conversation history
-    chat_history = []
-    for msg in history:
-        role = "user" if msg.get("role") == "user" else "model"
-        chat_history.append({"role": role, "parts": [msg.get("content", "")]})
-
-    chat = model.start_chat(history=chat_history)
+    from app.services.gemini import generate_stream
 
     try:
-        response = chat.send_message(message, stream=True)
         full_response = ""
-        for chunk in response:
-            if chunk.text:
-                full_response += chunk.text
-                yield f"data: {json.dumps({'text': chunk.text})}\n\n"
+        async for chunk in generate_stream(message, system_instruction=system_prompt, history=history):
+            full_response += chunk
+            yield f"data: {json.dumps({'text': chunk})}\n\n"
 
         # Save to recommendation history
         from app.models import Recommendation

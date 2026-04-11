@@ -199,9 +199,7 @@ async def predict_ratings(user: User = Depends(require_user), db: Session = Depe
     for i in range(0, len(predict_lines), 30):
         batch = predict_lines[i:i + 30]
         try:
-            import google.generativeai as genai
-            genai.configure(api_key=settings.gemini_api_key, transport="rest")
-            model = genai.GenerativeModel(model_name="gemini-3.1-flash-lite-preview")
+            from app.services.gemini import generate
 
             prompt = f"""You are a media taste predictor. Based on this user's rated items, predict how much they would enjoy each unrated item on a scale of 1-10.
 
@@ -215,8 +213,7 @@ Return ONLY valid JSON — a list of objects with "id" (the number after "id:") 
 
 Be honest — not everything will be a high rating. Use the full 1-10 range."""
 
-            response = model.generate_content(prompt)
-            text = response.text.strip()
+            text = (await generate(prompt)).strip()
             if text.startswith("```"):
                 text = text.split("\n", 1)[1] if "\n" in text else text[3:]
                 text = text.rsplit("```", 1)[0]

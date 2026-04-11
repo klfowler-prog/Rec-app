@@ -182,10 +182,7 @@ async def top_picks(user: User = Depends(require_user), db: Session = Depends(ge
     avoid_str = ", ".join(avoid_titles) if avoid_titles else "none"
 
     try:
-        import google.generativeai as genai
-
-        genai.configure(api_key=settings.gemini_api_key, transport="rest")
-        model = genai.GenerativeModel(model_name="gemini-3.1-flash-lite-preview")
+        from app.services.gemini import generate
 
         prompt = f"""You are a media recommendation expert. Based on this taste profile, pick the BEST next thing this person should try in EACH of these 4 categories. Be specific and bold.
 
@@ -205,8 +202,7 @@ Rules:
 - Do NOT recommend any of these titles (already in their library): {avoid_str}
 - Pick things they'd LOVE, not just things that are popular"""
 
-        response = model.generate_content(prompt)
-        text = response.text.strip()
+        text = (await generate(prompt)).strip()
         if text.startswith("```"):
             text = text.split("\n", 1)[1] if "\n" in text else text[3:]
             text = text.rsplit("```", 1)[0]
@@ -290,10 +286,7 @@ async def home_suggestions(user: User = Depends(require_user), db: Session = Dep
     missing_labels = [type_labels[t] for t in missing_types]
 
     try:
-        import google.generativeai as genai
-
-        genai.configure(api_key=settings.gemini_api_key, transport="rest")
-        model = genai.GenerativeModel(model_name="gemini-3.1-flash-lite-preview")
+        from app.services.gemini import generate
 
         prompt = f"""Based on this user's taste profile, suggest 3 items for EACH of these categories: {', '.join(missing_labels)}.
 
@@ -310,8 +303,7 @@ Return ONLY valid JSON with this structure — no markdown, no explanation:
 
 Only include categories from this list: {', '.join(missing_types)}"""
 
-        response = model.generate_content(prompt)
-        text = response.text.strip()
+        text = (await generate(prompt)).strip()
         if text.startswith("```"):
             text = text.split("\n", 1)[1] if "\n" in text else text[3:]
             text = text.rsplit("```", 1)[0]
