@@ -23,7 +23,11 @@ async def login(request: Request):
     state = secrets.token_urlsafe(32)
     request.session["oauth_state"] = state
 
+    # Build redirect URI — force HTTPS in production (behind Cloud Run proxy)
     redirect_uri = str(request.url_for("auth_callback"))
+    if "localhost" not in redirect_uri and "127.0.0.1" not in redirect_uri:
+        redirect_uri = redirect_uri.replace("http://", "https://")
+
     params = {
         "client_id": settings.google_client_id,
         "redirect_uri": redirect_uri,
@@ -48,6 +52,8 @@ async def auth_callback(request: Request, code: str = "", state: str = "", db: S
         return RedirectResponse("/?error=no_code")
 
     redirect_uri = str(request.url_for("auth_callback"))
+    if "localhost" not in redirect_uri and "127.0.0.1" not in redirect_uri:
+        redirect_uri = redirect_uri.replace("http://", "https://")
 
     # Exchange code for token
     async with httpx.AsyncClient() as client:
