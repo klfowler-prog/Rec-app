@@ -108,7 +108,7 @@ async def stream_recommendation(
 
     genai.configure(api_key=settings.gemini_api_key)
     model = genai.GenerativeModel(
-        model_name="gemini-2.0-flash",
+        model_name="gemini-3.1-flash-lite",
         system_instruction=system_prompt,
     )
 
