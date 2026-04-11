@@ -9,7 +9,7 @@ from app.config import settings
 log = logging.getLogger(__name__)
 
 BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
-MODEL = "gemini-2.0-flash-001"
+MODEL = "gemini-3.1-flash-lite-preview"
 
 
 async def generate(prompt: str, system_instruction: str = "") -> str:
