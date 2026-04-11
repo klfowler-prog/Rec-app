@@ -1,4 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+import asyncio
+import csv
+import io
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -165,3 +169,122 @@ def get_fit_scores(db: Session = Depends(get_db)):
 
     scored.sort(key=lambda x: x["score"], reverse=True)
     return scored
+
+
+@router.post("/import/goodreads")
+async def import_goodreads(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """Import books from a Goodreads CSV export."""
+    from app.services.open_library import search as search_books
+
+    content = await file.read()
+    text = content.decode("utf-8-sig")  # utf-8-sig handles BOM
+    reader = csv.DictReader(io.StringIO(text))
+
+    rows = []
+    for row in reader:
+        title = row.get("Title", "").strip()
+        if not title:
+            continue
+        author = row.get("Author", "").strip()
+        shelf = row.get("Exclusive Shelf", "").strip().lower()
+        gr_rating = 0
+        try:
+            gr_rating = int(row.get("My Rating", "0"))
+        except ValueError:
+            pass
+        year = None
+        for col in ("Original Publication Year", "Year Published"):
+            try:
+                y = int(row.get(col, "").strip())
+                if y > 0:
+                    year = y
+                    break
+            except ValueError:
+                pass
+
+        # Map Goodreads shelf to our status
+        if shelf == "currently-reading":
+            status = "consuming"
+        elif shelf == "to-read":
+            status = "want_to_consume"
+        else:
+            status = "consumed"
+
+        # Convert 1-5 rating to 1-10 (0 = unrated)
+        rating = gr_rating * 2 if gr_rating > 0 else None
+
+        rows.append({
+            "title": title,
+            "author": author,
+            "year": year,
+            "status": status,
+            "rating": rating,
+            "isbn": row.get("ISBN13", "").strip().replace('="', "").replace('"', "") or row.get("ISBN", "").strip().replace('="', "").replace('"', ""),
+        })
+
+    # Search Open Library for each book in parallel to get covers
+    async def enrich_and_save(row_data):
+        title = row_data["title"]
+        # Check if already in profile
+        existing = (
+            db.query(MediaEntry)
+            .filter(MediaEntry.title == title, MediaEntry.media_type == "book")
+            .first()
+        )
+        if existing:
+            return {"title": title, "status": "skipped", "reason": "already in profile"}
+
+        # Search for cover image
+        image_url = None
+        external_id = ""
+        source = "open_library"
+        genres = None
+        description = None
+
+        try:
+            results = await search_books(title + " " + row_data["author"] if row_data["author"] else title)
+            if results:
+                best = results[0]
+                image_url = best.image_url
+                external_id = best.external_id
+                genres = ", ".join(best.genres) if best.genres else None
+                description = best.description
+        except Exception:
+            pass
+
+        if not external_id:
+            # Use ISBN as fallback ID
+            external_id = row_data["isbn"] or title.lower().replace(" ", "-")[:50]
+
+        entry = MediaEntry(
+            external_id=external_id,
+            source=source,
+            title=title,
+            media_type="book",
+            image_url=image_url,
+            year=row_data["year"],
+            creator=row_data["author"],
+            genres=genres,
+            description=description,
+            status=row_data["status"],
+            rating=row_data["rating"],
+        )
+        try:
+            db.add(entry)
+            db.commit()
+            return {"title": title, "status": "added", "rating": row_data["rating"], "image_url": image_url}
+        except Exception:
+            db.rollback()
+            return {"title": title, "status": "skipped", "reason": "duplicate"}
+
+    # Process in batches of 5 to avoid overwhelming APIs
+    results = []
+    for i in range(0, len(rows), 5):
+        batch = rows[i : i + 5]
+        batch_results = await asyncio.gather(*[enrich_and_save(r) for r in batch])
+        results.extend(batch_results)
+
+    added = sum(1 for r in results if r["status"] == "added")
+    skipped = sum(1 for r in results if r["status"] == "skipped")
+
+    return {"total": len(rows), "added": added, "skipped": skipped, "results": results}

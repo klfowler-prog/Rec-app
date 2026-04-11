@@ -128,6 +128,11 @@ async def bulk_add_page(request: Request):
     return templates.TemplateResponse("bulk_add.html", {"request": request})
 
 
+@router.get("/import/goodreads")
+async def goodreads_import_page(request: Request):
+    return templates.TemplateResponse("goodreads_import.html", {"request": request})
+
+
 @router.get("/media/{media_type}/{external_id}")
 async def media_detail_page(request: Request, media_type: str, external_id: str):
     return templates.TemplateResponse(

@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+{% block title %}Import from Goodreads{% endblock %}
+
+{% block head %}
+<style>
+    .import-result-added { border-left: 3px solid #48BB78; }
+    .import-result-skipped { border-left: 3px solid #D4A090; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div>
+        <h2 class="text-2xl font-semibold mb-1">Import from Goodreads</h2>
+        <p class="text-txt-muted">Upload your Goodreads CSV export to import your books, ratings, and shelves.</p>
+    </div>
+
+    <!-- Instructions -->
+    <div class="bg-sage/5 border border-sage/20 rounded-xl p-5">
+        <h3 class="text-sm font-semibold mb-2 text-sage-dark dark:text-sage-light">How to export from Goodreads</h3>
+        <ol class="text-sm text-txt-muted space-y-1.5 list-decimal list-inside">
+            <li>Go to <strong>goodreads.com/review/import</strong></li>
+            <li>Click <strong>"Export Library"</strong> at the top</li>
+            <li>Wait for the export to finish, then download the CSV file</li>
+            <li>Upload it here</li>
+        </ol>
+    </div>
+
+    <!-- Step 1: Upload -->
+    <div id="step-upload">
+        <div class="bg-surface-light dark:bg-surface-dark rounded-xl border-2 border-dashed border-border-light dark:border-border-dark p-10 text-center hover:border-sage/40 transition-base">
+            <input type="file" id="csv-file" accept=".csv" class="hidden">
+            <div class="w-14 h-14 gradient-amber rounded-xl flex items-center justify-center mx-auto mb-4">
+                <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+            </div>
+            <p class="text-sm font-medium mb-1">Drop your Goodreads CSV here</p>
+            <p class="text-xs text-txt-muted mb-4">or click to browse</p>
+            <button id="upload-btn" class="px-5 py-2.5 bg-sage text-white rounded-lg text-sm font-medium transition-base hover:bg-sage-dark">
+                Choose file
+            </button>
+            <p id="file-name" class="text-xs text-sage mt-3 hidden"></p>
+        </div>
+
+        <div id="preview-section" class="hidden mt-5">
+            <div class="flex items-center justify-between mb-3">
+                <div>
+                    <p class="text-sm font-medium"><span id="book-count">0</span> books found</p>
+                    <p class="text-xs text-txt-muted"><span id="rated-count">0</span> with ratings, <span id="shelf-summary"></span></p>
+                </div>
+                <button id="import-btn" class="px-6 py-2.5 bg-sage text-white rounded-lg text-sm font-medium transition-base hover:bg-sage-dark flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                    Import all
+                </button>
+            </div>
+
+            <!-- Preview table -->
+            <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden">
+                <div class="max-h-80 overflow-y-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-bg-light dark:bg-bg-dark sticky top-0">
+                            <tr class="text-left text-xs text-txt-muted">
+                                <th class="px-4 py-2.5 font-medium">Title</th>
+                                <th class="px-4 py-2.5 font-medium">Author</th>
+                                <th class="px-4 py-2.5 font-medium">Rating</th>
+                                <th class="px-4 py-2.5 font-medium">Shelf</th>
+                            </tr>
+                        </thead>
+                        <tbody id="preview-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 2: Importing -->
+    <div id="step-importing" class="hidden text-center py-12">
+        <div class="inline-block w-6 h-6 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
+        <p class="text-sm text-txt-muted mt-3">Importing your books and finding cover art...</p>
+        <p class="text-xs text-txt-muted mt-1">This may take a minute for large libraries.</p>
+    </div>
+
+    <!-- Step 3: Done -->
+    <div id="step-done" class="hidden space-y-5">
+        <div class="gradient-sage rounded-xl p-6 text-white text-center">
+            <p class="text-3xl font-bold" id="done-added">0</p>
+            <p class="text-sm text-white/70 mt-1">books imported</p>
+            <p class="text-xs text-white/50 mt-0.5"><span id="done-skipped">0</span> skipped (already in profile)</p>
+        </div>
+
+        <div class="flex gap-3 justify-center">
+            <a href="/profile" class="px-5 py-2.5 bg-sage text-white rounded-lg text-sm font-medium transition-base hover:bg-sage-dark">View profile</a>
+            <a href="/" class="px-5 py-2.5 border border-border-light dark:border-border-dark rounded-lg text-sm text-txt-muted hover:text-txt transition-base">Home</a>
+        </div>
+
+        <!-- Results list -->
+        <div id="results-list" class="space-y-1.5"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const csvFile = document.getElementById('csv-file');
+const uploadBtn = document.getElementById('upload-btn');
+const fileName = document.getElementById('file-name');
+const previewSection = document.getElementById('preview-section');
+const previewBody = document.getElementById('preview-body');
+const importBtn = document.getElementById('import-btn');
+const stepUpload = document.getElementById('step-upload');
+const stepImporting = document.getElementById('step-importing');
+const stepDone = document.getElementById('step-done');
+
+let parsedRows = [];
+
+// Click to upload
+uploadBtn.addEventListener('click', () => csvFile.click());
+document.querySelector('.border-dashed').addEventListener('click', (e) => {
+    if (e.target !== uploadBtn) csvFile.click();
+});
+
+// Drag and drop
+const dropZone = document.querySelector('.border-dashed');
+dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-sage'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-sage'));
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('border-sage');
+    if (e.dataTransfer.files[0]) { csvFile.files = e.dataTransfer.files; parseCSV(e.dataTransfer.files[0]); }
+});
+
+csvFile.addEventListener('change', () => {
+    if (csvFile.files[0]) parseCSV(csvFile.files[0]);
+});
+
+function parseCSV(file) {
+    fileName.textContent = file.name;
+    fileName.classList.remove('hidden');
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const text = e.target.result;
+        const lines = text.split('\n');
+        const headers = parseCSVLine(lines[0]);
+
+        const titleIdx = headers.findIndex(h => h.trim() === 'Title');
+        const authorIdx = headers.findIndex(h => h.trim() === 'Author');
+        const ratingIdx = headers.findIndex(h => h.trim() === 'My Rating');
+        const shelfIdx = headers.findIndex(h => h.trim() === 'Exclusive Shelf');
+
+        parsedRows = [];
+        for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue;
+            const cols = parseCSVLine(lines[i]);
+            const title = (cols[titleIdx] || '').trim();
+            if (!title) continue;
+            const rating = parseInt(cols[ratingIdx] || '0');
+            const shelf = (cols[shelfIdx] || '').trim().toLowerCase();
+            parsedRows.push({
+                title,
+                author: (cols[authorIdx] || '').trim(),
+                rating,
+                shelf,
+            });
+        }
+
+        renderPreview();
+    };
+    reader.readAsText(file);
+}
+
+function parseCSVLine(line) {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') { inQuotes = !inQuotes; }
+        else if (ch === ',' && !inQuotes) { result.push(current); current = ''; }
+        else { current += ch; }
+    }
+    result.push(current);
+    return result;
+}
+
+function renderPreview() {
+    const shelfLabels = { read: 'Read', 'to-read': 'To read', 'currently-reading': 'Reading' };
+    const ratedCount = parsedRows.filter(r => r.rating > 0).length;
+    const shelfCounts = {};
+    parsedRows.forEach(r => { shelfCounts[r.shelf] = (shelfCounts[r.shelf] || 0) + 1; });
+
+    document.getElementById('book-count').textContent = parsedRows.length;
+    document.getElementById('rated-count').textContent = ratedCount;
+    document.getElementById('shelf-summary').textContent = Object.entries(shelfCounts).map(([k, v]) => `${v} ${shelfLabels[k] || k}`).join(', ');
+
+    previewBody.innerHTML = parsedRows.slice(0, 50).map(row => {
+        const stars = row.rating > 0 ? '★'.repeat(row.rating) + '☆'.repeat(5 - row.rating) : '—';
+        const ratingColor = row.rating >= 4 ? 'text-emerald-500' : row.rating >= 3 ? 'text-amber-500' : row.rating > 0 ? 'text-coral' : 'text-txt-muted';
+        return `
+            <tr class="border-t border-border-light dark:border-border-dark">
+                <td class="px-4 py-2 font-medium">${escapeHtml(row.title)}</td>
+                <td class="px-4 py-2 text-txt-muted">${escapeHtml(row.author)}</td>
+                <td class="px-4 py-2 ${ratingColor}">${stars} <span class="text-[10px]">${row.rating > 0 ? `→ ${row.rating * 2}/10` : ''}</span></td>
+                <td class="px-4 py-2"><span class="text-xs">${shelfLabels[row.shelf] || row.shelf}</span></td>
+            </tr>
+        `;
+    }).join('');
+
+    if (parsedRows.length > 50) {
+        previewBody.innerHTML += `<tr><td colspan="4" class="px-4 py-2 text-xs text-txt-muted text-center">...and ${parsedRows.length - 50} more</td></tr>`;
+    }
+
+    previewSection.classList.remove('hidden');
+}
+
+// Import
+importBtn.addEventListener('click', async () => {
+    stepUpload.classList.add('hidden');
+    stepImporting.classList.remove('hidden');
+
+    const formData = new FormData();
+    formData.append('file', csvFile.files[0]);
+
+    try {
+        const resp = await fetch('/api/profile/import/goodreads', {
+            method: 'POST',
+            body: formData,
+        });
+        const data = await resp.json();
+
+        stepImporting.classList.add('hidden');
+        document.getElementById('done-added').textContent = data.added;
+        document.getElementById('done-skipped').textContent = data.skipped;
+
+        const resultsList = document.getElementById('results-list');
+        resultsList.innerHTML = data.results.map(r => `
+            <div class="flex items-center gap-3 px-4 py-2 rounded-lg text-sm ${r.status === 'added' ? 'import-result-added' : 'import-result-skipped'} bg-surface-light dark:bg-surface-dark">
+                ${r.image_url ? `<img src="${r.image_url}" class="w-6 h-9 object-cover rounded" alt="">` : `<div class="w-6 h-9 bg-sage/10 rounded"></div>`}
+                <span class="flex-1 truncate">${escapeHtml(r.title)}</span>
+                ${r.rating ? `<span class="text-xs font-medium ${r.rating >= 8 ? 'text-emerald-500' : r.rating >= 6 ? 'text-amber-500' : 'text-coral'}">${r.rating}/10</span>` : ''}
+                <span class="text-xs ${r.status === 'added' ? 'text-emerald-500' : 'text-txt-muted'}">${r.status === 'added' ? 'Added' : 'Skipped'}</span>
+            </div>
+        `).join('');
+
+        stepDone.classList.remove('hidden');
+    } catch {
+        stepImporting.classList.add('hidden');
+        stepUpload.classList.remove('hidden');
+        alert('Import failed. Please check your CSV file and try again.');
+    }
+});
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+{% endblock %}
