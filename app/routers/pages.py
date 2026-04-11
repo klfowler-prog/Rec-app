@@ -62,13 +62,6 @@ async def home(request: Request, db: Session = Depends(get_db)):
     consumed = db.query(MediaEntry).filter(MediaEntry.status == "consumed").all()
     total = db.query(MediaEntry).count()
 
-    # Group "currently consuming" by media type
-    consuming_grouped: dict[str, list] = {}
-    type_labels = {"movie": "Watching", "tv": "Watching", "book": "Reading", "podcast": "Listening to"}
-    for item in consuming:
-        label = type_labels.get(item.media_type, "Enjoying")
-        consuming_grouped.setdefault(label, []).append(item)
-
     # Group "want to consume" into swim lanes by type
     queue_by_type: dict[str, list] = {}
     type_order = ["movie", "tv", "book", "podcast"]
@@ -99,7 +92,7 @@ async def home(request: Request, db: Session = Depends(get_db)):
         "index.html",
         {
             "request": request,
-            "consuming_grouped": consuming_grouped,
+            "consuming": consuming,
             "queue_by_type": queue_by_type,
             "type_order": type_order,
             "total": total,

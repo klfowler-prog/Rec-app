@@ -44,31 +44,16 @@
     </div>
     {% else %}
 
-    <!-- Currently Consuming -->
-    {% if consuming_grouped %}
-    <div class="space-y-5">
-        {% for label, items in consuming_grouped.items() %}
-        <div class="type-stripe-{{ items[0].media_type }} bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-5">
-            <h3 class="text-base font-semibold mb-3 flex items-center gap-2">
-                {% if label == "Watching" %}
-                <span class="w-8 h-8 rounded-lg gradient-purple flex items-center justify-center">
-                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-                </span>
-                {% elif label == "Reading" %}
-                <span class="w-8 h-8 rounded-lg gradient-amber flex items-center justify-center">
-                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
-                </span>
-                {% elif label == "Listening to" %}
-                <span class="w-8 h-8 rounded-lg bg-green-500 flex items-center justify-center">
-                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
-                </span>
-                {% endif %}
-                Currently {{ label }}
-            </h3>
-            <div class="swim-lane flex gap-4 pb-1">
-                {% for item in items %}
-                <a href="/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}" class="swim-lane-item flex-shrink-0">
-                    <div class="rounded-lg overflow-hidden transition-base card-hover shadow-sm">
+    <!-- Currently Enjoying -->
+    {% if consuming %}
+    <div>
+        <h3 class="text-base font-semibold mb-3">Currently enjoying</h3>
+        <div class="swim-lane flex gap-4 pb-1">
+            {% for item in consuming %}
+            {% set badge_colors = {"movie": "gradient-blue", "tv": "gradient-purple", "book": "gradient-amber", "podcast": "bg-green-500"} %}
+            <a href="/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}" class="swim-lane-item flex-shrink-0">
+                <div class="rounded-lg overflow-hidden transition-base card-hover shadow-sm border border-border-light dark:border-border-dark">
+                    <div class="relative">
                         {% if item.image_url %}
                         <img src="{{ item.image_url }}" alt="{{ item.title }}" class="w-full aspect-[2/3] object-cover">
                         {% else %}
@@ -76,15 +61,15 @@
                             <span class="text-sage text-2xl">{{ item.title[0] }}</span>
                         </div>
                         {% endif %}
-                        <div class="bg-surface-light dark:bg-surface-dark p-2.5">
-                            <p class="text-xs font-medium truncate">{{ item.title }}</p>
-                        </div>
+                        <span class="absolute top-2 left-2 px-2 py-0.5 {{ badge_colors.get(item.media_type, 'bg-gray-500') }} text-[10px] text-white font-semibold rounded-full capitalize">{{ item.media_type }}</span>
                     </div>
-                </a>
-                {% endfor %}
-            </div>
+                    <div class="bg-surface-light dark:bg-surface-dark p-2.5">
+                        <p class="text-xs font-medium truncate">{{ item.title }}</p>
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
         </div>
-        {% endfor %}
     </div>
     {% endif %}
 
@@ -237,49 +222,103 @@ const typeBadgeColors = {
     podcast: 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400',
 };
 
+// Quick add: add item to profile with one click, then show rating dots
+async function quickAdd(btn, data) {
+    btn.disabled = true;
+    btn.innerHTML = '...';
+    try {
+        const resp = await fetch('/api/profile/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+        if (resp.ok || resp.status === 409) {
+            // Replace button with rating dots
+            const container = btn.parentElement;
+            const entryResp = await fetch(`/api/profile/check/${data.source}/${data.external_id}`);
+            const entryData = await entryResp.json();
+            const entryId = entryData.entry ? entryData.entry.id : null;
+
+            container.innerHTML = `
+                <div class="flex items-center gap-0.5">
+                    <span class="text-[10px] text-sage font-medium mr-1">Rate:</span>
+                    ${[2,4,6,8,10].map(n => `
+                        <button onclick="rateItem(this, ${entryId}, ${n})" class="w-6 h-6 rounded-full text-[10px] font-bold border border-border-light dark:border-border-dark hover:bg-coral hover:text-white hover:border-coral transition-base">${n}</button>
+                    `).join('')}
+                </div>
+            `;
+        }
+    } catch {
+        btn.textContent = 'Error';
+    }
+}
+
+async function rateItem(btn, entryId, rating) {
+    if (!entryId) return;
+    await fetch(`/api/profile/${entryId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rating }),
+    });
+    const container = btn.parentElement;
+    container.innerHTML = `<span class="text-xs font-semibold text-coral">${rating}/10 ✓</span>`;
+}
+
+function recCard(item, reason) {
+    const badgeClass = typeBadgeColors[item.media_type] || typeBadgeColors.movie;
+    const gradClass = typeColors[item.media_type] || typeColors.movie;
+    const image = item.image_url
+        ? `<img src="${item.image_url}" alt="" class="w-full aspect-[2/3] object-cover">`
+        : `<div class="w-full aspect-[2/3] ${gradClass} flex items-center justify-center"><span class="text-white text-3xl font-bold">${escapeHtml((item.title || '?')[0])}</span></div>`;
+    const link = item.external_id ? `/media/${item.media_type}/${item.external_id}?source=${item.source}` : '#';
+    const dataAttr = escapeAttr(JSON.stringify({
+        external_id: item.external_id, source: item.source, title: item.title,
+        media_type: item.media_type, image_url: item.image_url, year: item.year,
+        creator: item.creator || null, genres: item.genres ? item.genres.join(', ') : null,
+        description: item.description || null, status: 'consumed',
+    }));
+    const verb = {movie:'Watched',tv:'Watched',book:'Read',podcast:'Listened'}[item.media_type] || 'Done';
+
+    return `
+        <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm">
+            <a href="${link}">
+                ${image}
+            </a>
+            <div class="p-4">
+                <div class="flex items-center gap-2 mb-1.5">
+                    <span class="px-2 py-0.5 ${badgeClass} text-[10px] font-semibold rounded-full capitalize">${item.media_type}</span>
+                    ${item.year ? `<span class="text-xs text-txt-muted">${item.year}</span>` : ''}
+                </div>
+                <a href="${link}" class="text-sm font-semibold hover:text-sage transition-base">${escapeHtml(item.title)}</a>
+                ${reason ? `<p class="text-xs text-txt-muted leading-relaxed mt-1">${escapeHtml(reason)}</p>` : ''}
+                <div class="mt-3 quick-add-area">
+                    <button onclick="quickAdd(this, ${dataAttr})" class="px-3 py-1.5 bg-sage/10 hover:bg-sage hover:text-white text-sage text-xs font-medium rounded-lg transition-base">${verb} it</button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function escapeAttr(str) {
+    return str.replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 {% if total > 0 %}
-// Load personalized top 3 picks
 async function loadTopPicks() {
     const container = document.getElementById('top-picks');
     try {
         const resp = await fetch('/api/media/top-picks');
         const picks = await resp.json();
-
         if (!picks || picks.length === 0) {
             container.innerHTML = `<p class="col-span-full text-center text-sm text-txt-muted py-6">Add more rated items to get personalized picks.</p>`;
             return;
         }
-
-        container.innerHTML = picks.map(pick => {
-            const badgeClass = typeBadgeColors[pick.media_type] || typeBadgeColors.movie;
-            const gradClass = typeColors[pick.media_type] || typeColors.movie;
-            const image = pick.image_url
-                ? `<img src="${pick.image_url}" alt="" class="w-full aspect-[2/3] object-cover">`
-                : `<div class="w-full aspect-[2/3] ${gradClass} flex items-center justify-center"><span class="text-white text-3xl font-bold">${escapeHtml(pick.title[0] || '?')}</span></div>`;
-            const link = pick.external_id ? `/media/${pick.media_type}/${pick.external_id}?source=${pick.source}` : '#';
-
-            return `
-                <a href="${link}" class="group">
-                    <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden transition-base card-hover shadow-sm">
-                        ${image}
-                        <div class="p-4">
-                            <div class="flex items-center gap-2 mb-1.5">
-                                <span class="px-2 py-0.5 ${badgeClass} text-[10px] font-semibold rounded-full capitalize">${pick.media_type}</span>
-                                ${pick.year ? `<span class="text-xs text-txt-muted">${pick.year}</span>` : ''}
-                            </div>
-                            <h4 class="text-sm font-semibold mb-1">${escapeHtml(pick.title)}</h4>
-                            <p class="text-xs text-txt-muted leading-relaxed">${escapeHtml(pick.reason)}</p>
-                        </div>
-                    </div>
-                </a>
-            `;
-        }).join('');
+        container.innerHTML = picks.map(pick => recCard(pick, pick.reason)).join('');
     } catch {
         container.innerHTML = `<p class="col-span-full text-center text-sm text-txt-muted py-6">Couldn't load picks right now.</p>`;
     }
 }
 
-// Load AI suggestions for empty swim lanes
 async function loadSuggestions() {
     try {
         const resp = await fetch('/api/media/suggestions/home');
@@ -290,20 +329,29 @@ async function loadSuggestions() {
             const lane = document.getElementById(`suggestions-${type}`);
             if (lane && items && items.length > 0) {
                 lane.innerHTML = items.map(item => {
-                    const link = item.external_id ? `/media/${item.media_type || type}/${item.external_id}?source=${item.source}` : `/search`;
                     const image = item.image_url
                         ? `<img src="${item.image_url}" alt="" class="w-full aspect-[2/3] object-cover" loading="lazy">`
                         : `<div class="w-full aspect-[2/3] bg-sage/10 flex items-center justify-center"><span class="text-sage text-xl">${escapeHtml((item.title || '?')[0])}</span></div>`;
+                    const link = item.external_id ? `/media/${item.media_type || type}/${item.external_id}?source=${item.source}` : `/search`;
+                    const dataAttr = escapeAttr(JSON.stringify({
+                        external_id: item.external_id || '', source: item.source || '', title: item.title,
+                        media_type: item.media_type || type, image_url: item.image_url || null,
+                        year: item.year || null, creator: null, genres: null,
+                        description: null, status: 'consumed',
+                    }));
+                    const verb = {movie:'Watched',tv:'Watched',book:'Read',podcast:'Listened'}[item.media_type || type] || 'Done';
                     return `
-                        <a href="${link}" class="swim-lane-item flex-shrink-0">
-                            <div class="rounded-lg overflow-hidden transition-base card-hover shadow-sm border border-border-light dark:border-border-dark border-dashed">
-                                ${image}
+                        <div class="swim-lane-item flex-shrink-0">
+                            <div class="rounded-lg overflow-hidden shadow-sm border border-border-light dark:border-border-dark border-dashed">
+                                <a href="${link}">${image}</a>
                                 <div class="bg-surface-light dark:bg-surface-dark p-2.5">
                                     <p class="text-xs font-medium truncate">${escapeHtml(item.title)}</p>
-                                    <p class="text-[10px] text-txt-muted mt-0.5 truncate">${escapeHtml(item.reason || '')}</p>
+                                    <div class="mt-1.5 quick-add-area">
+                                        <button onclick="quickAdd(this, ${dataAttr})" class="px-2 py-1 bg-sage/10 hover:bg-sage hover:text-white text-sage text-[10px] font-medium rounded transition-base">${verb} it</button>
+                                    </div>
                                 </div>
                             </div>
-                        </a>
+                        </div>
                     `;
                 }).join('');
             } else if (lane) {
