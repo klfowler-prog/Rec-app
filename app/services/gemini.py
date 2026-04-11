@@ -1,15 +1,24 @@
 """Gemini API client using REST directly — no SDK needed."""
 
+import logging
+
 import httpx
 
 from app.config import settings
 
+log = logging.getLogger(__name__)
+
 BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
+MODEL = "gemini-2.0-flash"
 
 
 async def generate(prompt: str, system_instruction: str = "") -> str:
     """Generate content from Gemini. Returns the text response."""
-    url = f"{BASE_URL}/models/gemini-2.0-flash:generateContent"
+    if not settings.gemini_api_key:
+        log.error("GEMINI_API_KEY is not set")
+        return ""
+
+    url = f"{BASE_URL}/models/{MODEL}:generateContent"
     body = {
         "contents": [{"parts": [{"text": prompt}]}],
     }
@@ -22,7 +31,9 @@ async def generate(prompt: str, system_instruction: str = "") -> str:
             params={"key": settings.gemini_api_key},
             json=body,
         )
-        resp.raise_for_status()
+        if resp.status_code != 200:
+            log.error("Gemini API error %s: %s", resp.status_code, resp.text[:500])
+            return ""
         data = resp.json()
 
     candidates = data.get("candidates", [])
@@ -30,12 +41,17 @@ async def generate(prompt: str, system_instruction: str = "") -> str:
         parts = candidates[0].get("content", {}).get("parts", [])
         if parts:
             return parts[0].get("text", "")
+    log.warning("Gemini returned no candidates: %s", str(data)[:300])
     return ""
 
 
 async def generate_stream(prompt: str, system_instruction: str = "", history: list[dict] | None = None):
     """Stream content from Gemini. Yields text chunks."""
-    url = f"{BASE_URL}/models/gemini-2.0-flash:streamGenerateContent"
+    if not settings.gemini_api_key:
+        log.error("GEMINI_API_KEY is not set")
+        return
+
+    url = f"{BASE_URL}/models/{MODEL}:streamGenerateContent"
 
     contents = []
     if history:
@@ -55,7 +71,10 @@ async def generate_stream(prompt: str, system_instruction: str = "", history: li
             params={"key": settings.gemini_api_key, "alt": "sse"},
             json=body,
         ) as resp:
-            resp.raise_for_status()
+            if resp.status_code != 200:
+                error_body = await resp.aread()
+                log.error("Gemini stream error %s: %s", resp.status_code, error_body[:500])
+                return
             async for line in resp.aiter_lines():
                 if line.startswith("data: "):
                     import json

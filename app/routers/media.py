@@ -78,11 +78,11 @@ async def get_trending(media_type: str = "all", limit: int = 10):
 
 @router.get("/quiz-items")
 async def quiz_items():
-    """Get a curated mix of popular items for the taste quiz."""
+    """Get a curated mix of well-known items across genres for the taste quiz."""
     import asyncio
 
     from app import cache
-    from app.services.tmdb import get_trending
+    from app.services.tmdb import search as tmdb_search
     from app.services.open_library import search as search_books
     from app.services.itunes import search as search_podcasts
 
@@ -90,25 +90,59 @@ async def quiz_items():
     if cached is not None:
         return cached
 
-    # Well-known books to search for
+    # Curated movies spanning genres and decades
+    movie_titles = [
+        "The Shawshank Redemption", "Pulp Fiction", "The Dark Knight", "Inception",
+        "Forrest Gump", "The Matrix", "Goodfellas", "Interstellar",
+        "Parasite", "Get Out", "The Grand Budapest Hotel", "Mad Max Fury Road",
+        "Eternal Sunshine of the Spotless Mind", "No Country for Old Men",
+        "The Social Network", "Knives Out", "Everything Everywhere All at Once",
+        "Arrival", "Whiplash", "The Departed", "Superbad", "Mean Girls",
+        "The Notebook", "Bridesmaids", "Gladiator",
+    ]
+    # Curated TV shows spanning genres
+    tv_titles = [
+        "Breaking Bad", "The Office", "Game of Thrones", "Stranger Things",
+        "The Wire", "Friends", "The Sopranos", "Fleabag",
+        "Ted Lasso", "Succession", "Schitt's Creek", "The Crown",
+        "Black Mirror", "The Mandalorian", "Severance", "The Bear",
+        "Lost", "Mad Men", "Parks and Recreation", "The Last of Us",
+        "Yellowstone", "Downton Abbey", "Ozark", "The Great British Bake Off",
+    ]
+    # Books spanning genres — literary fiction, sci-fi, thriller, nonfiction, YA
     book_titles = [
         "The Great Gatsby", "To Kill a Mockingbird", "1984", "Harry Potter",
         "The Hunger Games", "Gone Girl", "Dune", "The Alchemist",
         "Atomic Habits", "Educated", "Where the Crawdads Sing", "Project Hail Mary",
+        "The Kite Runner", "Sapiens", "The Girl on the Train", "Normal People",
+        "Becoming", "The Martian", "Circe", "A Court of Thorns and Roses",
+        "The Silent Patient", "Outlander", "The Goldfinch", "Station Eleven",
     ]
-    # Well-known podcasts
+    # Podcasts spanning genres
     podcast_titles = [
         "Serial", "The Daily", "Radiolab", "How I Built This",
         "Crime Junkie", "Freakonomics", "Conan O'Brien Needs a Friend", "SmartLess",
+        "This American Life", "Stuff You Should Know", "The Joe Rogan Experience",
+        "Armchair Expert", "Hidden Brain", "My Favorite Murder",
     ]
 
-    async def get_movies():
-        return await get_trending("movie", "week", 12)
+    async def search_tmdb_titles(titles, media_type):
+        results = []
+        searches = await asyncio.gather(
+            *[tmdb_search(t, media_type) for t in titles], return_exceptions=True
+        )
+        for title, s in zip(titles, searches):
+            if isinstance(s, list) and s:
+                # Pick the best match by title similarity
+                best = s[0]
+                for item in s[:3]:
+                    if item.title.lower() == title.lower():
+                        best = item
+                        break
+                results.append(best)
+        return results
 
-    async def get_tv():
-        return await get_trending("tv", "week", 12)
-
-    async def get_books():
+    async def search_book_titles():
         results = []
         searches = await asyncio.gather(*[search_books(t) for t in book_titles], return_exceptions=True)
         for s in searches:
@@ -116,7 +150,7 @@ async def quiz_items():
                 results.append(s[0])
         return results
 
-    async def get_pods():
+    async def search_podcast_titles():
         results = []
         searches = await asyncio.gather(*[search_podcasts(t) for t in podcast_titles], return_exceptions=True)
         for s in searches:
@@ -125,7 +159,10 @@ async def quiz_items():
         return results
 
     movies, tv, books, podcasts = await asyncio.gather(
-        get_movies(), get_tv(), get_books(), get_pods()
+        search_tmdb_titles(movie_titles, "movie"),
+        search_tmdb_titles(tv_titles, "tv"),
+        search_book_titles(),
+        search_podcast_titles(),
     )
 
     result = {
