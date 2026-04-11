@@ -118,20 +118,22 @@ async def top_picks(db: Session = Depends(get_db)):
         genai.configure(api_key=settings.gemini_api_key)
         model = genai.GenerativeModel(model_name="gemini-3.1-flash-lite-preview")
 
-        prompt = f"""You are a media recommendation expert. Based on this taste profile, pick the 3 BEST next things this person should watch, read, or listen to. Mix media types. Be specific and bold in your picks.
+        prompt = f"""You are a media recommendation expert. Based on this taste profile, pick the BEST next thing this person should try in EACH of these 4 categories. Be specific and bold.
 
 User's taste:
 {taste_summary}
 
 Return ONLY valid JSON — no markdown:
 [
-  {{"title": "...", "media_type": "movie|tv|book|podcast", "year": 2020, "reason": "one compelling sentence about why this is perfect for them"}}
+  {{"title": "...", "media_type": "movie", "year": 2020, "reason": "one compelling sentence about why this is perfect for them"}},
+  {{"title": "...", "media_type": "tv", "year": 2020, "reason": "..."}},
+  {{"title": "...", "media_type": "book", "year": 2020, "reason": "..."}},
+  {{"title": "...", "media_type": "podcast", "year": 2020, "reason": "..."}}
 ]
 
 Rules:
-- Exactly 3 items
+- Exactly 4 items — one movie, one TV show, one book, one podcast
 - Don't recommend anything they've already consumed
-- Mix different media types if possible
 - Pick things they'd LOVE, not just things that are popular"""
 
         response = model.generate_content(prompt)
@@ -176,7 +178,7 @@ Rules:
                 "genres": [],
             }
 
-        found = await asyncio.gather(*[search_pick(p) for p in picks[:3]])
+        found = await asyncio.gather(*[search_pick(p) for p in picks[:4]])
         results = [r for r in found if r is not None]
         cache.set("top_picks", results, ttl_seconds=7200)  # 2 hours
         return results
