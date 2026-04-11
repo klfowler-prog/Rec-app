@@ -5,24 +5,66 @@
 <div class="space-y-6">
     <div>
         <h2 class="text-2xl font-semibold mb-1">Bulk Add</h2>
-        <p class="text-txt-muted">Paste a list of titles — one per line — and we'll find and add them to your profile.</p>
+        <p class="text-txt-muted">Add titles by category so we find exactly the right match.</p>
     </div>
 
-    <!-- Step 1: Input -->
+    <!-- Step 1: Input by type -->
     <div id="step-input">
-        <div class="space-y-4">
-            <div>
-                <label class="block text-sm font-medium mb-2">Paste your titles (one per line)</label>
-                <textarea id="bulk-input" rows="12" placeholder="Breaking Bad
-Dune
-The Great Gatsby
-Serial
-The Office
-Severance
-Project Hail Mary
+        <div class="space-y-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <!-- Movies -->
+                <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-5">
+                    <label class="flex items-center gap-2 text-sm font-semibold mb-2">
+                        <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                        Movies
+                    </label>
+                    <textarea id="bulk-movies" rows="6" placeholder="The Shawshank Redemption
+Parasite
+Everything Everywhere All at Once
 ..."
-                    class="w-full px-4 py-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sage/40 focus:border-sage transition-base font-mono"></textarea>
+                        class="w-full px-3 py-2.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sage/40 focus:border-sage transition-base font-mono"></textarea>
+                </div>
+
+                <!-- TV Shows -->
+                <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-5">
+                    <label class="flex items-center gap-2 text-sm font-semibold mb-2">
+                        <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                        TV Shows
+                    </label>
+                    <textarea id="bulk-tv" rows="6" placeholder="Breaking Bad
+Severance
+The Bear
+..."
+                        class="w-full px-3 py-2.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sage/40 focus:border-sage transition-base font-mono"></textarea>
+                </div>
+
+                <!-- Books -->
+                <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-5">
+                    <label class="flex items-center gap-2 text-sm font-semibold mb-2">
+                        <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                        Books
+                    </label>
+                    <textarea id="bulk-books" rows="6" placeholder="Project Hail Mary
+The Girl on the Train
+Klara and the Sun
+..."
+                        class="w-full px-3 py-2.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sage/40 focus:border-sage transition-base font-mono"></textarea>
+                </div>
+
+                <!-- Podcasts -->
+                <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-5">
+                    <label class="flex items-center gap-2 text-sm font-semibold mb-2">
+                        <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                        Podcasts
+                    </label>
+                    <textarea id="bulk-podcasts" rows="6" placeholder="Serial
+Radiolab
+The Daily
+..."
+                        class="w-full px-3 py-2.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sage/40 focus:border-sage transition-base font-mono"></textarea>
+                </div>
             </div>
+
             <div class="flex items-center gap-4">
                 <div>
                     <label class="block text-sm text-txt-muted mb-1">Default status</label>
@@ -44,7 +86,7 @@ Project Hail Mary
     <!-- Loading -->
     <div id="step-loading" class="hidden text-center py-12">
         <div class="inline-block w-6 h-6 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
-        <p class="text-sm text-txt-muted mt-3">Searching for your titles... this may take a moment.</p>
+        <p class="text-sm text-txt-muted mt-3">Searching for your titles...</p>
         <p class="text-xs text-txt-muted mt-1" id="loading-progress"></p>
     </div>
 

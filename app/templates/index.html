@@ -3,24 +3,20 @@
 
 {% block head %}
 <style>
-    .hero-card {
-        background-size: cover;
-        background-position: center;
-        position: relative;
-    }
-    .hero-card::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(to right, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 100%);
-        border-radius: inherit;
-    }
-    .dark .hero-card::before {
-        background: linear-gradient(to right, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 100%);
-    }
     .swim-lane { overflow-x: auto; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
     .swim-lane::-webkit-scrollbar { display: none; }
     .swim-lane-item { min-width: 150px; max-width: 150px; }
+    .pick-card { min-width: 260px; }
+    .gradient-sage { background: linear-gradient(135deg, #7C9A8E 0%, #5E7D71 100%); }
+    .gradient-coral { background: linear-gradient(135deg, #D4A090 0%, #B8806E 100%); }
+    .gradient-blue { background: linear-gradient(135deg, #6B8DD6 0%, #4A6FB5 100%); }
+    .gradient-purple { background: linear-gradient(135deg, #9B8EC4 0%, #7B6EA4 100%); }
+    .gradient-amber { background: linear-gradient(135deg, #D4A556 0%, #B88A3E 100%); }
+    .section-divider { height: 2px; background: linear-gradient(to right, transparent, rgba(124,154,142,0.3), transparent); }
+    .type-stripe-movie { border-left: 3px solid #6B8DD6; }
+    .type-stripe-tv { border-left: 3px solid #9B8EC4; }
+    .type-stripe-book { border-left: 3px solid #D4A556; }
+    .type-stripe-podcast { border-left: 3px solid #48BB78; }
 </style>
 {% endblock %}
 
@@ -28,9 +24,9 @@
 <div class="space-y-10">
 
     <!-- Greeting -->
-    <div>
+    <div class="gradient-sage rounded-2xl p-8 text-white">
         <h2 class="text-3xl font-bold mb-1.5">{{ greeting }}</h2>
-        <p class="text-base text-txt-muted">{{ suggestion }}</p>
+        <p class="text-base text-white/75">{{ suggestion }}</p>
     </div>
 
     <!-- Empty state for brand new users -->
@@ -42,44 +38,37 @@
         <h3 class="text-lg font-semibold mb-2">Build your taste profile</h3>
         <p class="text-txt-muted mb-6 max-w-md mx-auto">Add movies, shows, books, and podcasts you've enjoyed. NextUp will learn your taste and recommend what's next.</p>
         <div class="flex gap-3 justify-center">
-            <a href="/bulk-add" class="inline-flex items-center gap-2 px-5 py-2.5 bg-sage text-white rounded-lg text-sm font-medium transition-base hover:bg-sage-dark">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                Bulk add
-            </a>
+            <a href="/bulk-add" class="inline-flex items-center gap-2 px-5 py-2.5 bg-sage text-white rounded-lg text-sm font-medium transition-base hover:bg-sage-dark">Bulk add</a>
             <a href="/search" class="inline-flex items-center gap-2 px-5 py-2.5 border border-border-light dark:border-border-dark rounded-lg text-sm text-txt-muted hover:text-txt transition-base">Search</a>
         </div>
     </div>
-
-    <!-- Trending section for new users -->
-    <div id="trending-section">
-        <h3 class="text-lg font-semibold mb-3 flex items-center gap-2">
-            <svg class="w-5 h-5 text-coral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"/></svg>
-            Trending this week
-        </h3>
-        <div id="trending-list" class="swim-lane flex gap-4 pb-2"></div>
-    </div>
-
     {% else %}
 
     <!-- Currently Consuming -->
     {% if consuming_grouped %}
-    <div class="space-y-6">
+    <div class="space-y-5">
         {% for label, items in consuming_grouped.items() %}
-        <div>
-            <h3 class="text-lg font-semibold mb-3 flex items-center gap-2">
+        <div class="type-stripe-{{ items[0].media_type }} bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-5">
+            <h3 class="text-base font-semibold mb-3 flex items-center gap-2">
                 {% if label == "Watching" %}
-                <svg class="w-5 h-5 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                <span class="w-8 h-8 rounded-lg gradient-purple flex items-center justify-center">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                </span>
                 {% elif label == "Reading" %}
-                <svg class="w-5 h-5 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                <span class="w-8 h-8 rounded-lg gradient-amber flex items-center justify-center">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                </span>
                 {% elif label == "Listening to" %}
-                <svg class="w-5 h-5 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+                <span class="w-8 h-8 rounded-lg bg-green-500 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+                </span>
                 {% endif %}
                 Currently {{ label }}
             </h3>
-            <div class="swim-lane flex gap-4 pb-2">
+            <div class="swim-lane flex gap-4 pb-1">
                 {% for item in items %}
                 <a href="/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}" class="swim-lane-item flex-shrink-0">
-                    <div class="bg-surface-light dark:bg-surface-dark rounded-lg border border-border-light dark:border-border-dark overflow-hidden transition-base card-hover">
+                    <div class="rounded-lg overflow-hidden transition-base card-hover shadow-sm">
                         {% if item.image_url %}
                         <img src="{{ item.image_url }}" alt="{{ item.title }}" class="w-full aspect-[2/3] object-cover">
                         {% else %}
@@ -87,9 +76,8 @@
                             <span class="text-sage text-2xl">{{ item.title[0] }}</span>
                         </div>
                         {% endif %}
-                        <div class="p-2.5">
+                        <div class="bg-surface-light dark:bg-surface-dark p-2.5">
                             <p class="text-xs font-medium truncate">{{ item.title }}</p>
-                            <p class="text-xs text-txt-muted capitalize">{{ item.media_type }}</p>
                         </div>
                     </div>
                 </a>
@@ -100,44 +88,65 @@
     </div>
     {% endif %}
 
-    <!-- Hero spotlight -->
-    <div id="hero-section"></div>
+    <div class="section-divider"></div>
+
+    <!-- Top 3 Picks -->
+    <div>
+        <h2 class="text-xl font-bold mb-1 flex items-center gap-2">
+            <span class="w-8 h-8 rounded-lg gradient-coral flex items-center justify-center">
+                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+            </span>
+            Picked for you
+        </h2>
+        <p class="text-sm text-txt-muted mb-4">Personalized recommendations based on your taste.</p>
+        <div id="top-picks" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="col-span-full text-center py-8">
+                <div class="inline-block w-5 h-5 border-2 border-coral/30 border-t-coral rounded-full animate-spin"></div>
+                <p class="text-xs text-txt-muted mt-2">Finding your perfect picks...</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="section-divider"></div>
 
     <!-- NextUp Swim Lanes -->
     <div>
         <div class="flex items-center justify-between mb-2">
             <h2 class="text-xl font-bold flex items-center gap-2">
-                <svg class="w-5 h-5 text-coral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                <span class="w-8 h-8 rounded-lg gradient-sage flex items-center justify-center">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                </span>
                 NextUp
             </h2>
             <a href="/recommend" class="text-sm text-sage hover:underline transition-base">Get AI recs &rarr;</a>
         </div>
         <p class="text-sm text-txt-muted mb-5">Your queue — what to watch, read, and listen to next.</p>
 
-        <!-- Swim lanes by type -->
         {% set type_labels = {"movie": "Movies", "tv": "TV Shows", "book": "Books", "podcast": "Podcasts"} %}
-        {% set type_icons = {
-            "movie": '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/></svg>',
-            "tv": '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>',
-            "book": '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>',
-            "podcast": '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>'
-        } %}
 
-        <div class="space-y-6">
+        <div class="space-y-5">
         {% for mt in type_order %}
-            <div>
-                <h4 class="text-sm font-semibold text-txt-muted uppercase tracking-wide mb-3 flex items-center gap-2">
-                    {{ type_icons[mt] | safe }}
+            <div class="type-stripe-{{ mt }} bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-5">
+                <h4 class="text-sm font-semibold uppercase tracking-wide mb-3 flex items-center gap-2">
+                    {% if mt == "movie" %}
+                    <span class="w-6 h-6 rounded gradient-blue flex items-center justify-center"><svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/></svg></span>
+                    {% elif mt == "tv" %}
+                    <span class="w-6 h-6 rounded gradient-purple flex items-center justify-center"><svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></span>
+                    {% elif mt == "book" %}
+                    <span class="w-6 h-6 rounded gradient-amber flex items-center justify-center"><svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg></span>
+                    {% elif mt == "podcast" %}
+                    <span class="w-6 h-6 rounded bg-green-500 flex items-center justify-center"><svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg></span>
+                    {% endif %}
                     {{ type_labels.get(mt, mt) }}
                     {% if queue_by_type.get(mt) %}
-                    <span class="text-xs font-normal text-txt-muted">({{ queue_by_type[mt] | length }})</span>
+                    <span class="text-[10px] px-1.5 py-0.5 bg-sage/10 text-sage rounded-full font-normal">{{ queue_by_type[mt] | length }}</span>
                     {% endif %}
                 </h4>
                 {% if queue_by_type.get(mt) %}
-                <div class="swim-lane flex gap-4 pb-2">
+                <div class="swim-lane flex gap-4 pb-1">
                     {% for item in queue_by_type[mt] %}
                     <a href="/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}" class="swim-lane-item flex-shrink-0">
-                        <div class="bg-surface-light dark:bg-surface-dark rounded-lg border border-border-light dark:border-border-dark overflow-hidden transition-base card-hover relative">
+                        <div class="rounded-lg overflow-hidden transition-base card-hover shadow-sm">
                             {% if item.image_url %}
                             <img src="{{ item.image_url }}" alt="{{ item.title }}" class="w-full aspect-[2/3] object-cover" loading="lazy">
                             {% else %}
@@ -145,7 +154,7 @@
                                 <span class="text-sage text-2xl">{{ item.title[0] }}</span>
                             </div>
                             {% endif %}
-                            <div class="p-2.5">
+                            <div class="bg-surface-light dark:bg-surface-dark p-2.5">
                                 <p class="text-xs font-medium truncate">{{ item.title }}</p>
                                 {% if item.year %}<p class="text-[10px] text-txt-muted">{{ item.year }}</p>{% endif %}
                             </div>
@@ -154,10 +163,10 @@
                     {% endfor %}
                 </div>
                 {% else %}
-                <div class="swim-lane flex gap-4 pb-2" id="suggestions-{{ mt }}">
-                    <div class="flex items-center gap-2 py-6 px-4 text-sm text-txt-muted">
+                <div class="swim-lane flex gap-4 pb-1" id="suggestions-{{ mt }}">
+                    <div class="flex items-center gap-2 py-4 px-2 text-sm text-txt-muted">
                         <div class="w-4 h-4 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
-                        Finding suggestions for you...
+                        Finding suggestions...
                     </div>
                 </div>
                 {% endif %}
@@ -166,43 +175,36 @@
         </div>
     </div>
 
-    <!-- You Might Love -->
-    <div id="you-might-love-section" class="hidden">
-        <h3 class="text-lg font-semibold mb-3 flex items-center gap-2">
-            <svg class="w-5 h-5 text-coral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-            You might love
-        </h3>
-        <div id="you-might-love" class="swim-lane flex gap-4 pb-2"></div>
-    </div>
+    <div class="section-divider"></div>
 
     <!-- Progress -->
     {% if total > 0 %}
-    <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-6">
-        <h3 class="text-sm font-semibold text-txt-muted uppercase tracking-wide mb-4">Your journey</h3>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="gradient-sage rounded-2xl p-6 text-white">
+        <h3 class="text-sm font-semibold uppercase tracking-wide mb-4 text-white/70">Your journey</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
             <div>
-                <p class="text-2xl font-bold text-sage">{{ total_consumed }}</p>
-                <p class="text-xs text-txt-muted mt-0.5">consumed</p>
+                <p class="text-3xl font-bold">{{ total_consumed }}</p>
+                <p class="text-xs text-white/60 mt-0.5">consumed</p>
             </div>
             <div>
-                <p class="text-2xl font-bold text-coral">{{ total_consuming }}</p>
-                <p class="text-xs text-txt-muted mt-0.5">in progress</p>
+                <p class="text-3xl font-bold">{{ total_consuming }}</p>
+                <p class="text-xs text-white/60 mt-0.5">in progress</p>
             </div>
             <div>
-                <p class="text-2xl font-bold text-sage">{{ genres_explored }}</p>
-                <p class="text-xs text-txt-muted mt-0.5">genres explored</p>
+                <p class="text-3xl font-bold">{{ genres_explored }}</p>
+                <p class="text-xs text-white/60 mt-0.5">genres explored</p>
             </div>
             <div>
-                <p class="text-2xl font-bold text-coral">{{ avg_rating or "—" }}</p>
-                <p class="text-xs text-txt-muted mt-0.5">avg rating</p>
+                <p class="text-3xl font-bold">{{ avg_rating or "—" }}</p>
+                <p class="text-xs text-white/60 mt-0.5">avg rating</p>
             </div>
         </div>
         {% if top_genres %}
-        <div class="mt-4 pt-4 border-t border-border-light dark:border-border-dark">
-            <p class="text-xs text-txt-muted mb-2">Top genres</p>
+        <div class="mt-5 pt-4 border-t border-white/15">
+            <p class="text-xs text-white/50 mb-2">Top genres</p>
             <div class="flex gap-2 flex-wrap">
                 {% for genre in top_genres %}
-                <span class="px-2.5 py-1 bg-sage/10 text-sage text-xs rounded-full">{{ genre }}</span>
+                <span class="px-2.5 py-1 bg-white/15 text-white text-xs rounded-full">{{ genre }}</span>
                 {% endfor %}
             </div>
         </div>
@@ -223,75 +225,58 @@ function escapeHtml(text) {
 }
 
 const typeColors = {
+    movie: 'gradient-blue',
+    tv: 'gradient-purple',
+    book: 'gradient-amber',
+    podcast: 'bg-green-500',
+};
+const typeBadgeColors = {
     movie: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
     tv: 'bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400',
     book: 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
     podcast: 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400',
 };
 
-function mediaCard(item, showBadge) {
-    const badgeClass = typeColors[item.media_type] || typeColors.movie;
-    const image = item.image_url
-        ? `<img src="${item.image_url}" alt="" class="w-full aspect-[2/3] object-cover" loading="lazy">`
-        : `<div class="w-full aspect-[2/3] bg-sage/10 flex items-center justify-center"><span class="text-sage text-2xl">${escapeHtml(item.title[0] || '?')}</span></div>`;
-
-    return `
-        <a href="/media/${item.media_type}/${item.external_id}?source=${item.source}" class="swim-lane-item flex-shrink-0">
-            <div class="bg-surface-light dark:bg-surface-dark rounded-lg border border-border-light dark:border-border-dark overflow-hidden transition-base card-hover">
-                ${image}
-                <div class="p-2.5">
-                    <p class="text-xs font-medium truncate">${escapeHtml(item.title)}</p>
-                    <div class="flex items-center gap-1.5 mt-0.5">
-                        ${showBadge ? `<span class="px-1.5 py-0.5 ${badgeClass} text-[10px] font-medium rounded capitalize">${item.media_type}</span>` : ''}
-                        ${item.year ? `<span class="text-[10px] text-txt-muted">${item.year}</span>` : ''}
-                    </div>
-                </div>
-            </div>
-        </a>
-    `;
-}
-
-function suggestionCard(title, year, reason) {
-    return `
-        <div class="swim-lane-item flex-shrink-0">
-            <div class="bg-surface-light dark:bg-surface-dark rounded-lg border border-border-light dark:border-border-dark border-dashed overflow-hidden p-4 h-full flex flex-col justify-between">
-                <div>
-                    <p class="text-xs font-medium mb-1">${escapeHtml(title)}</p>
-                    ${year ? `<p class="text-[10px] text-txt-muted mb-2">${year}</p>` : ''}
-                    <p class="text-[11px] text-txt-muted leading-relaxed">${escapeHtml(reason)}</p>
-                </div>
-                <a href="/search?q=${encodeURIComponent(title)}" class="text-[10px] text-sage hover:underline mt-2 inline-block">Search to add &rarr;</a>
-            </div>
-        </div>
-    `;
-}
-
-{% if total == 0 %}
-// Load trending for new users
-async function loadTrending() {
+{% if total > 0 %}
+// Load personalized top 3 picks
+async function loadTopPicks() {
+    const container = document.getElementById('top-picks');
     try {
-        const resp = await fetch('/api/media/trending/all?limit=10');
-        const items = await resp.json();
-        const list = document.getElementById('trending-list');
-        if (items.length > 0) {
-            list.innerHTML = items.map(item => mediaCard(item, true)).join('');
+        const resp = await fetch('/api/media/top-picks');
+        const picks = await resp.json();
 
-            // Hero card from first trending item with backdrop
-            const hero = items.find(i => i.backdrop_url) || items[0];
-            if (hero) renderHero(hero);
+        if (!picks || picks.length === 0) {
+            container.innerHTML = `<p class="col-span-full text-center text-sm text-txt-muted py-6">Add more rated items to get personalized picks.</p>`;
+            return;
         }
-    } catch {}
-}
-loadTrending();
-{% else %}
-// Load trending for hero card
-async function loadHero() {
-    try {
-        const resp = await fetch('/api/media/trending/all?limit=5');
-        const items = await resp.json();
-        const hero = items.find(i => i.backdrop_url) || items[0];
-        if (hero) renderHero(hero);
-    } catch {}
+
+        container.innerHTML = picks.map(pick => {
+            const badgeClass = typeBadgeColors[pick.media_type] || typeBadgeColors.movie;
+            const gradClass = typeColors[pick.media_type] || typeColors.movie;
+            const image = pick.image_url
+                ? `<img src="${pick.image_url}" alt="" class="w-full aspect-[2/3] object-cover">`
+                : `<div class="w-full aspect-[2/3] ${gradClass} flex items-center justify-center"><span class="text-white text-3xl font-bold">${escapeHtml(pick.title[0] || '?')}</span></div>`;
+            const link = pick.external_id ? `/media/${pick.media_type}/${pick.external_id}?source=${pick.source}` : '#';
+
+            return `
+                <a href="${link}" class="group">
+                    <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden transition-base card-hover shadow-sm">
+                        ${image}
+                        <div class="p-4">
+                            <div class="flex items-center gap-2 mb-1.5">
+                                <span class="px-2 py-0.5 ${badgeClass} text-[10px] font-semibold rounded-full capitalize">${pick.media_type}</span>
+                                ${pick.year ? `<span class="text-xs text-txt-muted">${pick.year}</span>` : ''}
+                            </div>
+                            <h4 class="text-sm font-semibold mb-1">${escapeHtml(pick.title)}</h4>
+                            <p class="text-xs text-txt-muted leading-relaxed">${escapeHtml(pick.reason)}</p>
+                        </div>
+                    </div>
+                </a>
+            `;
+        }).join('');
+    } catch {
+        container.innerHTML = `<p class="col-span-full text-center text-sm text-txt-muted py-6">Couldn't load picks right now.</p>`;
+    }
 }
 
 // Load AI suggestions for empty swim lanes
@@ -304,53 +289,31 @@ async function loadSuggestions() {
         for (const [type, items] of Object.entries(suggestions)) {
             const lane = document.getElementById(`suggestions-${type}`);
             if (lane && items && items.length > 0) {
-                lane.innerHTML = items.map(item =>
-                    suggestionCard(item.title, item.year, item.reason)
-                ).join('');
+                lane.innerHTML = items.map(item => `
+                    <div class="swim-lane-item flex-shrink-0">
+                        <div class="bg-bg-light dark:bg-bg-dark rounded-lg border border-border-light dark:border-border-dark border-dashed p-4 h-full flex flex-col justify-between">
+                            <div>
+                                <p class="text-xs font-medium mb-1">${escapeHtml(item.title)}</p>
+                                ${item.year ? `<p class="text-[10px] text-txt-muted mb-2">${item.year}</p>` : ''}
+                                <p class="text-[11px] text-txt-muted leading-relaxed">${escapeHtml(item.reason)}</p>
+                            </div>
+                            <a href="/search" class="text-[10px] text-sage hover:underline mt-2 inline-block">Search to add &rarr;</a>
+                        </div>
+                    </div>
+                `).join('');
             } else if (lane) {
-                lane.innerHTML = `<p class="text-sm text-txt-muted py-4 px-2">No suggestions yet — add more to your profile!</p>`;
+                lane.innerHTML = `<p class="text-sm text-txt-muted py-3 px-1">Search to add items &rarr;</p>`;
             }
         }
-
-        // "You might love" section — combine all suggestions
-        const allSuggestions = Object.values(suggestions).flat();
-        if (allSuggestions.length > 0) {
-            const section = document.getElementById('you-might-love-section');
-            const container = document.getElementById('you-might-love');
-            section.classList.remove('hidden');
-            container.innerHTML = allSuggestions.map(item =>
-                suggestionCard(item.title, item.year, item.reason)
-            ).join('');
-        }
     } catch {
-        // Hide loading spinners on error
         document.querySelectorAll('[id^="suggestions-"]').forEach(el => {
-            el.innerHTML = `<p class="text-sm text-txt-muted py-4 px-2">Search to add items &rarr;</p>`;
+            el.innerHTML = `<p class="text-sm text-txt-muted py-3 px-1">Search to add items &rarr;</p>`;
         });
     }
 }
 
-loadHero();
+loadTopPicks();
 loadSuggestions();
 {% endif %}
-
-function renderHero(item) {
-    const section = document.getElementById('hero-section');
-    const bg = item.backdrop_url || '';
-    section.innerHTML = `
-        <div class="hero-card rounded-xl overflow-hidden" style="background-image: url('${bg}')">
-            <div class="relative z-10 p-8 flex items-end min-h-[200px]">
-                <div class="text-white max-w-lg">
-                    <span class="px-2 py-0.5 bg-coral/80 text-[10px] font-medium rounded-full uppercase tracking-wide">Trending</span>
-                    <h3 class="text-2xl font-bold mt-2">${escapeHtml(item.title)}</h3>
-                    <p class="text-sm text-white/70 mt-1 line-clamp-2">${escapeHtml(item.description || '')}</p>
-                    <a href="/media/${item.media_type}/${item.external_id}?source=${item.source}" class="inline-flex items-center gap-1.5 mt-3 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur rounded-lg text-sm transition-base">
-                        View details &rarr;
-                    </a>
-                </div>
-            </div>
-        </div>
-    `;
-}
 </script>
 {% endblock %}

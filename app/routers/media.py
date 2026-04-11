@@ -16,59 +16,26 @@ async def search_media(q: str = Query(..., min_length=1), media_type: str | None
     return await unified_search(q, media_type)
 
 
+class BulkSearchItem(BaseModel):
+    title: str
+    media_type: str
+
+
 class BulkSearchRequest(BaseModel):
-    titles: list[str]
+    items: list[BulkSearchItem]
 
 
 @router.post("/bulk-search")
 async def bulk_search(req: BulkSearchRequest):
-    """Classify titles via AI, then search with the correct media type for each."""
-    import json
-
-    from app.config import settings
+    """Search for multiple titles with explicit media types."""
     from app.services.unified_search import unified_search
 
-    titles = [t.strip() for t in req.titles if t.strip()]
-    if not titles:
-        return {}
-
-    # Step 1: Use Gemini to classify each title by media type
-    classifications = {}
-    if settings.gemini_api_key:
-        try:
-            import google.generativeai as genai
-
-            genai.configure(api_key=settings.gemini_api_key)
-            model = genai.GenerativeModel(model_name="gemini-3.1-flash-lite-preview")
-
-            prompt = f"""Classify each of the following titles as exactly one of: movie, tv, book, podcast.
-Return ONLY valid JSON — a list of objects with "title" and "type" fields. No markdown, no explanation.
-
-Titles:
-{chr(10).join(f'- {t}' for t in titles)}
-
-Example output:
-[{{"title": "Breaking Bad", "type": "tv"}}, {{"title": "Dune", "type": "book"}}]"""
-
-            response = model.generate_content(prompt)
-            text = response.text.strip()
-            # Strip markdown code fences if present
-            if text.startswith("```"):
-                text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-                text = text.rsplit("```", 1)[0]
-            parsed = json.loads(text)
-            for item in parsed:
-                classifications[item["title"].strip().lower()] = item["type"]
-        except Exception:
-            pass  # Fall back to unfiltered search
-
-    # Step 2: Search each title with its classified type
     results = {}
-    for title in titles:
-        media_type = classifications.get(title.lower())
-        matches = await unified_search(title, media_type)
-
-        # Rank by title similarity
+    for item in req.items:
+        title = item.title.strip()
+        if not title:
+            continue
+        matches = await unified_search(title, item.media_type)
         matches = _rank_by_title_match(title, matches)
         results[title] = matches[:3] if matches else []
 
@@ -102,6 +69,98 @@ async def get_trending(media_type: str = "all", limit: int = 10):
     from app.services.tmdb import get_trending
 
     return await get_trending(media_type, "week", limit)
+
+
+@router.get("/top-picks")
+async def top_picks(db: Session = Depends(get_db)):
+    """Get 3 personalized top recommendations with poster images."""
+    import json
+
+    from app.config import settings
+    from app.models import MediaEntry
+    from app.services.unified_search import unified_search
+
+    if not settings.gemini_api_key:
+        return []
+
+    entries = db.query(MediaEntry).filter(MediaEntry.status == "consumed").all()
+    existing_titles = {e.title.lower() for e in entries}
+
+    # Build taste summary
+    high_rated = sorted([e for e in entries if e.rating and e.rating >= 7], key=lambda e: e.rating, reverse=True)[:12]
+    taste_lines = []
+    for e in high_rated:
+        taste_lines.append(f"- {e.title} ({e.media_type}, {e.year or '?'}) rated {e.rating}/10 [{e.genres or ''}]")
+
+    taste_summary = "\n".join(taste_lines) if taste_lines else "No rated items yet — suggest 3 universally acclaimed picks across different media types."
+
+    try:
+        import google.generativeai as genai
+
+        genai.configure(api_key=settings.gemini_api_key)
+        model = genai.GenerativeModel(model_name="gemini-3.1-flash-lite-preview")
+
+        prompt = f"""You are a media recommendation expert. Based on this taste profile, pick the 3 BEST next things this person should watch, read, or listen to. Mix media types. Be specific and bold in your picks.
+
+User's taste:
+{taste_summary}
+
+Return ONLY valid JSON — no markdown:
+[
+  {{"title": "...", "media_type": "movie|tv|book|podcast", "year": 2020, "reason": "one compelling sentence about why this is perfect for them"}}
+]
+
+Rules:
+- Exactly 3 items
+- Don't recommend anything they've already consumed
+- Mix different media types if possible
+- Pick things they'd LOVE, not just things that are popular"""
+
+        response = model.generate_content(prompt)
+        text = response.text.strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+            text = text.rsplit("```", 1)[0]
+        picks = json.loads(text)
+
+        # Search for each pick to get poster images
+        results = []
+        for pick in picks[:3]:
+            title = pick.get("title", "")
+            mt = pick.get("media_type", None)
+            if title.lower() in existing_titles:
+                continue
+            matches = await unified_search(title, mt)
+            matches = _rank_by_title_match(title, matches)
+            if matches:
+                best = matches[0]
+                results.append({
+                    "title": best.title,
+                    "media_type": best.media_type,
+                    "year": best.year,
+                    "image_url": best.image_url,
+                    "external_id": best.external_id,
+                    "source": best.source,
+                    "description": best.description,
+                    "reason": pick.get("reason", ""),
+                    "genres": best.genres,
+                })
+            else:
+                results.append({
+                    "title": title,
+                    "media_type": mt or "movie",
+                    "year": pick.get("year"),
+                    "image_url": None,
+                    "external_id": "",
+                    "source": "",
+                    "description": None,
+                    "reason": pick.get("reason", ""),
+                    "genres": [],
+                })
+
+        return results
+    except Exception:
+        return []
 
 
 @router.get("/suggestions/home")

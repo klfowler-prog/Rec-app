@@ -1,4 +1,3 @@
-const bulkInput = document.getElementById('bulk-input');
 const bulkStatus = document.getElementById('bulk-status');
 const searchBtn = document.getElementById('bulk-search-btn');
 const stepInput = document.getElementById('step-input');
@@ -16,27 +15,42 @@ let matchData = {};
 
 searchBtn.addEventListener('click', doBulkSearch);
 
-async function doBulkSearch() {
-    const text = bulkInput.value.trim();
-    if (!text) return;
+function gatherItems() {
+    const sections = [
+        { id: 'bulk-movies', type: 'movie' },
+        { id: 'bulk-tv', type: 'tv' },
+        { id: 'bulk-books', type: 'book' },
+        { id: 'bulk-podcasts', type: 'podcast' },
+    ];
+    const items = [];
+    for (const section of sections) {
+        const textarea = document.getElementById(section.id);
+        const lines = textarea.value.split('\n').map(l => l.trim()).filter(l => l);
+        for (const title of lines) {
+            items.push({ title, media_type: section.type });
+        }
+    }
+    return items;
+}
 
-    const titles = text.split('\n').map(t => t.trim()).filter(t => t.length > 0);
-    if (titles.length === 0) return;
+async function doBulkSearch() {
+    const items = gatherItems();
+    if (items.length === 0) return;
 
     stepInput.classList.add('hidden');
     stepLoading.classList.remove('hidden');
-    loadingProgress.textContent = `Classifying ${titles.length} titles with AI, then searching...`;
+    loadingProgress.textContent = `Searching for ${items.length} titles...`;
 
     try {
         const resp = await fetch('/api/media/bulk-search', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ titles }),
+            body: JSON.stringify({ items }),
         });
         matchData = await resp.json();
 
         stepLoading.classList.add('hidden');
-        renderMatches(titles);
+        renderMatches(items);
         stepReview.classList.remove('hidden');
     } catch (err) {
         stepLoading.classList.add('hidden');
@@ -45,7 +59,7 @@ async function doBulkSearch() {
     }
 }
 
-function renderMatches(titles) {
+function renderMatches(items) {
     let matched = 0;
     const typeColors = {
         movie: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
@@ -54,7 +68,8 @@ function renderMatches(titles) {
         podcast: 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400',
     };
 
-    matchList.innerHTML = titles.map(title => {
+    matchList.innerHTML = items.map(item => {
+        const title = item.title;
         const results = matchData[title] || [];
         if (results.length === 0) {
             return `
@@ -62,6 +77,7 @@ function renderMatches(titles) {
                     <div class="flex items-center gap-3">
                         <svg class="w-5 h-5 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"/></svg>
                         <span class="text-sm font-medium">${escapeHtml(title)}</span>
+                        <span class="px-1.5 py-0.5 ${typeColors[item.media_type] || ''} text-[10px] font-medium rounded capitalize">${item.media_type}</span>
                         <span class="text-xs text-txt-muted">— no match found</span>
                     </div>
                 </div>
@@ -114,7 +130,7 @@ function renderMatches(titles) {
         `;
     }).join('');
 
-    matchCount.textContent = `${matched} of ${titles.length}`;
+    matchCount.textContent = `${matched} of ${items.length}`;
 }
 
 addAllBtn.addEventListener('click', async () => {
@@ -130,7 +146,6 @@ addAllBtn.addEventListener('click', async () => {
         const results = matchData[title] || [];
         if (results.length === 0) continue;
 
-        // Check if an alternative was picked
         let pickIndex = 0;
         const altPick = document.querySelector(`input.alt-pick[data-title="${CSS.escape(title)}"]:checked`);
         if (altPick) pickIndex = parseInt(altPick.value);
@@ -170,7 +185,7 @@ backBtn.addEventListener('click', () => {
 
 addMoreBtn.addEventListener('click', () => {
     stepDone.classList.add('hidden');
-    bulkInput.value = '';
+    document.querySelectorAll('textarea').forEach(t => t.value = '');
     matchData = {};
     addAllBtn.disabled = false;
     addAllBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg> Add selected to profile';
