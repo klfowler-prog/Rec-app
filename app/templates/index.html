@@ -124,19 +124,26 @@
                     {% endif %}
                     {{ type_labels.get(mt, mt) }}
                     {% if queue_by_type.get(mt) %}
-                    <span class="text-[10px] px-1.5 py-0.5 bg-sage/10 text-sage rounded-full font-normal">{{ queue_by_type[mt] | length }}</span>
+                    <span class="text-[10px] px-1.5 py-0.5 bg-sage/10 text-sage rounded-full font-normal">{{ queue_total.get(mt, queue_by_type[mt] | length) }}</span>
                     {% endif %}
                 </h4>
                 {% if queue_by_type.get(mt) %}
                 <div class="swim-lane flex gap-4 pb-1">
                     {% for item in queue_by_type[mt] %}
                     <a href="/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}" class="swim-lane-item flex-shrink-0">
-                        <div class="rounded-lg overflow-hidden transition-base card-hover shadow-sm">
+                        <div class="rounded-lg overflow-hidden transition-base card-hover shadow-sm border border-border-light dark:border-border-dark relative">
                             {% if item.image_url %}
                             <img src="{{ item.image_url }}" alt="{{ item.title }}" class="w-full aspect-[2/3] object-cover" loading="lazy">
                             {% else %}
                             <div class="w-full aspect-[2/3] bg-sage/10 flex items-center justify-center">
                                 <span class="text-sage text-2xl">{{ item.title[0] }}</span>
+                            </div>
+                            {% endif %}
+                            {% if item.predicted_rating %}
+                            {% set pr = item.predicted_rating %}
+                            {% set pr_color = 'bg-emerald-500' if pr >= 8 else ('bg-yellow-500' if pr >= 6 else ('bg-amber-400' if pr >= 4 else 'bg-coral')) %}
+                            <div class="absolute top-2 right-2 px-1.5 py-0.5 {{ pr_color }} rounded-full">
+                                <span class="text-[10px] font-bold text-white">{{ pr }}</span>
                             </div>
                             {% endif %}
                             <div class="bg-surface-light dark:bg-surface-dark p-2.5">
@@ -378,6 +385,21 @@ async function loadSuggestions() {
 
 loadTopPicks();
 loadSuggestions();
+
+{% if needs_predictions %}
+// Auto-generate predicted ratings for queue items that don't have them yet
+async function generatePredictions() {
+    try {
+        await fetch('/api/profile/predict-ratings', { method: 'POST' });
+        // Soft reload after predictions are done — show a refresh prompt
+        const banner = document.createElement('div');
+        banner.className = 'fixed bottom-4 right-4 bg-sage text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium flex items-center gap-3 z-50';
+        banner.innerHTML = 'Predicted ratings ready! <button onclick="location.reload()" class="underline">Refresh</button>';
+        document.body.appendChild(banner);
+    } catch {}
+}
+generatePredictions();
+{% endif %}
 {% endif %}
 </script>
 {% endblock %}

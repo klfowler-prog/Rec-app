@@ -107,6 +107,7 @@ function profileEntry(entry) {
                 <div class="flex items-center gap-0.5 mt-2" id="rating-row-${entry.id}">
                     ${ratingDots}
                     ${entry.rating ? `<span class="text-xs font-semibold ml-1.5 ${entry.rating <= 3 ? 'text-coral' : entry.rating <= 5 ? 'text-amber-500' : entry.rating <= 7 ? 'text-yellow-600' : 'text-emerald-500'}">${entry.rating}/10</span>` : `<span class="text-[10px] text-txt-muted ml-1.5">rate</span>`}
+                    ${!entry.rating && entry.predicted_rating ? `<span class="text-[10px] ml-1.5 px-1.5 py-0.5 rounded-full ${entry.predicted_rating >= 8 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' : entry.predicted_rating >= 6 ? 'bg-yellow-50 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400' : entry.predicted_rating >= 4 ? 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-red-50 text-red-500 dark:bg-red-900/30 dark:text-red-400'}" title="AI predicted rating">~${entry.predicted_rating}</span>` : ''}
                 </div>
             </div>
             <div class="flex gap-1 flex-shrink-0">

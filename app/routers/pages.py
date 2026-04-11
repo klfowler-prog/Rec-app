@@ -62,11 +62,25 @@ async def home(request: Request, db: Session = Depends(get_db)):
     consumed = db.query(MediaEntry).filter(MediaEntry.status == "consumed").all()
     total = db.query(MediaEntry).count()
 
-    # Group "want to consume" into swim lanes by type
+    # Group "want to consume" into swim lanes by type, sorted by predicted rating
     queue_by_type: dict[str, list] = {}
+    queue_total: dict[str, int] = {}
     type_order = ["movie", "tv", "book", "podcast"]
     for item in want_to_consume:
         queue_by_type.setdefault(item.media_type, []).append(item)
+    # Sort each lane by predicted_rating descending, show top 12
+    for mt in queue_by_type:
+        queue_total[mt] = len(queue_by_type[mt])
+        queue_by_type[mt] = sorted(
+            queue_by_type[mt],
+            key=lambda e: e.predicted_rating or 0,
+            reverse=True,
+        )[:12]
+
+    # Check if predictions need to be generated
+    needs_predictions = any(
+        item.predicted_rating is None for item in want_to_consume
+    ) if want_to_consume else False
 
     # Profile stats
     genre_counts: dict[str, int] = {}
@@ -94,7 +108,9 @@ async def home(request: Request, db: Session = Depends(get_db)):
             "request": request,
             "consuming": consuming,
             "queue_by_type": queue_by_type,
+            "queue_total": queue_total,
             "type_order": type_order,
+            "needs_predictions": needs_predictions,
             "total": total,
             "total_consumed": len(consumed),
             "total_consuming": len(consuming),

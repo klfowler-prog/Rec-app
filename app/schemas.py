@@ -54,6 +54,7 @@ class MediaEntryResponse(BaseModel):
     description: str | None = None
     status: str
     rating: float | None = None
+    predicted_rating: float | None = None
     notes: str | None = None
     tags: str | None = None
     consumed_at: datetime | None = None

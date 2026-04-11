@@ -171,6 +171,86 @@ def get_fit_scores(db: Session = Depends(get_db)):
     return scored
 
 
+@router.post("/predict-ratings")
+async def predict_ratings(db: Session = Depends(get_db)):
+    """Use AI to predict how much the user would enjoy their want-to-consume items."""
+    import json
+
+    from app.config import settings
+
+    if not settings.gemini_api_key:
+        return {"predicted": 0}
+
+    consumed = db.query(MediaEntry).filter(MediaEntry.status == "consumed", MediaEntry.rating.isnot(None)).all()
+    want = db.query(MediaEntry).filter(MediaEntry.status == "want_to_consume").all()
+
+    if not consumed or not want:
+        return {"predicted": 0}
+
+    # Build taste profile
+    rated = sorted(consumed, key=lambda e: e.rating or 0, reverse=True)
+    taste_lines = []
+    for e in rated[:20]:
+        taste_lines.append(f"- {e.title} ({e.media_type}) — {e.rating}/10 [{e.genres or 'no genres'}]")
+
+    # Build list of items to predict
+    predict_lines = []
+    want_map = {}
+    for e in want:
+        if e.predicted_rating is not None:
+            continue  # Already predicted
+        predict_lines.append(f"- id:{e.id} | {e.title} by {e.creator or 'unknown'} ({e.media_type}) [{e.genres or 'no genres'}]")
+        want_map[e.id] = e
+
+    if not predict_lines:
+        return {"predicted": 0, "message": "all items already have predictions"}
+
+    # Batch in groups of 30 to stay within token limits
+    total_predicted = 0
+    for i in range(0, len(predict_lines), 30):
+        batch = predict_lines[i:i + 30]
+        batch_ids = [int(line.split("id:")[1].split(" |")[0]) for line in batch]
+
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=settings.gemini_api_key)
+            model = genai.GenerativeModel(model_name="gemini-3.1-flash-lite-preview")
+
+            prompt = f"""You are a media taste predictor. Based on this user's rated items, predict how much they would enjoy each unrated item on a scale of 1-10.
+
+User's rated items (their actual ratings):
+{chr(10).join(taste_lines)}
+
+Predict ratings for these items:
+{chr(10).join(batch)}
+
+Return ONLY valid JSON — a list of objects with "id" (the number after "id:") and "predicted_rating" (1-10, can use decimals like 7.5). No markdown, no explanation.
+
+Example: [{{"id": 123, "predicted_rating": 8.5}}, {{"id": 456, "predicted_rating": 4.0}}]
+
+Be honest — not everything will be a high rating. Use the full 1-10 range based on genre match, style similarity, and the user's demonstrated preferences."""
+
+            response = model.generate_content(prompt)
+            text = response.text.strip()
+            if text.startswith("```"):
+                text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+                text = text.rsplit("```", 1)[0]
+            predictions = json.loads(text)
+
+            for pred in predictions:
+                entry_id = pred.get("id")
+                pr = pred.get("predicted_rating")
+                if entry_id in want_map and pr is not None:
+                    want_map[entry_id].predicted_rating = round(float(pr), 1)
+                    total_predicted += 1
+
+            db.commit()
+        except Exception:
+            db.rollback()
+
+    return {"predicted": total_predicted}
+
+
 @router.post("/import/goodreads")
 async def import_goodreads(file: UploadFile = File(...), db: Session = Depends(get_db)):
     """Import books from a Goodreads CSV export."""
