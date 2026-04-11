@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}Quick Start{% endblock %}
+
+{% block head %}
+<style>
+    .quiz-card { position: relative; cursor: pointer; }
+    .quiz-card.selected { ring: 2px; }
+    .quiz-card .overlay {
+        position: absolute; inset: 0; background: rgba(0,0,0,0.6);
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        opacity: 0; transition: opacity 0.2s;
+    }
+    .quiz-card.selected .overlay { opacity: 1; }
+    .quiz-card:hover .overlay { opacity: 0.8; }
+    .quiz-card.selected:hover .overlay { opacity: 1; }
+    .quiz-card.rated .check { display: flex; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <div class="text-center max-w-lg mx-auto">
+        <h2 class="text-2xl font-bold mb-2">Build your taste profile</h2>
+        <p class="text-txt-muted">Tap items you've watched, read, or listened to, then rate them. The more you add, the better your recommendations.</p>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="max-w-md mx-auto">
+        <div class="flex items-center justify-between text-xs text-txt-muted mb-1">
+            <span id="progress-count">0 rated</span>
+            <span>Tap to select, then rate</span>
+        </div>
+        <div class="h-1.5 bg-border-light dark:bg-border-dark rounded-full overflow-hidden">
+            <div id="progress-bar" class="h-full bg-sage rounded-full transition-all" style="width: 0%"></div>
+        </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="quiz-loading" class="text-center py-12">
+        <div class="inline-block w-6 h-6 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
+        <p class="text-sm text-txt-muted mt-3">Loading popular items...</p>
+    </div>
+
+    <!-- Quiz sections -->
+    <div id="quiz-content" class="hidden space-y-8">
+        <div>
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-txt-muted mb-3 flex items-center gap-2">
+                <span class="w-6 h-6 rounded gradient-blue flex items-center justify-center"><svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/></svg></span>
+                Movies
+            </h3>
+            <div id="quiz-movies" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3"></div>
+        </div>
+        <div>
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-txt-muted mb-3 flex items-center gap-2">
+                <span class="w-6 h-6 rounded gradient-purple flex items-center justify-center"><svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></span>
+                TV Shows
+            </h3>
+            <div id="quiz-tv" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3"></div>
+        </div>
+        <div>
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-txt-muted mb-3 flex items-center gap-2">
+                <span class="w-6 h-6 rounded gradient-amber flex items-center justify-center"><svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg></span>
+                Books
+            </h3>
+            <div id="quiz-books" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3"></div>
+        </div>
+        <div>
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-txt-muted mb-3 flex items-center gap-2">
+                <span class="w-6 h-6 rounded bg-green-500 flex items-center justify-center"><svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg></span>
+                Podcasts
+            </h3>
+            <div id="quiz-podcasts" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3"></div>
+        </div>
+    </div>
+
+    <!-- Done button -->
+    <div id="done-section" class="hidden text-center py-4">
+        <a href="/" class="px-8 py-3 bg-sage text-white rounded-xl text-sm font-semibold transition-base hover:bg-sage-dark inline-flex items-center gap-2">
+            See my recommendations &rarr;
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let ratedCount = 0;
+
+function updateProgress() {
+    document.getElementById('progress-count').textContent = `${ratedCount} rated`;
+    document.getElementById('progress-bar').style.width = `${Math.min(100, (ratedCount / 10) * 100)}%`;
+    if (ratedCount >= 3) {
+        document.getElementById('done-section').classList.remove('hidden');
+    }
+}
+
+function quizCard(item) {
+    const image = item.image_url
+        ? `<img src="${item.image_url}" alt="" class="w-full aspect-[2/3] object-cover rounded-lg">`
+        : `<div class="w-full aspect-[2/3] bg-sage/10 rounded-lg flex items-center justify-center"><span class="text-sage text-lg">${escapeHtml((item.title||'?')[0])}</span></div>`;
+    const dataAttr = escapeAttr(JSON.stringify({
+        external_id: item.external_id, source: item.source, title: item.title,
+        media_type: item.media_type, image_url: item.image_url, year: item.year,
+        creator: item.creator || null, genres: item.genres ? item.genres.join(', ') : null,
+        description: item.description || null, status: 'consumed',
+    }));
+
+    return `
+        <div class="quiz-card rounded-lg overflow-hidden" data-item='${dataAttr}'>
+            ${image}
+            <div class="overlay rounded-lg">
+                <div class="flex flex-col items-center gap-2">
+                    <p class="text-white text-xs font-medium px-2 text-center">${escapeHtml(item.title)}</p>
+                    <div class="flex gap-1">
+                        <button onclick="quizRate(this, 2)" class="w-7 h-7 rounded-full bg-white/20 hover:bg-coral text-white text-[10px] font-bold transition-base">2</button>
+                        <button onclick="quizRate(this, 4)" class="w-7 h-7 rounded-full bg-white/20 hover:bg-amber-400 text-white text-[10px] font-bold transition-base">4</button>
+                        <button onclick="quizRate(this, 6)" class="w-7 h-7 rounded-full bg-white/20 hover:bg-yellow-500 text-white text-[10px] font-bold transition-base">6</button>
+                        <button onclick="quizRate(this, 8)" class="w-7 h-7 rounded-full bg-white/20 hover:bg-emerald-400 text-white text-[10px] font-bold transition-base">8</button>
+                        <button onclick="quizRate(this, 10)" class="w-7 h-7 rounded-full bg-white/20 hover:bg-emerald-500 text-white text-[10px] font-bold transition-base">10</button>
+                    </div>
+                    <p class="text-white/50 text-[9px]">tap to rate</p>
+                </div>
+            </div>
+            <div class="check hidden absolute top-1 right-1 w-6 h-6 bg-emerald-500 rounded-full items-center justify-center">
+                <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            </div>
+        </div>
+    `;
+}
+
+async function quizRate(btn, rating) {
+    const card = btn.closest('.quiz-card');
+    if (card.classList.contains('rated')) return;
+
+    const data = JSON.parse(card.dataset.item);
+    data.rating = rating;
+
+    try {
+        const resp = await fetch('/api/profile/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+
+        if (resp.ok) {
+            const entry = await resp.json();
+            // Update rating if needed
+            if (rating) {
+                await fetch(`/api/profile/${entry.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rating }),
+                });
+            }
+        }
+
+        card.classList.add('rated', 'selected');
+        card.querySelector('.overlay').innerHTML = `
+            <div class="flex flex-col items-center gap-1">
+                <div class="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <span class="text-white text-xs font-bold">${rating}/10</span>
+            </div>
+        `;
+        card.querySelector('.overlay').style.opacity = '1';
+
+        ratedCount++;
+        updateProgress();
+    } catch {}
+}
+
+async function loadQuiz() {
+    try {
+        const resp = await fetch('/api/media/quiz-items');
+        const data = await resp.json();
+
+        document.getElementById('quiz-movies').innerHTML = (data.movie || []).map(quizCard).join('');
+        document.getElementById('quiz-tv').innerHTML = (data.tv || []).map(quizCard).join('');
+        document.getElementById('quiz-books').innerHTML = (data.book || []).map(quizCard).join('');
+        document.getElementById('quiz-podcasts').innerHTML = (data.podcast || []).map(quizCard).join('');
+
+        document.getElementById('quiz-loading').classList.add('hidden');
+        document.getElementById('quiz-content').classList.remove('hidden');
+    } catch {
+        document.getElementById('quiz-loading').innerHTML = '<p class="text-txt-muted">Failed to load items. Please try again.</p>';
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function escapeAttr(str) {
+    return str.replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+loadQuiz();
+</script>
+{% endblock %}

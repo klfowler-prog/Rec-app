@@ -76,6 +76,68 @@ async def get_trending(media_type: str = "all", limit: int = 10):
     return await get_trending(media_type, "week", limit)
 
 
+@router.get("/quiz-items")
+async def quiz_items():
+    """Get a curated mix of popular items for the taste quiz."""
+    import asyncio
+
+    from app import cache
+    from app.services.tmdb import get_trending
+    from app.services.open_library import search as search_books
+    from app.services.itunes import search as search_podcasts
+
+    cached = cache.get("quiz_items")
+    if cached is not None:
+        return cached
+
+    # Well-known books to search for
+    book_titles = [
+        "The Great Gatsby", "To Kill a Mockingbird", "1984", "Harry Potter",
+        "The Hunger Games", "Gone Girl", "Dune", "The Alchemist",
+        "Atomic Habits", "Educated", "Where the Crawdads Sing", "Project Hail Mary",
+    ]
+    # Well-known podcasts
+    podcast_titles = [
+        "Serial", "The Daily", "Radiolab", "How I Built This",
+        "Crime Junkie", "Freakonomics", "Conan O'Brien Needs a Friend", "SmartLess",
+    ]
+
+    async def get_movies():
+        return await get_trending("movie", "week", 12)
+
+    async def get_tv():
+        return await get_trending("tv", "week", 12)
+
+    async def get_books():
+        results = []
+        searches = await asyncio.gather(*[search_books(t) for t in book_titles], return_exceptions=True)
+        for s in searches:
+            if isinstance(s, list) and s:
+                results.append(s[0])
+        return results
+
+    async def get_pods():
+        results = []
+        searches = await asyncio.gather(*[search_podcasts(t) for t in podcast_titles], return_exceptions=True)
+        for s in searches:
+            if isinstance(s, list) and s:
+                results.append(s[0])
+        return results
+
+    movies, tv, books, podcasts = await asyncio.gather(
+        get_movies(), get_tv(), get_books(), get_pods()
+    )
+
+    result = {
+        "movie": [m.model_dump() for m in movies[:10]],
+        "tv": [t.model_dump() for t in tv[:10]],
+        "book": [b.model_dump() for b in books[:10]],
+        "podcast": [p.model_dump() for p in podcasts[:8]],
+    }
+    cache.set("quiz_items", result, ttl_seconds=86400)  # 24 hours
+    return result
+
+
 @router.post("/refresh-recommendations")
 async def refresh_recommendations():
     """Explicitly clear recommendation caches so they regenerate on next load."""

@@ -148,6 +148,11 @@ async def goodreads_import_page(request: Request, user: User = Depends(require_u
     return templates.TemplateResponse("goodreads_import.html", {"request": request, "user": user})
 
 
+@router.get("/quick-start")
+async def quick_start_page(request: Request, user: User = Depends(require_user)):
+    return templates.TemplateResponse("quick_start.html", {"request": request, "user": user})
+
+
 @router.get("/media/{media_type}/{external_id}")
 async def media_detail_page(request: Request, media_type: str, external_id: str, user: User = Depends(require_user)):
     return templates.TemplateResponse(
