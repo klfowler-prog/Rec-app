@@ -111,3 +111,57 @@ def profile_stats(db: Session = Depends(get_db)):
         avg_rating=round(avg_rating, 1) if avg_rating else None,
         top_genres=top_genres,
     )
+
+
+@router.get("/fit-scores")
+def get_fit_scores(db: Session = Depends(get_db)):
+    """Calculate fit scores for 'want to consume' items based on genre overlap with highly-rated consumed items."""
+    consumed = db.query(MediaEntry).filter(MediaEntry.status == "consumed").all()
+    want = db.query(MediaEntry).filter(MediaEntry.status == "want_to_consume").all()
+
+    if not consumed or not want:
+        return []
+
+    # Build genre preference weights from consumed items
+    genre_weights: dict[str, float] = {}
+    for e in consumed:
+        if not e.genres:
+            continue
+        rating_boost = (e.rating / 10.0) if e.rating else 0.5
+        for g in e.genres.split(","):
+            g = g.strip()
+            if g:
+                genre_weights[g] = genre_weights.get(g, 0) + rating_boost
+
+    # Normalize weights
+    max_weight = max(genre_weights.values()) if genre_weights else 1
+    genre_weights = {g: w / max_weight for g, w in genre_weights.items()}
+
+    # Score each want-to-consume item
+    scored = []
+    for item in want:
+        score = 0.0
+        item_genres = []
+        if item.genres:
+            item_genres = [g.strip() for g in item.genres.split(",") if g.strip()]
+        if item_genres:
+            matches = sum(genre_weights.get(g, 0) for g in item_genres)
+            score = min(10, round((matches / len(item_genres)) * 10, 1))
+        else:
+            score = 5.0  # Neutral score for items without genre data
+
+        scored.append({
+            "id": item.id,
+            "external_id": item.external_id,
+            "source": item.source,
+            "title": item.title,
+            "media_type": item.media_type,
+            "image_url": item.image_url,
+            "year": item.year,
+            "creator": item.creator,
+            "genres": item.genres,
+            "score": score,
+        })
+
+    scored.sort(key=lambda x: x["score"], reverse=True)
+    return scored

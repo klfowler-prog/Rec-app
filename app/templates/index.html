@@ -2,85 +2,7 @@
 {% block title %}Home{% endblock %}
 
 {% block content %}
-<div class="space-y-8">
-    <!-- Welcome section -->
-    <div>
-        <h2 class="text-2xl font-semibold mb-1">Welcome back</h2>
-        <p class="text-txt-muted">Here's what's going on with your media world.</p>
-    </div>
-
-    <!-- Quick stats -->
-    <div class="grid grid-cols-3 gap-4">
-        <div class="bg-surface-light dark:bg-surface-dark rounded-lg p-5 border border-border-light dark:border-border-dark">
-            <p class="text-3xl font-semibold text-sage">{{ total }}</p>
-            <p class="text-sm text-txt-muted mt-1">items in your profile</p>
-        </div>
-        <div class="bg-surface-light dark:bg-surface-dark rounded-lg p-5 border border-border-light dark:border-border-dark">
-            <p class="text-3xl font-semibold text-coral">{{ consuming | length }}</p>
-            <p class="text-sm text-txt-muted mt-1">currently enjoying</p>
-        </div>
-        <a href="/recommend" class="bg-sage/10 dark:bg-sage/20 rounded-lg p-5 border border-sage/20 transition-base card-hover flex flex-col justify-center">
-            <p class="text-sm font-medium text-sage-dark dark:text-sage-light">Ready for something new?</p>
-            <p class="text-sm text-txt-muted mt-1">Get personalized recommendations &rarr;</p>
-        </a>
-    </div>
-
-    <!-- Currently consuming -->
-    {% if consuming %}
-    <div>
-        <h3 class="text-lg font-medium mb-4">Currently enjoying</h3>
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {% for item in consuming %}
-            <a href="/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}" class="group">
-                <div class="bg-surface-light dark:bg-surface-dark rounded-lg border border-border-light dark:border-border-dark overflow-hidden transition-base card-hover">
-                    {% if item.image_url %}
-                    <img src="{{ item.image_url }}" alt="{{ item.title }}" class="w-full aspect-[2/3] object-cover">
-                    {% else %}
-                    <div class="w-full aspect-[2/3] bg-sage/10 flex items-center justify-center">
-                        <span class="text-sage text-2xl">{{ item.title[0] }}</span>
-                    </div>
-                    {% endif %}
-                    <div class="p-2.5">
-                        <p class="text-xs font-medium truncate">{{ item.title }}</p>
-                        <p class="text-xs text-txt-muted capitalize">{{ item.media_type }}</p>
-                    </div>
-                </div>
-            </a>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Recently added -->
-    {% if recent %}
-    <div>
-        <h3 class="text-lg font-medium mb-4">Recently added</h3>
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {% for item in recent %}
-            <a href="/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}" class="group">
-                <div class="bg-surface-light dark:bg-surface-dark rounded-lg border border-border-light dark:border-border-dark overflow-hidden transition-base card-hover">
-                    {% if item.image_url %}
-                    <img src="{{ item.image_url }}" alt="{{ item.title }}" class="w-full aspect-[2/3] object-cover">
-                    {% else %}
-                    <div class="w-full aspect-[2/3] bg-sage/10 flex items-center justify-center">
-                        <span class="text-sage text-2xl">{{ item.title[0] }}</span>
-                    </div>
-                    {% endif %}
-                    <div class="p-2.5">
-                        <p class="text-xs font-medium truncate">{{ item.title }}</p>
-                        <div class="flex items-center gap-1.5 mt-0.5">
-                            <span class="text-xs text-txt-muted capitalize">{{ item.media_type }}</span>
-                            {% if item.rating %}
-                            <span class="text-xs text-coral">{{ item.rating }}/10</span>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-            </a>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
+<div class="space-y-10">
 
     <!-- Empty state -->
     {% if total == 0 %}
@@ -88,13 +10,155 @@
         <div class="w-16 h-16 bg-sage/10 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg class="w-8 h-8 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
         </div>
-        <h3 class="text-lg font-medium mb-2">Your profile is empty</h3>
-        <p class="text-txt-muted mb-6 max-w-sm mx-auto">Start by searching for movies, TV shows, books, or podcasts you've enjoyed, then add them to your profile.</p>
-        <a href="/search" class="inline-flex items-center gap-2 px-5 py-2.5 bg-sage text-white rounded-lg text-sm font-medium transition-base hover:bg-sage-dark">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-            Search media
-        </a>
+        <h3 class="text-lg font-medium mb-2">Welcome to NextUp</h3>
+        <p class="text-txt-muted mb-6 max-w-md mx-auto">Start by adding movies, shows, books, and podcasts you've enjoyed. You can search one at a time or bulk add a whole list.</p>
+        <div class="flex gap-3 justify-center">
+            <a href="/bulk-add" class="inline-flex items-center gap-2 px-5 py-2.5 bg-sage text-white rounded-lg text-sm font-medium transition-base hover:bg-sage-dark">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                Bulk add
+            </a>
+            <a href="/search" class="inline-flex items-center gap-2 px-5 py-2.5 border border-border-light dark:border-border-dark rounded-lg text-sm text-txt-muted hover:text-txt transition-base">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                Search
+            </a>
+        </div>
+    </div>
+    {% else %}
+
+    <!-- Currently Consuming -->
+    {% if consuming_grouped %}
+    <div class="space-y-6">
+        {% for label, items in consuming_grouped.items() %}
+        <div>
+            <h2 class="text-lg font-semibold mb-3 flex items-center gap-2">
+                {% if label == "Watching" %}
+                <svg class="w-5 h-5 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                {% elif label == "Reading" %}
+                <svg class="w-5 h-5 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                {% elif label == "Listening to" %}
+                <svg class="w-5 h-5 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+                {% else %}
+                <svg class="w-5 h-5 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                {% endif %}
+                Currently {{ label }}
+            </h2>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                {% for item in items %}
+                <a href="/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}" class="group">
+                    <div class="bg-surface-light dark:bg-surface-dark rounded-lg border border-border-light dark:border-border-dark overflow-hidden transition-base card-hover">
+                        {% if item.image_url %}
+                        <img src="{{ item.image_url }}" alt="{{ item.title }}" class="w-full aspect-[2/3] object-cover">
+                        {% else %}
+                        <div class="w-full aspect-[2/3] bg-sage/10 flex items-center justify-center">
+                            <span class="text-sage text-2xl">{{ item.title[0] }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="p-2.5">
+                            <p class="text-xs font-medium truncate">{{ item.title }}</p>
+                            <p class="text-xs text-txt-muted capitalize">{{ item.media_type }}</p>
+                        </div>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
     </div>
     {% endif %}
+
+    <!-- NextUp Section -->
+    <div>
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-semibold flex items-center gap-2">
+                <svg class="w-5 h-5 text-coral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                NextUp
+            </h2>
+            <a href="/recommend" class="text-sm text-sage hover:underline transition-base">Get AI recs &rarr;</a>
+        </div>
+        <p class="text-sm text-txt-muted mb-4">Your queue — ranked by how well they match your taste.</p>
+
+        <div id="nextup-list" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            <!-- Populated by JS -->
+        </div>
+        <div id="nextup-loading" class="text-center py-8">
+            <div class="inline-block w-5 h-5 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
+            <p class="text-xs text-txt-muted mt-2">Calculating fit scores...</p>
+        </div>
+        <div id="nextup-empty" class="hidden text-center py-8">
+            <p class="text-sm text-txt-muted mb-3">No items in your queue yet.</p>
+            <a href="/search" class="text-sm text-sage hover:underline">Search for something to add &rarr;</a>
+        </div>
+    </div>
+
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+{% if total > 0 %}
+async function loadNextUp() {
+    const list = document.getElementById('nextup-list');
+    const loading = document.getElementById('nextup-loading');
+    const empty = document.getElementById('nextup-empty');
+
+    try {
+        const resp = await fetch('/api/profile/fit-scores');
+        const items = await resp.json();
+
+        loading.classList.add('hidden');
+
+        if (items.length === 0) {
+            empty.classList.remove('hidden');
+            return;
+        }
+
+        const typeColors = {
+            movie: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
+            tv: 'bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400',
+            book: 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
+            podcast: 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400',
+        };
+
+        list.innerHTML = items.map(item => {
+            const badgeClass = typeColors[item.media_type] || typeColors.movie;
+            const scoreColor = item.score >= 7 ? 'text-sage' : item.score >= 4 ? 'text-coral' : 'text-txt-muted';
+            const image = item.image_url
+                ? `<img src="${item.image_url}" alt="" class="w-full aspect-[2/3] object-cover" loading="lazy">`
+                : `<div class="w-full aspect-[2/3] bg-sage/10 flex items-center justify-center"><span class="text-sage text-2xl">${escapeHtml(item.title[0] || '?')}</span></div>`;
+
+            return `
+                <a href="/media/${item.media_type}/${item.external_id}?source=${item.source}" class="group">
+                    <div class="bg-surface-light dark:bg-surface-dark rounded-lg border border-border-light dark:border-border-dark overflow-hidden transition-base card-hover relative">
+                        ${image}
+                        <div class="absolute top-2 right-2 px-2 py-0.5 bg-white/90 dark:bg-black/70 rounded-full">
+                            <span class="text-xs font-semibold ${scoreColor}">${item.score}/10</span>
+                            <span class="text-[9px] text-txt-muted"> fit</span>
+                        </div>
+                        <div class="p-2.5">
+                            <p class="text-xs font-medium truncate">${escapeHtml(item.title)}</p>
+                            <div class="flex items-center gap-1.5 mt-0.5">
+                                <span class="px-1.5 py-0.5 ${badgeClass} text-[10px] font-medium rounded capitalize">${item.media_type}</span>
+                                ${item.year ? `<span class="text-[10px] text-txt-muted">${item.year}</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            `;
+        }).join('');
+    } catch (err) {
+        loading.classList.add('hidden');
+        empty.classList.remove('hidden');
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+loadNextUp();
+{% endif %}
+</script>
 {% endblock %}

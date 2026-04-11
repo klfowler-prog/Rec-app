@@ -11,12 +11,25 @@ router = APIRouter()
 
 @router.get("/")
 async def home(request: Request, db: Session = Depends(get_db)):
-    recent = db.query(MediaEntry).order_by(MediaEntry.created_at.desc()).limit(6).all()
     consuming = db.query(MediaEntry).filter(MediaEntry.status == "consuming").all()
+    want_to_consume = db.query(MediaEntry).filter(MediaEntry.status == "want_to_consume").all()
     total = db.query(MediaEntry).count()
+
+    # Group "currently consuming" by media type
+    consuming_grouped: dict[str, list] = {}
+    type_labels = {"movie": "Watching", "tv": "Watching", "book": "Reading", "podcast": "Listening to"}
+    for item in consuming:
+        label = type_labels.get(item.media_type, "Enjoying")
+        consuming_grouped.setdefault(label, []).append(item)
+
     return templates.TemplateResponse(
         "index.html",
-        {"request": request, "recent": recent, "consuming": consuming, "total": total},
+        {
+            "request": request,
+            "consuming_grouped": consuming_grouped,
+            "want_to_consume": want_to_consume,
+            "total": total,
+        },
     )
 
 
@@ -33,6 +46,11 @@ async def profile_page(request: Request):
 @router.get("/recommend")
 async def recommend_page(request: Request):
     return templates.TemplateResponse("recommend.html", {"request": request})
+
+
+@router.get("/bulk-add")
+async def bulk_add_page(request: Request):
+    return templates.TemplateResponse("bulk_add.html", {"request": request})
 
 
 @router.get("/media/{media_type}/{external_id}")

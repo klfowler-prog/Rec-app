@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Query
+from pydantic import BaseModel
 
 from app.schemas import MediaResult
 
@@ -11,6 +12,25 @@ async def search_media(q: str = Query(..., min_length=1), media_type: str | None
     from app.services.unified_search import unified_search
 
     return await unified_search(q, media_type)
+
+
+class BulkSearchRequest(BaseModel):
+    titles: list[str]
+
+
+@router.post("/bulk-search")
+async def bulk_search(req: BulkSearchRequest):
+    """Search for multiple titles at once, returning the best match for each."""
+    from app.services.unified_search import unified_search
+
+    results = {}
+    for title in req.titles:
+        title = title.strip()
+        if not title:
+            continue
+        matches = await unified_search(title, None)
+        results[title] = matches[:3] if matches else []
+    return results
 
 
 @router.get("/{media_type}/{external_id}")
