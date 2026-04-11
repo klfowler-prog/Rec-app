@@ -275,10 +275,15 @@ async function quickAdd(btn, data) {
 function showRatingDots(container, entryId) {
     container.innerHTML = `
         <div class="flex items-center gap-0.5">
+            <button onclick="rateItem(this,${entryId},1)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-coral transition-base text-[8px] font-bold text-transparent hover:text-white" title="1/10">1</button>
             <button onclick="rateItem(this,${entryId},2)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-coral transition-base text-[8px] font-bold text-transparent hover:text-white" title="2/10">2</button>
+            <button onclick="rateItem(this,${entryId},3)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-coral transition-base text-[8px] font-bold text-transparent hover:text-white" title="3/10">3</button>
             <button onclick="rateItem(this,${entryId},4)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-amber-400 transition-base text-[8px] font-bold text-transparent hover:text-white" title="4/10">4</button>
+            <button onclick="rateItem(this,${entryId},5)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-amber-400 transition-base text-[8px] font-bold text-transparent hover:text-white" title="5/10">5</button>
             <button onclick="rateItem(this,${entryId},6)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-yellow-500 transition-base text-[8px] font-bold text-transparent hover:text-white" title="6/10">6</button>
+            <button onclick="rateItem(this,${entryId},7)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-yellow-500 transition-base text-[8px] font-bold text-transparent hover:text-white" title="7/10">7</button>
             <button onclick="rateItem(this,${entryId},8)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-emerald-400 transition-base text-[8px] font-bold text-transparent hover:text-white" title="8/10">8</button>
+            <button onclick="rateItem(this,${entryId},9)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-emerald-400 transition-base text-[8px] font-bold text-transparent hover:text-white" title="9/10">9</button>
             <button onclick="rateItem(this,${entryId},10)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-emerald-500 transition-base text-[8px] font-bold text-transparent hover:text-white" title="10/10">10</button>
         </div>
     `;
@@ -291,18 +296,16 @@ async function rateItem(btn, entryId, rating) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rating }),
     });
-    // Show confirmation then fade out the card
+    // Show confirmation
     const container = btn.parentElement;
-    container.innerHTML = `<span class="text-xs font-semibold text-emerald-500">${rating}/10 ✓</span>`;
-    // Find the parent card and fade it out
-    const card = btn.closest('.rounded-xl') || btn.closest('.swim-lane-item');
+    const ratingColor = rating <= 3 ? 'text-coral' : rating <= 5 ? 'text-amber-500' : rating <= 7 ? 'text-yellow-600' : 'text-emerald-500';
+    container.innerHTML = `<span class="text-xs font-semibold ${ratingColor}">${rating}/10 ✓</span>`;
+    // Gray out the card to show it's been rated
+    const card = btn.closest('.rounded-xl') || btn.closest('.swim-lane-item') || btn.closest('.rounded-lg');
     if (card) {
-        setTimeout(() => {
-            card.style.transition = 'opacity 0.4s, transform 0.4s';
-            card.style.opacity = '0';
-            card.style.transform = 'scale(0.95)';
-            setTimeout(() => card.remove(), 400);
-        }, 800);
+        card.style.transition = 'opacity 0.4s';
+        card.style.opacity = '0.45';
+        card.style.filter = 'grayscale(40%)';
     }
 }
 
