@@ -354,16 +354,17 @@ async def quiz_items():
 
 @router.get("/taste-test")
 async def taste_test():
-    """Return a set of contrasting A/B pairs that probe genuinely different
-    taste dimensions. Each pair is labeled with a taste axis so we can
-    later feed the user's picks into recommendation prompts as
-    structured signals.
+    """Return contrasting taste-axis pools. Each axis has two LABELED
+    SIDES, and each side contains 3 items so the user can pick one
+    they've actually seen/read/heard rather than being forced to judge
+    a single item they might not know.
 
-    The goal is NOT to be comprehensive — it's to force real decisions
-    between items that represent different ways of engaging with media.
-    Someone who picks Step Brothers over Manchester by the Sea is
-    telling us something very different from someone who picks the
-    opposite."""
+    The user taps any items they've genuinely consumed and rates them
+    inline — each rated item flows into the profile as a real taste
+    signal. Items left untapped are skipped.
+
+    The goal is to probe real taste dimensions without requiring the
+    user to have seen one specific title."""
     import asyncio
 
     from app import cache
@@ -375,33 +376,66 @@ async def taste_test():
     if cached is not None:
         return cached
 
-    # Each pair probes one taste axis. Format: (axis_label, left, right)
-    # where each side is (title, media_type).
-    PAIRS: list[tuple[str, tuple[str, str], tuple[str, str]]] = [
-        ("Spectacle or intimacy?",
-         ("Avengers: Endgame", "movie"),
-         ("Past Lives", "movie")),
-        ("Silly or serious?",
-         ("Step Brothers", "movie"),
-         ("Manchester by the Sea", "movie")),
-        ("Prestige drama or comfort sitcom?",
-         ("Succession", "tv"),
-         ("The Office", "tv")),
-        ("Plot-driven or vibes-driven?",
-         ("Knives Out", "movie"),
-         ("Lost in Translation", "movie")),
-        ("Page-turner thriller or literary slow-burn?",
-         ("Gone Girl", "book"),
-         ("A Little Life", "book")),
-        ("Fantasy escapism or contemporary realism?",
-         ("Dune", "book"),
-         ("Normal People", "book")),
-        ("Nonfiction ideas or narrative fiction?",
-         ("Sapiens", "book"),
-         ("Pachinko", "book")),
-        ("True crime or explainer?",
-         ("Serial", "podcast"),
-         ("Radiolab", "podcast")),
+    # Each axis probes one taste dimension. Format:
+    #   (axis_label, left_label, right_label, [left items], [right items])
+    # Items are (title, media_type).
+    AXES: list[tuple[str, str, str, list[tuple[str, str]], list[tuple[str, str]]]] = [
+        (
+            "Spectacle or intimacy?",
+            "Spectacle",
+            "Intimacy",
+            [("Avengers: Endgame", "movie"), ("Top Gun: Maverick", "movie"), ("Oppenheimer", "movie")],
+            [("Past Lives", "movie"), ("The Holdovers", "movie"), ("Aftersun", "movie")],
+        ),
+        (
+            "Silly or serious?",
+            "Silly",
+            "Serious",
+            [("Step Brothers", "movie"), ("Anchorman", "movie"), ("Superbad", "movie")],
+            [("Manchester by the Sea", "movie"), ("Moonlight", "movie"), ("There Will Be Blood", "movie")],
+        ),
+        (
+            "Prestige drama or comfort sitcom?",
+            "Prestige drama",
+            "Comfort sitcom",
+            [("Succession", "tv"), ("Mad Men", "tv"), ("Better Call Saul", "tv")],
+            [("The Office", "tv"), ("Parks and Recreation", "tv"), ("Schitt's Creek", "tv")],
+        ),
+        (
+            "Plot-driven or vibes-driven?",
+            "Plot-driven",
+            "Vibes-driven",
+            [("Knives Out", "movie"), ("Gone Girl", "movie"), ("The Prestige", "movie")],
+            [("Lost in Translation", "movie"), ("Call Me by Your Name", "movie"), ("Before Sunrise", "movie")],
+        ),
+        (
+            "Page-turner thriller or literary slow-burn?",
+            "Page-turner",
+            "Slow-burn",
+            [("Gone Girl", "book"), ("The Silent Patient", "book"), ("The Girl on the Train", "book")],
+            [("A Little Life", "book"), ("Normal People", "book"), ("Pachinko", "book")],
+        ),
+        (
+            "Fantasy escapism or contemporary realism?",
+            "Fantasy",
+            "Contemporary",
+            [("Dune", "book"), ("Fourth Wing", "book"), ("A Court of Thorns and Roses", "book")],
+            [("Normal People", "book"), ("Lessons in Chemistry", "book"), ("Tomorrow and Tomorrow and Tomorrow", "book")],
+        ),
+        (
+            "Nonfiction ideas or narrative fiction?",
+            "Nonfiction",
+            "Narrative fiction",
+            [("Sapiens", "book"), ("Atomic Habits", "book"), ("Thinking Fast and Slow", "book")],
+            [("Pachinko", "book"), ("The Kite Runner", "book"), ("Demon Copperhead", "book")],
+        ),
+        (
+            "True crime or explainer?",
+            "True crime",
+            "Explainer",
+            [("Serial", "podcast"), ("Crime Junkie", "podcast"), ("My Favorite Murder", "podcast")],
+            [("Radiolab", "podcast"), ("Hidden Brain", "podcast"), ("Freakonomics", "podcast")],
+        ),
     ]
 
     async def fetch_one(title: str, media_type: str) -> dict | None:
@@ -418,7 +452,6 @@ async def taste_test():
             return None
         if not results:
             return None
-        # Prefer an exact or near-exact title match with an image
         t_lower = title.lower().strip()
         best = None
         for item in results[:5]:
@@ -427,7 +460,6 @@ async def taste_test():
                 best = item
                 break
         if not best:
-            # Fallback: first with an image
             for item in results[:5]:
                 if item.image_url:
                     best = item
@@ -436,23 +468,31 @@ async def taste_test():
             best = results[0]
         return best.model_dump()
 
-    # Fetch every item in parallel
-    all_requests = []
-    for _, left, right in PAIRS:
-        all_requests.append(fetch_one(*left))
-        all_requests.append(fetch_one(*right))
-    resolved = await asyncio.gather(*all_requests)
+    # Flatten every item, fetch in parallel, then reassemble per axis.
+    flat_requests: list[tuple[str, str]] = []
+    for _, _, _, left, right in AXES:
+        flat_requests.extend(left)
+        flat_requests.extend(right)
+    resolved = await asyncio.gather(*[fetch_one(t, mt) for t, mt in flat_requests])
 
-    # Re-pair results with their axis labels, dropping any pair where
-    # either side failed to resolve (would look broken in the UI).
-    pairs_out = []
-    for i, (axis, _, _) in enumerate(PAIRS):
-        left = resolved[i * 2]
-        right = resolved[i * 2 + 1]
-        if left and right:
-            pairs_out.append({"axis": axis, "left": left, "right": right})
+    axes_out = []
+    idx = 0
+    for axis_label, left_label, right_label, left, right in AXES:
+        left_items = [r for r in resolved[idx : idx + len(left)] if r]
+        idx += len(left)
+        right_items = [r for r in resolved[idx : idx + len(right)] if r]
+        idx += len(right)
+        # Drop the axis entirely if either side came back empty.
+        if left_items and right_items:
+            axes_out.append(
+                {
+                    "axis": axis_label,
+                    "left": {"label": left_label, "items": left_items},
+                    "right": {"label": right_label, "items": right_items},
+                }
+            )
 
-    result = {"pairs": pairs_out}
+    result = {"axes": axes_out}
     cache.set("taste_test", result, ttl_seconds=86400 * 7)  # 7 days, content is static
     return result
 

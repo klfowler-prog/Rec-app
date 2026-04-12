@@ -29,7 +29,7 @@
 
     <!-- This-or-that taste test — probes real taste dimensions -->
     <section id="taste-test-section" class="bg-surface-light dark:bg-surface-dark rounded-2xl border border-border-light dark:border-border-dark p-5 md:p-6">
-        <div class="flex items-center justify-between mb-1 gap-3 flex-wrap">
+        <div class="flex items-center justify-between mb-3 gap-3 flex-wrap">
             <div>
                 <h3 class="text-base font-semibold flex items-center gap-2">
                     <span class="w-6 h-6 rounded gradient-coral flex items-center justify-center">
@@ -37,18 +37,14 @@
                     </span>
                     This or that
                 </h3>
-                <p class="text-xs text-txt-muted">Force a choice. Pick the one that sounds more like you — even if you haven't seen the other.</p>
+                <p class="text-xs text-txt-muted">Each row probes a taste dimension. Tap anything you've actually seen or read, then rate it.</p>
             </div>
-            <p id="taste-test-progress" class="text-xs text-txt-muted">0 / 0</p>
+            <p id="taste-test-progress" class="text-xs text-txt-muted">0 rated</p>
         </div>
         <div id="taste-test-loading" class="py-8 text-center">
             <div class="inline-block w-5 h-5 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
         </div>
-        <div id="taste-test-content" class="hidden space-y-5 mt-4"></div>
-        <div id="taste-test-done" class="hidden text-center py-3 text-sm text-sage font-medium">
-            <svg class="w-5 h-5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-            Nice — the AI now knows which way you lean.
-        </div>
+        <div id="taste-test-content" class="hidden space-y-6 mt-2"></div>
     </section>
 
     <!-- Divider + curated grid intro -->
@@ -389,125 +385,163 @@ async function finishQuiz() {
 loadQuiz();
 
 // -----------------------------------------------------------------
-// This-or-that taste test. Fetches a set of contrasting pairs from
-// /api/media/taste-test, renders each as two side-by-side cards, and
-// saves the chosen side as a 9/10 consumed rating in the user's
-// profile. Each pair probes a specific taste axis (blockbuster vs
-// art house, silly vs serious, etc.) — the goal is to force a real
-// decision rather than let the user coast on prestige-neutral picks.
+// This-or-that taste test. Each axis has two labeled sides, each
+// side has 3 items. User taps items they've actually consumed and
+// rates them — no forced choice on things they haven't seen. Items
+// rated here flow into the profile as real "consumed + rating"
+// entries and count toward the per-type progress goal.
 // -----------------------------------------------------------------
-const taste_test_state = { pairs: [], picked: new Set() };
+let taste_test_rated_count = 0;
 
 async function loadTasteTest() {
     try {
         const resp = await fetch('/api/media/taste-test');
         if (!resp.ok) throw new Error('fetch failed');
         const data = await resp.json();
-        taste_test_state.pairs = data.pairs || [];
+        const axes = data.axes || [];
         document.getElementById('taste-test-loading').classList.add('hidden');
-        if (taste_test_state.pairs.length === 0) {
+        if (axes.length === 0) {
             document.getElementById('taste-test-section').classList.add('hidden');
             return;
         }
-        renderTasteTest();
+        renderTasteTest(axes);
     } catch {
         document.getElementById('taste-test-loading').classList.add('hidden');
         document.getElementById('taste-test-section').classList.add('hidden');
     }
 }
 
-function tasteCard(item, axis, idx, side) {
+function tasteCard(item) {
     const mt = item.media_type;
     const fit = mt === 'podcast' ? 'poster-contain' : 'poster-cover';
     const image = item.image_url
         ? `<div class="poster-frame rounded-lg"><img src="${item.image_url}" alt="" class="${fit}"></div>`
         : `<div class="poster-frame rounded-lg"><div class="poster-fallback bg-sage/10"><span class="text-sage text-xl">${escapeHtml((item.title || '?')[0])}</span></div></div>`;
-    const creatorLine = item.creator ? `<p class="text-[10px] text-txt-muted truncate">${escapeHtml(item.creator)}</p>` : '';
+    // Encode the full item data as a JSON blob on the card so the click
+    // handler can re-use it to POST a profile entry.
+    const dataAttr = escapeAttr(JSON.stringify({
+        external_id: item.external_id || '',
+        source: item.source || '',
+        title: item.title,
+        media_type: mt,
+        image_url: item.image_url || null,
+        year: item.year || null,
+        creator: item.creator || null,
+        genres: (item.genres && item.genres.length) ? item.genres.join(', ') : null,
+        description: item.description || null,
+        status: 'consumed',
+    }));
     return `
-        <button type="button"
-                onclick="pickTaste(${idx}, '${side}', this)"
-                data-taste-card
-                class="taste-card group flex-1 text-left p-2 rounded-xl border-2 border-border-light dark:border-border-dark hover:border-sage transition-base focus:outline-none focus:border-sage">
-            ${image}
-            <div class="mt-2 px-1">
-                <p class="text-xs font-semibold leading-snug line-clamp-2">${escapeHtml(item.title)}</p>
-                ${creatorLine}
-                <p class="text-[9px] text-txt-muted uppercase tracking-wide mt-0.5">${escapeHtml(mt)}</p>
-            </div>
-        </button>
+        <div class="taste-card-wrap relative">
+            <button type="button"
+                    onclick="tasteSelect(this, ${dataAttr})"
+                    data-taste-card
+                    class="taste-card w-full text-left p-1.5 rounded-xl border-2 border-border-light dark:border-border-dark hover:border-sage transition-base focus:outline-none focus:border-sage">
+                ${image}
+                <div class="mt-1.5 px-0.5">
+                    <p class="text-[11px] font-semibold leading-tight line-clamp-2">${escapeHtml(item.title)}</p>
+                </div>
+            </button>
+            <div class="taste-rating-row hidden mt-1.5 flex items-center gap-0.5 justify-center flex-wrap"></div>
+        </div>
     `;
 }
 
-function renderTasteTest() {
+function renderTasteTest(axes) {
     const content = document.getElementById('taste-test-content');
-    content.innerHTML = taste_test_state.pairs.map((pair, i) => `
-        <div class="taste-pair ${taste_test_state.picked.has(i) ? 'taste-picked' : ''}" data-pair-idx="${i}">
-            <p class="text-[11px] text-txt-muted uppercase tracking-widest mb-2 text-center font-semibold">${escapeHtml(pair.axis)}</p>
-            <div class="grid grid-cols-2 gap-3 items-start">
-                ${tasteCard(pair.left, pair.axis, i, 'left')}
-                ${tasteCard(pair.right, pair.axis, i, 'right')}
+    content.innerHTML = axes.map(axis => `
+        <div class="taste-axis">
+            <p class="text-[11px] text-txt-muted uppercase tracking-widest mb-3 text-center font-semibold">${escapeHtml(axis.axis)}</p>
+            <div class="grid grid-cols-2 gap-4 items-start">
+                <div>
+                    <p class="text-[10px] text-txt-muted uppercase tracking-wide mb-2 text-center font-medium">${escapeHtml(axis.left.label)}</p>
+                    <div class="grid grid-cols-3 gap-2">
+                        ${axis.left.items.map(tasteCard).join('')}
+                    </div>
+                </div>
+                <div>
+                    <p class="text-[10px] text-txt-muted uppercase tracking-wide mb-2 text-center font-medium">${escapeHtml(axis.right.label)}</p>
+                    <div class="grid grid-cols-3 gap-2">
+                        ${axis.right.items.map(tasteCard).join('')}
+                    </div>
+                </div>
             </div>
         </div>
     `).join('');
-    updateTasteProgress();
+    content.classList.remove('hidden');
 }
 
 function updateTasteProgress() {
     document.getElementById('taste-test-progress').textContent =
-        `${taste_test_state.picked.size} / ${taste_test_state.pairs.length}`;
-    if (taste_test_state.picked.size === taste_test_state.pairs.length && taste_test_state.pairs.length > 0) {
-        document.getElementById('taste-test-done').classList.remove('hidden');
+        taste_test_rated_count === 0 ? '0 rated' : `${taste_test_rated_count} rated`;
+}
+
+// Tap a card to select it. We POST to /api/profile/ to create the
+// entry (so we have an ID to update), mark the card as selected, and
+// reveal a 1-10 rating row directly underneath. Tapping a rating PUTs
+// to update the entry's rating.
+async function tasteSelect(btn, itemData) {
+    const wrap = btn.closest('.taste-card-wrap');
+    if (btn.dataset.entryId) {
+        // Already created — just toggle the rating row back into view.
+        wrap.querySelector('.taste-rating-row').classList.remove('hidden');
+        return;
+    }
+    btn.classList.add('border-sage', 'bg-sage/5');
+    try {
+        const resp = await fetch('/api/profile/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(itemData),
+        });
+        let entryId = null;
+        if (resp.ok) {
+            const created = await resp.json();
+            entryId = created.id;
+        } else if (resp.status === 409) {
+            // Already in profile — look it up so we can still rate it
+            try {
+                const check = await fetch(`/api/profile/check/${encodeURIComponent(itemData.source || '_')}/${encodeURIComponent(itemData.external_id || '_')}`);
+                const d = await check.json();
+                entryId = d.entry ? d.entry.id : null;
+            } catch {}
+        }
+        if (!entryId) {
+            btn.classList.remove('border-sage', 'bg-sage/5');
+            return;
+        }
+        btn.dataset.entryId = entryId;
+        btn.dataset.mediaType = itemData.media_type;
+        // Reveal the rating row
+        const row = wrap.querySelector('.taste-rating-row');
+        row.classList.remove('hidden');
+        row.innerHTML = Array.from({length: 10}, (_, i) => i + 1).map(n => {
+            const color = n <= 3 ? 'hover:bg-coral' : n <= 5 ? 'hover:bg-amber-400' : n <= 7 ? 'hover:bg-yellow-500' : 'hover:bg-emerald-500';
+            return `<button type="button" onclick="tasteRate(this,${entryId},${n},'${itemData.media_type}')" class="w-4 h-4 rounded-full bg-border-light dark:bg-border-dark ${color} transition-base text-[7px] font-bold text-transparent hover:text-white" title="${n}/10">${n}</button>`;
+        }).join('');
+    } catch {
+        btn.classList.remove('border-sage', 'bg-sage/5');
     }
 }
 
-async function pickTaste(idx, side, btn) {
-    if (taste_test_state.picked.has(idx)) return;
-    const pair = taste_test_state.pairs[idx];
-    const chosen = side === 'left' ? pair.left : pair.right;
-    const loser = side === 'left' ? pair.right : pair.left;
-
-    // Mark the chosen card visually immediately
-    const pairEl = btn.closest('[data-pair-idx]');
-    if (pairEl) {
-        pairEl.querySelectorAll('[data-taste-card]').forEach(c => {
-            if (c === btn) {
-                c.classList.add('border-sage', 'bg-sage/5');
-            } else {
-                c.classList.add('opacity-40');
-                c.setAttribute('disabled', 'true');
-            }
-        });
-    }
-    taste_test_state.picked.add(idx);
-
-    // Save the chosen item as a consumed 9/10 rating so it flows into
-    // the existing recommendation pipeline as a loved signal. We also
-    // bump per-type progress so the curated grid below reflects it.
+async function tasteRate(btn, entryId, rating, mediaType) {
     try {
-        await fetch('/api/profile/', {
-            method: 'POST',
+        const resp = await fetch(`/api/profile/${entryId}`, {
+            method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                external_id: chosen.external_id || '',
-                source: chosen.source || '',
-                title: chosen.title,
-                media_type: chosen.media_type,
-                image_url: chosen.image_url || null,
-                year: chosen.year || null,
-                creator: chosen.creator || null,
-                genres: (chosen.genres && chosen.genres.length) ? chosen.genres.join(', ') : null,
-                description: chosen.description || null,
-                status: 'consumed',
-                rating: 9,
-            }),
+            body: JSON.stringify({ rating }),
         });
-        ratedCount++;
-        if (chosen.media_type && ratedByType.hasOwnProperty(chosen.media_type)) {
-            ratedByType[chosen.media_type]++;
-        }
-        updateProgress();
-    } catch {}
-
+        if (!resp.ok) return;
+    } catch { return; }
+    const row = btn.parentElement;
+    const ratingColor = rating <= 3 ? 'text-coral' : rating <= 5 ? 'text-amber-500' : rating <= 7 ? 'text-yellow-600' : 'text-emerald-500';
+    row.innerHTML = `<span class="text-[11px] font-semibold ${ratingColor}">${rating}/10 ✓</span>`;
+    taste_test_rated_count++;
+    ratedCount++;
+    if (mediaType && ratedByType.hasOwnProperty(mediaType)) {
+        ratedByType[mediaType]++;
+    }
+    updateProgress();
     updateTasteProgress();
 }
 
