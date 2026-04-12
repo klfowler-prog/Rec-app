@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -43,7 +43,11 @@ class MediaEntry(Base):
         DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
     )
 
-    __table_args__ = (UniqueConstraint("user_id", "external_id", "source", name="uq_user_external_source"),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "external_id", "source", name="uq_user_external_source"),
+        Index("idx_media_user_status", "user_id", "status"),
+        Index("idx_media_user_rating", "user_id", "rating"),
+    )
 
 
 class Recommendation(Base):

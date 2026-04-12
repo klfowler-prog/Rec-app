@@ -188,10 +188,18 @@ Return ONLY valid JSON, no markdown:
             "reason": item.get("reason", ""),
         }
 
-    watch_together = await enrich(parsed.get("watch_together_pick"))
-    candidates_raw = parsed.get("candidates", [])
-    candidates_enriched = await asyncio.gather(*[enrich(c) for c in candidates_raw[:5]])
-    candidates = [c for c in candidates_enriched if c is not None]
+    # Parallel enrichment: watch_together + all candidates at once
+    watch_together_raw = parsed.get("watch_together_pick")
+    candidates_raw = parsed.get("candidates", [])[:5]
+    all_to_enrich = [watch_together_raw] + candidates_raw if watch_together_raw else candidates_raw
+    all_enriched = await asyncio.gather(*[enrich(item) for item in all_to_enrich])
+
+    if watch_together_raw:
+        watch_together = all_enriched[0]
+        candidates = [c for c in all_enriched[1:] if c is not None]
+    else:
+        watch_together = None
+        candidates = [c for c in all_enriched if c is not None]
 
     # Sort by the lower of the two predicted ratings (higher = safer for both)
     candidates.sort(key=lambda x: min(x.get("predicted_rating_me") or 0, x.get("predicted_rating_them") or 0), reverse=True)

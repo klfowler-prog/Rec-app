@@ -120,35 +120,40 @@ def profile_top(limit: int = 10, user: User = Depends(require_user), db: Session
 @router.get("/shape")
 def profile_shape(user: User = Depends(require_user), db: Session = Depends(get_db)):
     """Taste shape data: rating histogram, media type distribution, genre breakdown."""
-    entries = db.query(MediaEntry).filter(MediaEntry.user_id == user.id).all()
-    if not entries:
+    # Only select the columns we actually need — much faster than loading full rows
+    rows = db.query(
+        MediaEntry.media_type,
+        MediaEntry.rating,
+        MediaEntry.genres,
+    ).filter(MediaEntry.user_id == user.id).all()
+    if not rows:
         return {"rating_histogram": {}, "type_distribution": {}, "top_genres": [], "total": 0}
 
     # Rating histogram (1-10 bins)
     rating_hist: dict[int, int] = {i: 0 for i in range(1, 11)}
-    for e in entries:
-        if e.rating is not None:
-            bin_val = max(1, min(10, int(round(e.rating))))
+    for media_type, rating, genres in rows:
+        if rating is not None:
+            bin_val = max(1, min(10, int(round(rating))))
             rating_hist[bin_val] += 1
 
     # Type distribution
     type_dist: dict[str, int] = {}
-    for e in entries:
-        type_dist[e.media_type] = type_dist.get(e.media_type, 0) + 1
+    for media_type, rating, genres in rows:
+        type_dist[media_type] = type_dist.get(media_type, 0) + 1
 
     # Top genres with avg rating
     genre_data: dict[str, dict] = {}
-    for e in entries:
-        if e.genres:
-            for g in e.genres.split(","):
+    for media_type, rating, genres in rows:
+        if genres:
+            for g in genres.split(","):
                 g = g.strip()
                 if not g:
                     continue
                 if g not in genre_data:
                     genre_data[g] = {"count": 0, "rating_sum": 0.0, "rating_count": 0}
                 genre_data[g]["count"] += 1
-                if e.rating is not None:
-                    genre_data[g]["rating_sum"] += e.rating
+                if rating is not None:
+                    genre_data[g]["rating_sum"] += rating
                     genre_data[g]["rating_count"] += 1
 
     top_genres = []
@@ -162,14 +167,19 @@ def profile_shape(user: User = Depends(require_user), db: Session = Depends(get_
         "rating_histogram": rating_hist,
         "type_distribution": type_dist,
         "top_genres": top_genres,
-        "total": len(entries),
+        "total": len(rows),
     }
 
 
 @router.get("/stats", response_model=ProfileStats)
 def profile_stats(user: User = Depends(require_user), db: Session = Depends(get_db)):
-    entries = db.query(MediaEntry).filter(MediaEntry.user_id == user.id).all()
-    if not entries:
+    rows = db.query(
+        MediaEntry.media_type,
+        MediaEntry.status,
+        MediaEntry.rating,
+        MediaEntry.genres,
+    ).filter(MediaEntry.user_id == user.id).all()
+    if not rows:
         return ProfileStats(total_entries=0, by_type={}, by_status={}, avg_rating=None, top_genres=[])
 
     by_type: dict[str, int] = {}
@@ -177,13 +187,13 @@ def profile_stats(user: User = Depends(require_user), db: Session = Depends(get_
     genre_counts: dict[str, int] = {}
     ratings = []
 
-    for e in entries:
-        by_type[e.media_type] = by_type.get(e.media_type, 0) + 1
-        by_status[e.status] = by_status.get(e.status, 0) + 1
-        if e.rating is not None:
-            ratings.append(e.rating)
-        if e.genres:
-            for g in e.genres.split(","):
+    for media_type, status, rating, genres in rows:
+        by_type[media_type] = by_type.get(media_type, 0) + 1
+        by_status[status] = by_status.get(status, 0) + 1
+        if rating is not None:
+            ratings.append(rating)
+        if genres:
+            for g in genres.split(","):
                 g = g.strip()
                 if g:
                     genre_counts[g] = genre_counts.get(g, 0) + 1
@@ -192,7 +202,7 @@ def profile_stats(user: User = Depends(require_user), db: Session = Depends(get_
     avg_rating = sum(ratings) / len(ratings) if ratings else None
 
     return ProfileStats(
-        total_entries=len(entries),
+        total_entries=len(rows),
         by_type=by_type,
         by_status=by_status,
         avg_rating=round(avg_rating, 1) if avg_rating else None,
@@ -418,7 +428,10 @@ async def import_goodreads(file: UploadFile = File(...), user: User = Depends(re
         batch_results = await asyncio.gather(*[search_cover(r) for r in batch])
         enriched.extend(zip(batch, batch_results))
 
+    # Bulk save: add all entries first, flush, then commit once.
+    # On integrity error, fall back to one-by-one to catch duplicates.
     added_results = []
+    entries_to_add = []
     for row_data, cover_data in enriched:
         entry = MediaEntry(
             user_id=user.id,
@@ -428,14 +441,26 @@ async def import_goodreads(file: UploadFile = File(...), user: User = Depends(re
             genres=cover_data["genres"], description=cover_data["description"],
             status=row_data["status"], rating=row_data["rating"],
         )
-        try:
-            db.add(entry)
-            db.commit()
+        entries_to_add.append((entry, row_data, cover_data))
+
+    try:
+        db.add_all([e[0] for e in entries_to_add])
+        db.commit()
+        for _, row_data, cover_data in entries_to_add:
             added_results.append({"title": row_data["title"], "status": "added",
                                   "rating": row_data["rating"], "image_url": cover_data["image_url"]})
-        except Exception:
-            db.rollback()
-            added_results.append({"title": row_data["title"], "status": "skipped", "reason": "duplicate"})
+    except Exception:
+        db.rollback()
+        # Fall back to individual inserts to isolate failures
+        for entry, row_data, cover_data in entries_to_add:
+            try:
+                db.add(entry)
+                db.commit()
+                added_results.append({"title": row_data["title"], "status": "added",
+                                      "rating": row_data["rating"], "image_url": cover_data["image_url"]})
+            except Exception:
+                db.rollback()
+                added_results.append({"title": row_data["title"], "status": "skipped", "reason": "duplicate"})
 
     results = added_results + skipped_results
     added = sum(1 for r in results if r["status"] == "added")
@@ -519,6 +544,7 @@ async def import_netflix(file: UploadFile = File(...), user: User = Depends(requ
         enriched.extend(zip(batch, batch_results))
 
     added_results = []
+    entries_to_add = []
     for row_data, tmdb_data in enriched:
         entry = MediaEntry(
             user_id=user.id,
@@ -533,14 +559,25 @@ async def import_netflix(file: UploadFile = File(...), user: User = Depends(requ
             description=tmdb_data["description"],
             status="consumed",
         )
-        try:
-            db.add(entry)
-            db.commit()
+        entries_to_add.append((entry, row_data, tmdb_data))
+
+    try:
+        db.add_all([e[0] for e in entries_to_add])
+        db.commit()
+        for _, row_data, tmdb_data in entries_to_add:
             added_results.append({"title": row_data["title"], "status": "added",
                                   "image_url": tmdb_data["image_url"], "media_type": tmdb_data["media_type"]})
-        except Exception:
-            db.rollback()
-            added_results.append({"title": row_data["title"], "status": "skipped", "reason": "duplicate"})
+    except Exception:
+        db.rollback()
+        for entry, row_data, tmdb_data in entries_to_add:
+            try:
+                db.add(entry)
+                db.commit()
+                added_results.append({"title": row_data["title"], "status": "added",
+                                      "image_url": tmdb_data["image_url"], "media_type": tmdb_data["media_type"]})
+            except Exception:
+                db.rollback()
+                added_results.append({"title": row_data["title"], "status": "skipped", "reason": "duplicate"})
 
     results = added_results + skipped_results
     added = sum(1 for r in results if r["status"] == "added")
@@ -664,6 +701,7 @@ async def import_plex(req: PlexImportRequest, user: User = Depends(require_user)
         enriched.extend(zip(batch, batch_results))
 
     added_results = []
+    entries_to_add = []
     for item, tmdb_data in enriched:
         entry = MediaEntry(
             user_id=user.id,
@@ -678,14 +716,25 @@ async def import_plex(req: PlexImportRequest, user: User = Depends(require_user)
             status="consumed",
             rating=item["rating"],
         )
-        try:
-            db.add(entry)
-            db.commit()
+        entries_to_add.append((entry, item, tmdb_data))
+
+    try:
+        db.add_all([e[0] for e in entries_to_add])
+        db.commit()
+        for _, item, tmdb_data in entries_to_add:
             added_results.append({"title": item["title"], "status": "added",
                                   "image_url": tmdb_data["image_url"], "rating": item["rating"]})
-        except Exception:
-            db.rollback()
-            added_results.append({"title": item["title"], "status": "skipped", "reason": "duplicate"})
+    except Exception:
+        db.rollback()
+        for entry, item, tmdb_data in entries_to_add:
+            try:
+                db.add(entry)
+                db.commit()
+                added_results.append({"title": item["title"], "status": "added",
+                                      "image_url": tmdb_data["image_url"], "rating": item["rating"]})
+            except Exception:
+                db.rollback()
+                added_results.append({"title": item["title"], "status": "skipped", "reason": "duplicate"})
 
     results = added_results + skipped_results
     added = sum(1 for r in results if r["status"] == "added")

@@ -387,7 +387,7 @@ async def tonight_pick(
 
     entries = db.query(MediaEntry).filter(MediaEntry.user_id == user.id).all()
     existing_titles = {e.title.lower() for e in entries}
-    dismissed = {d.title.lower() for d in db.query(DismissedItem).filter(DismissedItem.user_id == user.id).all()}
+    dismissed = {row[0].lower() for row in db.query(DismissedItem.title).filter(DismissedItem.user_id == user.id).all()}
     existing_titles = existing_titles | dismissed
 
     # Build cross-medium taste summary
@@ -534,7 +534,7 @@ async def top_picks(user: User = Depends(require_user), db: Session = Depends(ge
 
     # Also exclude dismissed items
     from app.models import DismissedItem
-    dismissed_titles = {d.title.lower() for d in db.query(DismissedItem).filter(DismissedItem.user_id == user.id).all()}
+    dismissed_titles = {row[0].lower() for row in db.query(DismissedItem.title).filter(DismissedItem.user_id == user.id).all()}
     existing_titles = existing_titles | dismissed_titles
 
     # Build cross-medium taste summary, grouped by type and weighted by recency
@@ -672,7 +672,7 @@ async def home_suggestions(user: User = Depends(require_user), db: Session = Dep
     want = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.status == "want_to_consume").all()
 
     from app.models import DismissedItem
-    dismissed_titles = {d.title.lower() for d in db.query(DismissedItem).filter(DismissedItem.user_id == user.id).all()}
+    dismissed_titles = {row[0].lower() for row in db.query(DismissedItem.title).filter(DismissedItem.user_id == user.id).all()}
 
     # Figure out which types are missing from the queue
     queue_types = {item.media_type for item in want}

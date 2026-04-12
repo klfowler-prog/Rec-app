@@ -69,7 +69,7 @@
                 <div class="rounded-lg overflow-hidden transition-base card-hover shadow-sm border border-border-light dark:border-border-dark">
                     <div class="relative">
                         {% if item.image_url %}
-                        <img src="{{ item.image_url }}" alt="{{ item.title }}" class="w-full {{ 'aspect-square' if item.media_type == 'podcast' else 'aspect-[2/3]' }} object-cover">
+                        <img src="{{ item.image_url }}" alt="{{ item.title }}" class="w-full {{ 'aspect-square' if item.media_type == 'podcast' else 'aspect-[2/3]' }} object-cover" loading="lazy">
                         {% else %}
                         <div class="w-full {{ 'aspect-square' if item.media_type == 'podcast' else 'aspect-[2/3]' }} bg-sage/10 flex items-center justify-center">
                             <span class="text-sage text-2xl">{{ item.title[0] }}</span>
