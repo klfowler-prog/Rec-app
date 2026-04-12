@@ -134,6 +134,90 @@ function escapeAttr(str) {
     return str.replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+// Shared status labels — used across the app
+const STATUS_LABELS = {
+    want_to_consume: 'Later',
+    consuming: 'Now',
+    consumed: 'Done',
+    abandoned: 'Dropped',
+};
+
+const STATUS_COLORS = {
+    want_to_consume: 'bg-sage/15 text-sage-dark dark:text-sage-light',
+    consuming: 'bg-coral/15 text-coral',
+    consumed: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
+    abandoned: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
+};
+
+// Build an inline status switcher — 4 pill buttons for each state
+// Current state is highlighted, tapping another transitions immediately
+function buildStatusSwitcher(entryId, currentStatus, mediaType = null) {
+    const verb = { movie: 'Watched', tv: 'Watched', book: 'Read', podcast: 'Listened' }[mediaType] || 'Done';
+    // Use "Done" but on the consumed button, use contextual verb
+    const labels = {
+        want_to_consume: 'Later',
+        consuming: 'Now',
+        consumed: verb,
+        abandoned: 'Dropped',
+    };
+
+    const states = ['want_to_consume', 'consuming', 'consumed', 'abandoned'];
+    return `
+        <div class="inline-flex rounded-lg bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark p-0.5 gap-0.5 text-[10px] font-medium" data-status-switcher="${entryId}">
+            ${states.map(s => {
+                const active = s === currentStatus;
+                const base = 'px-2 py-1 rounded transition-base';
+                const activeClass = active ? STATUS_COLORS[s] : 'text-txt-muted hover:text-txt';
+                return `<button onclick="changeStatus(${entryId}, '${s}', this)" class="${base} ${activeClass}" title="${STATUS_LABELS[s]}">${labels[s]}</button>`;
+            }).join('')}
+        </div>
+    `;
+}
+
+// Change an item's status via PUT /api/profile/{id}
+async function changeStatus(entryId, newStatus, btn) {
+    if (!entryId) return;
+    try {
+        const resp = await fetch(`/api/profile/${entryId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus }),
+        });
+        if (!resp.ok) return;
+
+        // Update the switcher UI inline
+        const switcher = btn.closest('[data-status-switcher]');
+        if (switcher) {
+            const buttons = switcher.querySelectorAll('button');
+            buttons.forEach(b => {
+                // Reset all to muted
+                b.className = b.className.replace(/bg-sage\/15 text-sage-dark dark:text-sage-light|bg-coral\/15 text-coral|bg-emerald-100 text-emerald-700 dark:bg-emerald-900\/30 dark:text-emerald-300|bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400/g, '').trim();
+                if (!b.className.includes('text-txt-muted')) {
+                    b.className += ' text-txt-muted hover:text-txt';
+                }
+            });
+            // Highlight the new active
+            btn.className = btn.className.replace('text-txt-muted hover:text-txt', '').trim() + ' ' + STATUS_COLORS[newStatus];
+        }
+
+        // If moved to "consumed", show rating dots so the user can rate inline
+        if (newStatus === 'consumed') {
+            // Find a place to show rating dots near the switcher
+            const parent = switcher ? switcher.parentElement : btn.parentElement;
+            if (parent) {
+                // Check if rating dots already exist
+                let ratingWrap = parent.querySelector('.inline-rating-dots');
+                if (!ratingWrap) {
+                    ratingWrap = document.createElement('div');
+                    ratingWrap.className = 'inline-rating-dots mt-1';
+                    parent.appendChild(ratingWrap);
+                }
+                showRatingDots(ratingWrap, entryId);
+            }
+        }
+    } catch {}
+}
+
 // Helper to build the three-button action bar HTML used in cards
 function buildActionBar(item, size = 'md') {
     const consumeData = escapeAttr(JSON.stringify({

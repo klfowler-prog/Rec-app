@@ -277,7 +277,11 @@ Icon choices:
 
 
 @router.get("/taste-dna")
-async def taste_dna(user: User = Depends(require_user), db: Session = Depends(get_db)):
+async def taste_dna(
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+    refresh: bool = Query(False),
+):
     """Generate an AI analysis of the user's taste across all media types. Cached 24h."""
     import json
     from datetime import datetime, timedelta
@@ -287,54 +291,103 @@ async def taste_dna(user: User = Depends(require_user), db: Session = Depends(ge
     from app.models import MediaEntry
 
     cache_key = f"taste_dna:{user.id}"
-    cached = cache.get(cache_key)
-    if cached is not None:
-        return cached
+    if refresh:
+        cache.invalidate(cache_key)
+    else:
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
 
     if not settings.gemini_api_key:
         return {"themes": [], "summary": "", "by_medium": {}, "signature_items": [], "avoided": "", "recent_shift": ""}
 
-    entries = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None)).all()
+    # Pull ALL entries — unrated items (esp. from bulk imports) are still a signal:
+    # the user deliberately added/shelved them.
+    entries = db.query(MediaEntry).filter(MediaEntry.user_id == user.id).all()
     if len(entries) < 3:
-        return {"themes": [], "summary": "Rate at least a few items to see your taste DNA.", "by_medium": {}, "signature_items": [], "avoided": "", "recent_shift": ""}
+        return {"themes": [], "summary": "Add at least a few items to see your taste DNA.", "by_medium": {}, "signature_items": [], "avoided": "", "recent_shift": ""}
 
-    # Group by type, top rated
-    by_type: dict[str, list] = {"movie": [], "tv": [], "book": [], "podcast": []}
-    for e in entries:
-        if e.rating and e.rating >= 6:
-            by_type.setdefault(e.media_type, []).append(e)
-    for mt in by_type:
-        by_type[mt].sort(key=lambda x: x.rating or 0, reverse=True)
-
-    # Recent items
-    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-    recent = [e for e in entries if e.rated_at and e.rated_at >= thirty_days_ago]
-    recent.sort(key=lambda e: e.rated_at or datetime.min, reverse=True)
-
-    # Low-rated and dismissed items — what they avoid
+    # Partition: loved (rated 8+), liked (6-7), consumed-unrated, queued (want_to_consume), low-rated
+    loved = sorted([e for e in entries if e.rating and e.rating >= 8], key=lambda e: e.rating or 0, reverse=True)
+    liked = sorted([e for e in entries if e.rating and 6 <= e.rating <= 7], key=lambda e: e.rating or 0, reverse=True)
+    consumed_unrated = [e for e in entries if e.status == "consumed" and not e.rating]
+    queued = [e for e in entries if e.status == "want_to_consume"]
     low_rated = sorted([e for e in entries if e.rating and e.rating <= 4], key=lambda e: e.rating or 0)[:10]
+
+    # Recent items — rated OR added
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    recent = [e for e in entries if (e.rated_at and e.rated_at >= thirty_days_ago) or (e.created_at and e.created_at >= thirty_days_ago)]
+    recent.sort(key=lambda e: (e.rated_at or e.created_at or datetime.min), reverse=True)
+
     dismissed = db.query(DismissedItem.title, DismissedItem.media_type).filter(DismissedItem.user_id == user.id).all()
 
-    lines = []
+    # Genre frequency across ALL items (unrated included)
+    genre_counts: dict[str, int] = {}
+    for e in entries:
+        if e.genres:
+            for g in e.genres.split(","):
+                g = g.strip()
+                if g:
+                    genre_counts[g] = genre_counts.get(g, 0) + 1
+    top_genres = sorted(genre_counts, key=lambda k: genre_counts[k], reverse=True)[:12]
+
+    # Totals per type
+    type_totals: dict[str, int] = {}
+    for e in entries:
+        type_totals[e.media_type] = type_totals.get(e.media_type, 0) + 1
+
+    # Build per-type prompt sections — prefer loved, then liked, then consumed-unrated, then queued
+    def _sample(items: list, n: int) -> list:
+        return items[:n]
+
     label_map = {"movie": "MOVIES", "tv": "TV SHOWS", "book": "BOOKS", "podcast": "PODCASTS"}
+    lines = []
     for mt, label in label_map.items():
-        items = by_type.get(mt, [])[:10]
-        if items:
-            item_lines = [f"  - {e.title} ({e.year or '?'}) — {e.rating}/10 [{e.genres or ''}]" for e in items]
-            lines.append(f"{label}:\n" + "\n".join(item_lines))
+        total = type_totals.get(mt, 0)
+        if total == 0:
+            continue
+        mt_loved = [e for e in loved if e.media_type == mt]
+        mt_liked = [e for e in liked if e.media_type == mt]
+        mt_consumed = [e for e in consumed_unrated if e.media_type == mt]
+        mt_queued = [e for e in queued if e.media_type == mt]
+
+        block = [f"{label} ({total} total):"]
+        if mt_loved:
+            block.append("  Loved (8+/10):")
+            for e in _sample(mt_loved, 10):
+                block.append(f"    - {e.title} ({e.year or '?'}) — {e.rating}/10 [{e.genres or ''}]")
+        if mt_liked:
+            block.append("  Liked (6-7/10):")
+            for e in _sample(mt_liked, 6):
+                block.append(f"    - {e.title} ({e.year or '?'}) — {e.rating}/10 [{e.genres or ''}]")
+        if mt_consumed:
+            block.append(f"  Finished but not rated ({len(mt_consumed)} total — strong signal, they chose to consume these):")
+            for e in _sample(mt_consumed, 12):
+                block.append(f"    - {e.title} ({e.year or '?'}) [{e.genres or ''}]")
+        if mt_queued:
+            block.append(f"  In their queue / want to consume ({len(mt_queued)} total — reflects aspirational taste):")
+            for e in _sample(mt_queued, 10):
+                block.append(f"    - {e.title} ({e.year or '?'}) [{e.genres or ''}]")
+        lines.append("\n".join(block))
     profile_summary = "\n\n".join(lines) if lines else ""
+
+    if top_genres:
+        profile_summary += f"\n\nMOST COMMON GENRES across all items: {', '.join(top_genres)}"
 
     recent_summary = ""
     if recent:
-        recent_lines = [f"  - {e.title} ({e.media_type}, {e.rating}/10)" for e in recent[:8]]
-        recent_summary = f"\n\nRECENT MOOD (last 30 days):\n" + "\n".join(recent_lines)
+        recent_lines = []
+        for e in recent[:10]:
+            rating_str = f", {e.rating}/10" if e.rating else ""
+            recent_lines.append(f"  - {e.title} ({e.media_type}{rating_str})")
+        recent_summary = "\n\nRECENT MOOD (last 30 days, rated or added):\n" + "\n".join(recent_lines)
 
     avoided_summary = ""
     if low_rated or dismissed:
         avoided_lines = [f"  - {e.title} ({e.media_type}) — rated {e.rating}/10" for e in low_rated[:6]]
         avoided_lines += [f"  - {row[0]} ({row[1]}) — dismissed" for row in list(dismissed)[:6]]
         if avoided_lines:
-            avoided_summary = f"\n\nITEMS THEY LOW-RATED OR DISMISSED:\n" + "\n".join(avoided_lines)
+            avoided_summary = "\n\nITEMS THEY LOW-RATED OR DISMISSED:\n" + "\n".join(avoided_lines)
 
     try:
         from app.services.gemini import generate
@@ -345,7 +398,13 @@ async def taste_dna(user: User = Depends(require_user), db: Session = Depends(ge
 {recent_summary}
 {avoided_summary}
 
-IMPORTANT: This user may consume a mix of fiction and nonfiction. Pay attention to:
+IMPORTANT INSTRUCTIONS about the data you're seeing:
+- "Loved (8+/10)" items are the strongest signal of taste — weight these heaviest.
+- "Finished but not rated" items are real signal too: the user deliberately added AND consumed them. Hundreds of bulk-imported books with no ratings still reveal genre, author, and subject-matter preferences. DO NOT say "not enough info" just because ratings are sparse — the sheer set of items they chose to read/watch is itself the profile.
+- "In their queue" items show aspirational taste — what they want to engage with.
+- If one medium has many items but few ratings, infer from titles, genres, and authors directly.
+
+This user may consume a mix of fiction and nonfiction. Pay attention to:
 - Whether they read literary fiction, genre fiction, memoirs, idea books, narrative nonfiction
 - Whether their movies include documentaries
 - Whether their podcasts are narrative/storytelling or interview/explainer/news

@@ -92,13 +92,14 @@
 
 {% block scripts %}
 <script>
-async function loadDna() {
+async function loadDna(forceRefresh = false) {
     document.getElementById('dna-loading').classList.remove('hidden');
     document.getElementById('dna-content').classList.add('hidden');
     document.getElementById('dna-empty').classList.add('hidden');
 
     try {
-        const resp = await fetch('/api/media/taste-dna');
+        const url = forceRefresh ? '/api/media/taste-dna?refresh=1' : '/api/media/taste-dna';
+        const resp = await fetch(url);
         const data = await resp.json();
 
         if (!data.themes || data.themes.length === 0) {
@@ -216,8 +217,7 @@ async function loadDna() {
 }
 
 async function refreshDna() {
-    // Force regenerate by clearing cache server-side is not exposed; reload with cache buster
-    await loadDna();
+    await loadDna(true);
 }
 
 function escapeHtml(text) {

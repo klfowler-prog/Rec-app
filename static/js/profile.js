@@ -70,12 +70,6 @@ function renderStats(stats) {
 }
 
 function profileEntry(entry) {
-    const statusLabels = { consumed: 'Consumed', consuming: 'Enjoying', want_to_consume: 'Want to try' };
-    const statusColors = {
-        consumed: 'bg-sage/10 text-sage',
-        consuming: 'bg-coral/10 text-coral',
-        want_to_consume: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
-    };
     const typeColors = {
         movie: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
         tv: 'bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400',
@@ -93,18 +87,25 @@ function profileEntry(entry) {
         return `<button onclick="inlineRate(${entry.id}, ${n}, this)" class="w-5 h-5 rounded-full ${color} hover:bg-sage transition-base text-[8px] font-bold ${active ? 'text-white' : 'text-transparent hover:text-white'}" title="${n}/10">${n}</button>`;
     }).join('');
 
+    // Use shared status switcher from card_actions.js
+    const statusSwitcher = typeof buildStatusSwitcher === 'function'
+        ? buildStatusSwitcher(entry.id, entry.status, entry.media_type)
+        : '';
+
     return `
-        <div class="bg-surface-light dark:bg-surface-dark rounded-lg border border-border-light dark:border-border-dark p-4 flex items-center gap-4 transition-base hover:border-sage/30">
-            <input type="checkbox" class="entry-checkbox w-4 h-4 accent-coral rounded flex-shrink-0" data-id="${entry.id}" onchange="updateBulkBar()">
+        <div class="bg-surface-light dark:bg-surface-dark rounded-lg border border-border-light dark:border-border-dark p-4 flex items-start gap-4 transition-base hover:border-sage/30">
+            <input type="checkbox" class="entry-checkbox w-4 h-4 accent-coral rounded flex-shrink-0 mt-1" data-id="${entry.id}" onchange="updateBulkBar()">
             <a href="/media/${entry.media_type}/${entry.external_id}?source=${entry.source}" class="flex-shrink-0">${image}</a>
-            <div class="flex-1 min-w-0">
-                <a href="/media/${entry.media_type}/${entry.external_id}?source=${entry.source}" class="text-sm font-medium hover:text-sage transition-base">${escapeHtml(entry.title)}</a>
-                <div class="flex items-center gap-2 mt-1">
-                    <span class="px-1.5 py-0.5 ${typeColors[entry.media_type] || ''} text-[10px] font-medium rounded capitalize">${entry.media_type}</span>
-                    <span class="px-1.5 py-0.5 ${statusColors[entry.status] || ''} text-[10px] font-medium rounded">${statusLabels[entry.status] || entry.status}</span>
-                    ${entry.year ? `<span class="text-xs text-txt-muted">${entry.year}</span>` : ''}
+            <div class="flex-1 min-w-0 space-y-1.5">
+                <div>
+                    <a href="/media/${entry.media_type}/${entry.external_id}?source=${entry.source}" class="text-sm font-medium hover:text-sage transition-base">${escapeHtml(entry.title)}</a>
+                    <div class="flex items-center gap-2 mt-0.5">
+                        <span class="px-1.5 py-0.5 ${typeColors[entry.media_type] || ''} text-[10px] font-medium rounded capitalize">${entry.media_type}</span>
+                        ${entry.year ? `<span class="text-xs text-txt-muted">${entry.year}</span>` : ''}
+                    </div>
                 </div>
-                <div class="flex items-center gap-0.5 mt-2" id="rating-row-${entry.id}">
+                ${statusSwitcher}
+                <div class="flex items-center gap-0.5" id="rating-row-${entry.id}">
                     ${ratingDots}
                     ${entry.rating ? `<span class="text-xs font-semibold ml-1.5 ${entry.rating <= 3 ? 'text-coral' : entry.rating <= 5 ? 'text-amber-500' : entry.rating <= 7 ? 'text-yellow-600' : 'text-emerald-500'}">${entry.rating}/10</span>` : `<span class="text-[10px] text-txt-muted ml-1.5">rate</span>`}
                     ${!entry.rating && entry.predicted_rating ? `<span class="text-[10px] ml-1.5 px-1.5 py-0.5 rounded-full ${entry.predicted_rating >= 8 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' : entry.predicted_rating >= 6 ? 'bg-yellow-50 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400' : entry.predicted_rating >= 4 ? 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-red-50 text-red-500 dark:bg-red-900/30 dark:text-red-400'}" title="AI predicted rating">~${entry.predicted_rating}</span>` : ''}
