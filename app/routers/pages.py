@@ -1,4 +1,5 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.templating import Jinja2Templates
@@ -14,7 +15,7 @@ router = APIRouter()
 
 def _get_greeting_context(user_name: str) -> dict:
     """Generate time-aware greeting and content suggestion context."""
-    now = datetime.now()
+    now = datetime.now(ZoneInfo("America/New_York"))
     hour = now.hour
     weekday = now.weekday()
     is_weekend = weekday >= 5
