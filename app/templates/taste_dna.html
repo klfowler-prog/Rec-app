@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Your Taste DNA{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <div>
+        <h2 class="text-2xl font-semibold mb-1">Your Taste DNA</h2>
+        <p class="text-txt-muted">What makes you unique as a media consumer — across books, TV, movies, and podcasts.</p>
+    </div>
+
+    <div id="dna-loading" class="text-center py-16">
+        <div class="inline-block w-6 h-6 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
+        <p class="text-sm text-txt-muted mt-3">Analyzing your cross-medium taste patterns...</p>
+    </div>
+
+    <div id="dna-content" class="hidden space-y-8">
+        <!-- Summary card -->
+        <div class="gradient-navy rounded-2xl p-8 text-white">
+            <h3 class="text-xs font-semibold uppercase tracking-widest text-white/60 mb-3">Your essence</h3>
+            <p id="dna-summary" class="text-lg leading-relaxed"></p>
+            <div id="dna-recent-shift-wrap" class="hidden mt-5 pt-5 border-t border-white/15">
+                <p class="text-xs text-white/50 uppercase tracking-wide mb-1">Recent mood shift</p>
+                <p id="dna-recent-shift" class="text-sm text-white/80"></p>
+            </div>
+        </div>
+
+        <!-- Themes -->
+        <div>
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-txt-muted mb-3 flex items-center gap-2">
+                <span class="w-6 h-6 rounded gradient-sage flex items-center justify-center"><svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg></span>
+                Themes you gravitate to
+            </h3>
+            <div id="dna-themes" class="flex flex-wrap gap-2"></div>
+        </div>
+
+        <!-- Moods -->
+        <div>
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-txt-muted mb-3 flex items-center gap-2">
+                <span class="w-6 h-6 rounded gradient-coral flex items-center justify-center"><svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></span>
+                Emotional moods
+            </h3>
+            <div id="dna-moods" class="flex flex-wrap gap-2"></div>
+        </div>
+
+        <!-- Tones -->
+        <div>
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-txt-muted mb-3 flex items-center gap-2">
+                <span class="w-6 h-6 rounded gradient-amber flex items-center justify-center"><svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg></span>
+                Narrative tones
+            </h3>
+            <div id="dna-tones" class="flex flex-wrap gap-2"></div>
+        </div>
+
+        <!-- Refresh -->
+        <div class="text-center pt-4">
+            <button onclick="refreshDna()" class="text-sm text-txt-muted hover:text-sage transition-base flex items-center gap-1 mx-auto">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h4.586M20 20v-5h-4.586M4.929 9A8 8 0 0119.07 9M19.071 15A8 8 0 014.93 15"/></svg>
+                Refresh analysis
+            </button>
+        </div>
+    </div>
+
+    <div id="dna-empty" class="hidden text-center py-16">
+        <div class="w-16 h-16 bg-sage/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+        </div>
+        <h3 class="text-lg font-medium mb-2">Not enough data yet</h3>
+        <p class="text-txt-muted mb-6 max-w-md mx-auto">Rate at least a few items across movies, TV, books, or podcasts to see your taste DNA.</p>
+        <a href="/add" class="inline-flex items-center gap-2 px-5 py-2.5 bg-sage text-white rounded-lg text-sm font-medium hover:bg-sage-dark transition-base">Add media</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadDna(force = false) {
+    document.getElementById('dna-loading').classList.remove('hidden');
+    document.getElementById('dna-content').classList.add('hidden');
+    document.getElementById('dna-empty').classList.add('hidden');
+
+    try {
+        if (force) {
+            // No explicit cache bust endpoint — just reload
+        }
+        const resp = await fetch('/api/media/taste-dna');
+        const data = await resp.json();
+
+        if (!data.themes || data.themes.length === 0) {
+            document.getElementById('dna-loading').classList.add('hidden');
+            document.getElementById('dna-empty').classList.remove('hidden');
+            return;
+        }
+
+        document.getElementById('dna-summary').textContent = data.summary || '';
+
+        if (data.recent_shift) {
+            document.getElementById('dna-recent-shift-wrap').classList.remove('hidden');
+            document.getElementById('dna-recent-shift').textContent = data.recent_shift;
+        }
+
+        document.getElementById('dna-themes').innerHTML = (data.themes || []).map(t =>
+            `<span class="px-3 py-1.5 bg-sage/10 text-sage-dark dark:text-sage-light rounded-full text-sm">${escapeHtml(t)}</span>`
+        ).join('');
+
+        document.getElementById('dna-moods').innerHTML = (data.moods || []).map(m =>
+            `<span class="px-3 py-1.5 bg-coral/10 text-coral rounded-full text-sm">${escapeHtml(m)}</span>`
+        ).join('');
+
+        document.getElementById('dna-tones').innerHTML = (data.tones || []).map(t =>
+            `<span class="px-3 py-1.5 bg-gold/10 text-gold rounded-full text-sm">${escapeHtml(t)}</span>`
+        ).join('');
+
+        document.getElementById('dna-loading').classList.add('hidden');
+        document.getElementById('dna-content').classList.remove('hidden');
+    } catch (e) {
+        document.getElementById('dna-loading').classList.add('hidden');
+        document.getElementById('dna-empty').classList.remove('hidden');
+    }
+}
+
+function refreshDna() {
+    loadDna(true);
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+loadDna();
+</script>
+{% endblock %}

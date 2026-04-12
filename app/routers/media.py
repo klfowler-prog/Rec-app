@@ -188,6 +188,84 @@ async def refresh_recommendations():
     return {"ok": True}
 
 
+@router.get("/taste-dna")
+async def taste_dna(user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """Generate an AI analysis of the user's taste across all media types. Cached 24h."""
+    import json
+    from datetime import datetime, timedelta
+
+    from app import cache
+    from app.config import settings
+    from app.models import MediaEntry
+
+    cache_key = f"taste_dna:{user.id}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    if not settings.gemini_api_key:
+        return {"themes": [], "moods": [], "tones": [], "summary": ""}
+
+    entries = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None)).all()
+    if len(entries) < 3:
+        return {"themes": [], "moods": [], "tones": [], "summary": "Add and rate a few items to see your taste DNA."}
+
+    # Group by type, top rated
+    by_type: dict[str, list] = {"movie": [], "tv": [], "book": [], "podcast": []}
+    for e in entries:
+        if e.rating and e.rating >= 6:
+            by_type.setdefault(e.media_type, []).append(e)
+    for mt in by_type:
+        by_type[mt].sort(key=lambda x: x.rating or 0, reverse=True)
+
+    # Recent items
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    recent = [e for e in entries if e.rated_at and e.rated_at >= thirty_days_ago]
+    recent.sort(key=lambda e: e.rated_at or datetime.min, reverse=True)
+
+    lines = []
+    label_map = {"movie": "MOVIES", "tv": "TV SHOWS", "book": "BOOKS", "podcast": "PODCASTS"}
+    for mt, label in label_map.items():
+        items = by_type.get(mt, [])[:10]
+        if items:
+            item_lines = [f"  - {e.title} ({e.year or '?'}) — {e.rating}/10 [{e.genres or ''}]" for e in items]
+            lines.append(f"{label}:\n" + "\n".join(item_lines))
+    profile_summary = "\n\n".join(lines) if lines else ""
+
+    recent_summary = ""
+    if recent:
+        recent_lines = [f"  - {e.title} ({e.media_type}, {e.rating}/10)" for e in recent[:8]]
+        recent_summary = f"\n\nRECENT MOOD (last 30 days):\n" + "\n".join(recent_lines)
+
+    try:
+        from app.services.gemini import generate
+
+        prompt = f"""You are a taste analyst. Analyze this person's cross-medium taste profile and identify what makes them unique as a media consumer. Look for patterns across all media types — themes, tones, narrative structures — not just genres.
+
+{profile_summary}
+{recent_summary}
+
+Return ONLY valid JSON, no markdown:
+{{
+  "themes": ["5-7 specific themes they gravitate to — e.g. 'morally complex anti-heroes', 'slow-burn character studies', 'unreliable narrators'"],
+  "moods": ["4-6 emotional moods — e.g. 'melancholic', 'darkly comic', 'hopeful', 'atmospheric dread'"],
+  "tones": ["3-5 narrative tones — e.g. 'literary', 'propulsive', 'meditative', 'maximalist'"],
+  "summary": "One sharp paragraph (3-4 sentences) that captures who this person is as a media consumer. Reference specific items across DIFFERENT media types to show cross-medium patterns. Be specific and insightful, not generic.",
+  "recent_shift": "One sentence about any mood shift in their recent engagement, or empty string if nothing stands out"
+}}"""
+
+        text = (await generate(prompt)).strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+            text = text.rsplit("```", 1)[0]
+        result = json.loads(text)
+        cache.set(cache_key, result, ttl_seconds=86400)
+        return result
+    except Exception as e:
+        log.error("taste_dna failed: %s", str(e))
+        return {"themes": [], "moods": [], "tones": [], "summary": "", "recent_shift": ""}
+
+
 @router.get("/top-picks")
 async def top_picks(user: User = Depends(require_user), db: Session = Depends(get_db)):
     """Get 4 personalized top recommendations with poster images. Cached per user."""
@@ -215,13 +293,38 @@ async def top_picks(user: User = Depends(require_user), db: Session = Depends(ge
     dismissed_titles = {d.title.lower() for d in db.query(DismissedItem).filter(DismissedItem.user_id == user.id).all()}
     existing_titles = existing_titles | dismissed_titles
 
-    # Build taste summary
-    high_rated = sorted([e for e in entries if e.rating and e.rating >= 7], key=lambda e: e.rating, reverse=True)[:12]
-    taste_lines = []
-    for e in high_rated:
-        taste_lines.append(f"- {e.title} ({e.media_type}, {e.year or '?'}) rated {e.rating}/10 [{e.genres or ''}]")
+    # Build cross-medium taste summary, grouped by type and weighted by recency
+    from datetime import datetime, timedelta
+    now = datetime.utcnow()
+    thirty_days_ago = now - timedelta(days=30)
 
-    taste_summary = "\n".join(taste_lines) if taste_lines else "No rated items yet — suggest universally acclaimed picks across different media types."
+    by_type: dict[str, list] = {"movie": [], "tv": [], "book": [], "podcast": []}
+    recent_items = []
+    for e in entries:
+        if e.rating and e.rating >= 7:
+            by_type.setdefault(e.media_type, []).append(e)
+        # Use rated_at (active engagement) for recent mood, not created_at (bulk import time)
+        if e.rated_at and e.rated_at >= thirty_days_ago and e.rating:
+            recent_items.append(e)
+
+    for mt in by_type:
+        by_type[mt].sort(key=lambda x: x.rating or 0, reverse=True)
+
+    taste_sections = []
+    type_labels = {"movie": "MOVIES", "tv": "TV SHOWS", "book": "BOOKS", "podcast": "PODCASTS"}
+    for mt, label in type_labels.items():
+        items = by_type.get(mt, [])[:8]
+        if items:
+            lines = [f"  - {e.title} ({e.year or '?'}) — {e.rating}/10 [{e.genres or ''}]" for e in items]
+            taste_sections.append(f"{label} they rated highly:\n" + "\n".join(lines))
+
+    taste_summary = "\n\n".join(taste_sections) if taste_sections else "No rated items yet."
+
+    recent_section = ""
+    if recent_items:
+        recent_items.sort(key=lambda e: e.rated_at, reverse=True)
+        recent_lines = [f"  - {e.title} ({e.media_type}, {e.rating}/10)" for e in recent_items[:10]]
+        recent_section = f"\n\nRECENTLY RATED (last 30 days — their current mood, weight heavily):\n" + "\n".join(recent_lines)
 
     # Build a list of titles to avoid
     avoid_titles = list(existing_titles)[:50]
@@ -230,23 +333,34 @@ async def top_picks(user: User = Depends(require_user), db: Session = Depends(ge
     try:
         from app.services.gemini import generate
 
-        prompt = f"""You are a media recommendation expert. Based on this taste profile, pick the BEST next thing this person should try in EACH of these 4 categories. Be specific and bold.
+        prompt = f"""You are a cross-medium taste expert. Your specialty is finding unexpected connections between books, TV, movies, and podcasts that share the same *essence* — theme, tone, narrative style, or emotional vibe — even when the genre differs.
 
-User's taste:
+USER'S TASTE PROFILE (across all media types):
 {taste_summary}
+{recent_section}
 
-Return ONLY valid JSON — no markdown:
+TASK: Pick exactly 4 recommendations — ONE movie, ONE TV show, ONE book, ONE podcast.
+
+CRITICAL REQUIREMENT: Each "reason" MUST explicitly cite at least ONE specific item from a DIFFERENT media type in their profile. This is what makes NextUp unique — we find cross-medium connections. Examples:
+
+- "The atmospheric dread of *Dune* (book) translates directly to this slow-burn sci-fi film."
+- "You loved the slow-burn character work of *The Wire* (TV) — this literary novel has the same patient, morally complex storytelling."
+- "If *Serial* (podcast) hooked you on true crime, this documentary series is its visual counterpart."
+
+Rules:
+- 4 items exactly (movie, tv, book, podcast)
+- Each reason MUST cite an item from a DIFFERENT media type by name (e.g., a book rec cites a movie/TV/podcast they loved)
+- If recently consumed items suggest a mood shift, lean into that mood
+- Do NOT recommend any of these (already in their library): {avoid_str}
+- Pick bold, specific things they'll love — not generic bestsellers
+
+Return ONLY valid JSON, no markdown:
 [
-  {{"title": "...", "media_type": "movie", "year": 2020, "reason": "one compelling sentence about why this is perfect for them"}},
+  {{"title": "...", "media_type": "movie", "year": 2020, "reason": "Because you loved [BOOK/TV/PODCAST in their profile], this movie captures the same [specific quality]."}},
   {{"title": "...", "media_type": "tv", "year": 2020, "reason": "..."}},
   {{"title": "...", "media_type": "book", "year": 2020, "reason": "..."}},
   {{"title": "...", "media_type": "podcast", "year": 2020, "reason": "..."}}
-]
-
-Rules:
-- Exactly 4 items — one movie, one TV show, one book, one podcast
-- Do NOT recommend any of these titles (already in their library): {avoid_str}
-- Pick things they'd LOVE, not just things that are popular"""
+]"""
 
         text = (await generate(prompt)).strip()
         if text.startswith("```"):
@@ -324,13 +438,37 @@ async def home_suggestions(user: User = Depends(require_user), db: Session = Dep
     if not missing_types or not settings.gemini_api_key:
         return {"suggestions": {}}
 
-    # Build a brief taste summary
-    taste_lines = []
-    high_rated = sorted([e for e in consumed if e.rating and e.rating >= 7], key=lambda e: e.rating, reverse=True)[:10]
-    for e in high_rated:
-        taste_lines.append(f"- {e.title} ({e.media_type}, {e.year or '?'}) rated {e.rating}/10")
+    # Build cross-medium taste summary with recent weighting
+    from datetime import datetime, timedelta
+    now = datetime.utcnow()
+    thirty_days_ago = now - timedelta(days=30)
 
-    taste_summary = "\n".join(taste_lines) if taste_lines else "No rated items yet — suggest popular, well-regarded picks."
+    by_type: dict[str, list] = {"movie": [], "tv": [], "book": [], "podcast": []}
+    recent_items = []
+    for e in consumed:
+        if e.rating and e.rating >= 7:
+            by_type.setdefault(e.media_type, []).append(e)
+        if e.rated_at and e.rated_at >= thirty_days_ago and e.rating:
+            recent_items.append(e)
+
+    for mt in by_type:
+        by_type[mt].sort(key=lambda x: x.rating or 0, reverse=True)
+
+    taste_sections = []
+    label_map = {"movie": "MOVIES", "tv": "TV SHOWS", "book": "BOOKS", "podcast": "PODCASTS"}
+    for mt, label in label_map.items():
+        items = by_type.get(mt, [])[:6]
+        if items:
+            lines = [f"  - {e.title} ({e.year or '?'}) — {e.rating}/10" for e in items]
+            taste_sections.append(f"{label}:\n" + "\n".join(lines))
+
+    taste_summary = "\n\n".join(taste_sections) if taste_sections else "No rated items yet."
+
+    recent_section = ""
+    if recent_items:
+        recent_items.sort(key=lambda e: e.rated_at, reverse=True)
+        recent_lines = [f"  - {e.title} ({e.media_type}, {e.rating}/10)" for e in recent_items[:8]]
+        recent_section = f"\n\nRECENTLY RATED (last 30 days — their current mood, weight heavily):\n" + "\n".join(recent_lines)
 
     type_labels = {"movie": "movies", "tv": "TV shows", "book": "books", "podcast": "podcasts"}
     missing_labels = [type_labels[t] for t in missing_types]
@@ -338,20 +476,25 @@ async def home_suggestions(user: User = Depends(require_user), db: Session = Dep
     try:
         from app.services.gemini import generate
 
-        prompt = f"""Based on this user's taste profile, suggest 3 items for EACH of these categories: {', '.join(missing_labels)}.
+        prompt = f"""You are a cross-medium taste expert. Find connections between books, TV, movies, and podcasts that share the same essence.
 
-User's highly rated items:
+USER'S TASTE PROFILE (across all media types):
 {taste_summary}
+{recent_section}
 
-Return ONLY valid JSON with this structure — no markdown, no explanation:
+TASK: Suggest 3 items for EACH of these categories: {', '.join(missing_labels)}.
+
+CRITICAL: Each "reason" MUST cite at least one specific item from a DIFFERENT media type in their profile. This cross-medium connection is essential. Example: "The slow-burn morality of [BOOK IN PROFILE] translates directly to this TV show."
+
+Return ONLY valid JSON, no markdown:
 {{
-  "movie": [{{"title": "...", "year": 2020, "reason": "one short sentence", "predicted_rating": 8.5}}],
-  "tv": [{{"title": "...", "year": 2020, "reason": "one short sentence", "predicted_rating": 8.5}}],
-  "book": [{{"title": "...", "year": 2020, "reason": "one short sentence", "predicted_rating": 8.5}}],
-  "podcast": [{{"title": "...", "year": 2020, "reason": "one short sentence", "predicted_rating": 8.5}}]
+  "movie": [{{"title": "...", "year": 2020, "reason": "Because you loved [specific item from profile, different media type], ...", "predicted_rating": 8.5}}],
+  "tv": [{{"title": "...", "year": 2020, "reason": "...", "predicted_rating": 8.5}}],
+  "book": [{{"title": "...", "year": 2020, "reason": "...", "predicted_rating": 8.5}}],
+  "podcast": [{{"title": "...", "year": 2020, "reason": "...", "predicted_rating": 8.5}}]
 }}
 
-predicted_rating should be 1-10 based on how much this user would enjoy it.
+predicted_rating is 1-10 based on how much this user would enjoy it.
 Only include categories from this list: {', '.join(missing_types)}"""
 
         text = (await generate(prompt)).strip()

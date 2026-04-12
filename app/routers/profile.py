@@ -38,6 +38,8 @@ def list_profile(
 
 @router.post("/", response_model=MediaEntryResponse)
 def add_to_profile(entry: MediaEntryCreate, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    from datetime import datetime as dt
+
     from app import cache
 
     existing = (
@@ -47,7 +49,12 @@ def add_to_profile(entry: MediaEntryCreate, user: User = Depends(require_user), 
     )
     if existing:
         raise HTTPException(status_code=409, detail="Already in your profile")
-    db_entry = MediaEntry(user_id=user.id, **entry.model_dump())
+    data = entry.model_dump()
+    # If a rating is included, track when it was set
+    if data.get("rating") is not None:
+        db_entry = MediaEntry(user_id=user.id, rated_at=dt.utcnow(), **data)
+    else:
+        db_entry = MediaEntry(user_id=user.id, **data)
     db.add(db_entry)
     db.commit()
     db.refresh(db_entry)
@@ -57,10 +64,16 @@ def add_to_profile(entry: MediaEntryCreate, user: User = Depends(require_user), 
 
 @router.put("/{entry_id}", response_model=MediaEntryResponse)
 def update_entry(entry_id: int, updates: MediaEntryUpdate, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    from datetime import datetime as dt
+
     entry = db.query(MediaEntry).filter(MediaEntry.id == entry_id, MediaEntry.user_id == user.id).first()
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
-    for field, value in updates.model_dump(exclude_unset=True).items():
+    update_data = updates.model_dump(exclude_unset=True)
+    # Track when a rating was actively set (for recent mood weighting)
+    if "rating" in update_data and update_data["rating"] is not None:
+        entry.rated_at = dt.utcnow()
+    for field, value in update_data.items():
         setattr(entry, field, value)
     db.commit()
     db.refresh(entry)

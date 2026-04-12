@@ -136,6 +136,11 @@ async def profile_page(request: Request, user: User = Depends(require_user)):
     return templates.TemplateResponse("profile.html", {"request": request, "user": user})
 
 
+@router.get("/taste")
+async def taste_dna_page(request: Request, user: User = Depends(require_user)):
+    return templates.TemplateResponse("taste_dna.html", {"request": request, "user": user})
+
+
 @router.get("/recommend")
 async def recommend_page(request: Request, user: User = Depends(require_user)):
     return templates.TemplateResponse("recommend.html", {"request": request, "user": user})

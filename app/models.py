@@ -33,6 +33,7 @@ class MediaEntry(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String, nullable=False, default="consumed", index=True)
     rating: Mapped[float | None] = mapped_column(Float, nullable=True, index=True)
+    rated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     predicted_rating: Mapped[float | None] = mapped_column(Float, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     tags: Mapped[str | None] = mapped_column(String, nullable=True)

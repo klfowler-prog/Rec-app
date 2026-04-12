@@ -3,6 +3,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import inspect, text
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.auth import _LoginRequired
@@ -10,6 +11,15 @@ from app.config import settings
 from app.database import Base, engine
 
 Base.metadata.create_all(bind=engine)
+
+# Auto-migrate: add new columns to existing tables if needed
+with engine.connect() as conn:
+    inspector = inspect(engine)
+    if "media_entries" in inspector.get_table_names():
+        columns = [c["name"] for c in inspector.get_columns("media_entries")]
+        if "rated_at" not in columns:
+            conn.execute(text("ALTER TABLE media_entries ADD COLUMN rated_at TIMESTAMP"))
+            conn.commit()
 
 app = FastAPI(title="NextUp", description="Personal media recommendation engine")
 
