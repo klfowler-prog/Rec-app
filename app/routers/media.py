@@ -340,12 +340,13 @@ User's highly rated items:
 
 Return ONLY valid JSON with this structure — no markdown, no explanation:
 {{
-  "movie": [{{"title": "...", "year": 2020, "reason": "one short sentence"}}],
-  "tv": [{{"title": "...", "year": 2020, "reason": "one short sentence"}}],
-  "book": [{{"title": "...", "year": 2020, "reason": "one short sentence"}}],
-  "podcast": [{{"title": "...", "year": 2020, "reason": "one short sentence"}}]
+  "movie": [{{"title": "...", "year": 2020, "reason": "one short sentence", "predicted_rating": 8.5}}],
+  "tv": [{{"title": "...", "year": 2020, "reason": "one short sentence", "predicted_rating": 8.5}}],
+  "book": [{{"title": "...", "year": 2020, "reason": "one short sentence", "predicted_rating": 8.5}}],
+  "podcast": [{{"title": "...", "year": 2020, "reason": "one short sentence", "predicted_rating": 8.5}}]
 }}
 
+predicted_rating should be 1-10 based on how much this user would enjoy it.
 Only include categories from this list: {', '.join(missing_types)}"""
 
         text = (await generate(prompt)).strip()
@@ -361,6 +362,7 @@ Only include categories from this list: {', '.join(missing_types)}"""
 
         async def enrich(item, media_type):
             title = item.get("title", "")
+            pr = item.get("predicted_rating")
             matches = await unified_search(title, media_type)
             matches = _rank_by_title_match(title, matches)
             if matches:
@@ -369,6 +371,7 @@ Only include categories from this list: {', '.join(missing_types)}"""
                     "title": best.title,
                     "year": best.year,
                     "reason": item.get("reason", ""),
+                    "predicted_rating": pr,
                     "image_url": best.image_url,
                     "external_id": best.external_id,
                     "source": best.source,
@@ -378,6 +381,7 @@ Only include categories from this list: {', '.join(missing_types)}"""
                 "title": title,
                 "year": item.get("year"),
                 "reason": item.get("reason", ""),
+                "predicted_rating": pr,
                 "image_url": None,
                 "external_id": "",
                 "source": "",

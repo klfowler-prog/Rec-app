@@ -508,10 +508,12 @@ async function loadSuggestions() {
                         title: item.title, media_type: mt,
                     }));
                     const verb = {movie:'Watched',tv:'Watched',book:'Read',podcast:'Listened'}[mt] || 'Done';
+                    const pr = item.predicted_rating;
+                    const prBadge = pr ? `<div class="absolute top-2 right-2 px-1.5 py-0.5 ${pr >= 8 ? 'bg-emerald-500' : pr >= 6 ? 'bg-yellow-500' : pr >= 4 ? 'bg-amber-400' : 'bg-coral'} rounded-full"><span class="text-[10px] font-bold text-white">${pr}</span></div>` : '';
                     return `
                         <div class="swim-lane-item flex-shrink-0">
                             <div class="rounded-lg overflow-hidden shadow-sm border border-border-light dark:border-border-dark border-dashed" data-rec-card>
-                                <a href="${link}">${image}</a>
+                                <a href="${link}" class="relative block">${image}${prBadge}</a>
                                 <div class="bg-surface-light dark:bg-surface-dark p-2.5">
                                     <p class="text-xs font-medium truncate">${escapeHtml(item.title)}</p>
                                     <div class="mt-1.5 quick-add-area">
