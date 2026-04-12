@@ -61,11 +61,11 @@
             {% set badge_colors = {"movie": "gradient-blue", "tv": "gradient-purple", "book": "gradient-amber", "podcast": "bg-green-500"} %}
             <a href="/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}" class="swim-lane-item flex-shrink-0">
                 <div class="rounded-lg overflow-hidden transition-base card-hover shadow-sm border border-border-light dark:border-border-dark">
-                    <div class="relative">
+                    <div class="poster-frame">
                         {% if item.image_url %}
-                        <img src="{{ item.image_url }}" alt="{{ item.title }}" class="w-full {{ 'aspect-square' if item.media_type == 'podcast' else 'aspect-[2/3]' }} object-cover" loading="lazy">
+                        <img src="{{ item.image_url }}" alt="{{ item.title }}" class="{{ 'poster-contain' if item.media_type == 'podcast' else 'poster-cover' }}" loading="lazy">
                         {% else %}
-                        <div class="w-full {{ 'aspect-square' if item.media_type == 'podcast' else 'aspect-[2/3]' }} bg-sage/10 flex items-center justify-center">
+                        <div class="poster-fallback bg-sage/10">
                             <span class="text-sage text-2xl">{{ item.title[0] }}</span>
                         </div>
                         {% endif %}
@@ -182,13 +182,15 @@
                     {% for item in queue_by_type[mt] %}
                     <a href="/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}" class="swim-lane-item flex-shrink-0">
                         <div class="rounded-lg overflow-hidden transition-base card-hover shadow-sm border border-border-light dark:border-border-dark relative">
+                            <div class="poster-frame">
                             {% if item.image_url %}
-                            <img src="{{ item.image_url }}" alt="{{ item.title }}" class="w-full {{ 'aspect-square' if item.media_type == 'podcast' else 'aspect-[2/3]' }} object-cover" loading="lazy">
+                            <img src="{{ item.image_url }}" alt="{{ item.title }}" class="{{ 'poster-contain' if item.media_type == 'podcast' else 'poster-cover' }}" loading="lazy">
                             {% else %}
-                            <div class="w-full {{ 'aspect-square' if item.media_type == 'podcast' else 'aspect-[2/3]' }} bg-sage/10 flex items-center justify-center">
+                            <div class="poster-fallback bg-sage/10">
                                 <span class="text-sage text-2xl">{{ item.title[0] }}</span>
                             </div>
                             {% endif %}
+                            </div>
                             {% if item.predicted_rating %}
                             {% set pr = item.predicted_rating %}
                             {% set pr_color = 'bg-emerald-500' if pr >= 8 else ('bg-yellow-500' if pr >= 6 else ('bg-amber-400' if pr >= 4 else 'bg-coral')) %}
@@ -385,10 +387,12 @@ async function dismissItem(btn, data) {
 function recCard(item, reason, profileEntry) {
     const badgeClass = typeBadgeColors[item.media_type] || typeBadgeColors.movie;
     const gradClass = typeColors[item.media_type] || typeColors.movie;
-    const aspect = item.media_type === 'podcast' ? 'aspect-square' : 'aspect-[2/3]';
+    // Unified 2:3 poster frame — podcast square art sits inside the same
+    // slot via object-contain so all four picks align perfectly in a row.
+    const fit = item.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
     const image = item.image_url
-        ? `<img src="${item.image_url}" alt="" class="w-full ${aspect} object-cover">`
-        : `<div class="w-full ${aspect} ${gradClass} flex items-center justify-center"><span class="text-white text-3xl font-bold">${escapeHtml((item.title || '?')[0])}</span></div>`;
+        ? `<div class="poster-frame"><img src="${item.image_url}" alt="" class="${fit}"></div>`
+        : `<div class="poster-frame"><div class="poster-fallback ${gradClass}"><span class="text-white text-3xl font-bold">${escapeHtml((item.title || '?')[0])}</span></div></div>`;
     const link = item.external_id ? `/media/${item.media_type}/${item.external_id}?source=${item.source}` : '#';
     const consumeData = escapeAttr(JSON.stringify({
         external_id: item.external_id, source: item.source, title: item.title,
@@ -531,10 +535,11 @@ async function loadSuggestions() {
             const lane = document.getElementById(`suggestions-${type}`);
             if (lane && items && items.length > 0) {
                 lane.innerHTML = items.map(item => {
-                    const sugAspect = mt === 'podcast' ? 'aspect-square' : 'aspect-[2/3]';
+                    const mt2 = item.media_type || type;
+                    const fit = mt2 === 'podcast' ? 'poster-contain' : 'poster-cover';
                     const image = item.image_url
-                        ? `<img src="${item.image_url}" alt="" class="w-full ${sugAspect} object-cover" loading="lazy">`
-                        : `<div class="w-full ${sugAspect} bg-sage/10 flex items-center justify-center"><span class="text-sage text-xl">${escapeHtml((item.title || '?')[0])}</span></div>`;
+                        ? `<div class="poster-frame"><img src="${item.image_url}" alt="" class="${fit}" loading="lazy"></div>`
+                        : `<div class="poster-frame"><div class="poster-fallback bg-sage/10"><span class="text-sage text-xl">${escapeHtml((item.title || '?')[0])}</span></div></div>`;
                     const link = item.external_id ? `/media/${item.media_type || type}/${item.external_id}?source=${item.source}` : `/search`;
                     const mt = item.media_type || type;
                     const consumeAttr = escapeAttr(JSON.stringify({

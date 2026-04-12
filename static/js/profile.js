@@ -269,10 +269,10 @@ async function loadTopTen() {
 
         const grid = document.getElementById('top-ten-grid');
         grid.innerHTML = items.map((item, i) => {
-            const aspect = item.media_type === 'podcast' ? 'aspect-square' : 'aspect-[2/3]';
+            const fit = item.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
             const image = item.image_url
-                ? `<img src="${item.image_url}" alt="" class="w-full ${aspect} object-cover">`
-                : `<div class="w-full ${aspect} bg-sage/10 flex items-center justify-center"><span class="text-sage text-2xl">${escapeHtml(item.title[0] || '?')}</span></div>`;
+                ? `<div class="poster-frame"><img src="${item.image_url}" alt="" class="${fit}"></div>`
+                : `<div class="poster-frame"><div class="poster-fallback bg-sage/10"><span class="text-sage text-2xl">${escapeHtml(item.title[0] || '?')}</span></div></div>`;
             const badge = typeColors[item.media_type] || typeColors.movie;
             const rc = item.rating <= 3 ? 'text-coral' : item.rating <= 5 ? 'text-amber-500' : item.rating <= 7 ? 'text-yellow-600' : 'text-emerald-500';
             return `

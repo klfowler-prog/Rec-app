@@ -76,11 +76,11 @@ async function compareWith(otherUserId, evt) {
         // Watch together pick
         if (data.watch_together) {
             const w = data.watch_together;
-            const aspect = w.media_type === 'podcast' ? 'aspect-square' : 'aspect-[2/3]';
+            const fit = w.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
             const link = w.external_id ? `/media/${w.media_type}/${w.external_id}?source=${w.source}` : '#';
             const image = w.image_url
-                ? `<a href="${link}"><img src="${w.image_url}" alt="" class="w-40 md:w-48 ${aspect} object-cover rounded-xl shadow-lg"></a>`
-                : `<div class="w-40 md:w-48 ${aspect} bg-sage/10 rounded-xl flex items-center justify-center"><span class="text-sage text-4xl">${escapeHtml(w.title[0])}</span></div>`;
+                ? `<a href="${link}" class="block w-40 md:w-48"><div class="poster-frame rounded-xl shadow-lg"><img src="${w.image_url}" alt="" class="${fit}"></div></a>`
+                : `<div class="w-40 md:w-48"><div class="poster-frame rounded-xl shadow-lg"><div class="poster-fallback bg-sage/10"><span class="text-sage text-4xl">${escapeHtml(w.title[0])}</span></div></div></div>`;
 
             html += `
                 <div class="rounded-2xl p-6 md:p-8 text-white" style="background: linear-gradient(135deg, #2B3A4E 0%, #1E2A3A 100%);">
@@ -203,11 +203,11 @@ function candidateCard(c, myName, themName) {
 }
 
 function sharedLovedCard(item, myName, themName) {
-    const aspect = item.media_type === 'podcast' ? 'aspect-square' : 'aspect-[2/3]';
+    const fit = item.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
     const link = item.external_id ? `/media/${item.media_type}/${item.external_id}?source=${item.source}` : '#';
     const image = item.image_url
-        ? `<img src="${item.image_url}" alt="" class="w-full ${aspect} object-cover">`
-        : `<div class="w-full ${aspect} bg-sage/10 flex items-center justify-center"><span class="text-sage text-2xl">${escapeHtml((item.title || '?')[0])}</span></div>`;
+        ? `<div class="poster-frame"><img src="${item.image_url}" alt="" class="${fit}"></div>`
+        : `<div class="poster-frame"><div class="poster-fallback bg-sage/10"><span class="text-sage text-2xl">${escapeHtml((item.title || '?')[0])}</span></div></div>`;
     const ratingColor = r => r >= 8 ? 'text-emerald-500' : r >= 6 ? 'text-yellow-600' : 'text-amber-500';
 
     return `

@@ -77,12 +77,12 @@ function mediaCard(item) {
         podcast: 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400',
     };
 
-    const cardAspect = item.media_type === 'podcast' ? 'aspect-square' : 'aspect-[2/3]';
+    const fit = item.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
     const safeTitle = item.title || 'Untitled';
     const firstChar = safeTitle[0] || '?';
     const image = item.image_url
-        ? `<img src="${item.image_url}" alt="${escapeHtml(safeTitle)}" class="w-full ${cardAspect} object-cover" loading="lazy">`
-        : `<div class="w-full ${cardAspect} bg-sage/10 flex items-center justify-center"><span class="text-sage text-3xl">${escapeHtml(firstChar)}</span></div>`;
+        ? `<div class="poster-frame"><img src="${item.image_url}" alt="${escapeHtml(safeTitle)}" class="${fit}" loading="lazy"></div>`
+        : `<div class="poster-frame"><div class="poster-fallback bg-sage/10"><span class="text-sage text-3xl">${escapeHtml(firstChar)}</span></div></div>`;
 
     const year = item.year ? `<span class="text-xs text-txt-muted">${item.year}</span>` : '';
     const badgeClass = typeColors[item.media_type] || typeColors.movie;

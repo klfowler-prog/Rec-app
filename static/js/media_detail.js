@@ -142,12 +142,14 @@ async function loadRelated() {
 
 function relatedCard(item, fallbackType) {
     const mt = item.media_type || fallbackType;
-    const aspect = mt === 'podcast' ? 'aspect-square' : 'aspect-[2/3]';
     const link = item.external_id ? `/media/${mt}/${item.external_id}?source=${item.source}` : '#';
     const safeTitle = item.title || 'Untitled';
+    // Use the shared poster frame so podcast squares sit inside the same
+    // 2:3 slot as movie/TV/book posters — keeps the row heights uniform.
+    const fit = mt === 'podcast' ? 'poster-contain' : 'poster-cover';
     const image = item.image_url
-        ? `<img src="${item.image_url}" alt="" class="w-16 h-24 object-cover rounded flex-shrink-0">`
-        : `<div class="w-16 h-24 bg-sage/10 rounded flex-shrink-0 flex items-center justify-center"><span class="text-sage text-lg">${escapeHtml(safeTitle[0] || '?')}</span></div>`;
+        ? `<div class="poster-frame w-16 rounded flex-shrink-0"><img src="${item.image_url}" alt="" class="${fit}"></div>`
+        : `<div class="poster-frame w-16 rounded flex-shrink-0"><div class="poster-fallback bg-sage/10"><span class="text-sage text-lg">${escapeHtml(safeTitle[0] || '?')}</span></div></div>`;
 
     return `
         <a href="${link}" class="flex gap-3 p-2 rounded-lg hover:bg-bg-light dark:hover:bg-bg-dark transition-base">
@@ -166,8 +168,9 @@ function renderAdaptation(adaptation) {
     const content = document.getElementById('adaptation-content');
     const mt = adaptation.media_type || 'movie';
     const link = adaptation.external_id ? `/media/${mt}/${adaptation.external_id}?source=${adaptation.source}` : '#';
+    const fit = mt === 'podcast' ? 'poster-contain' : 'poster-cover';
     const image = adaptation.image_url
-        ? `<img src="${adaptation.image_url}" alt="" class="w-14 h-20 object-cover rounded flex-shrink-0">`
+        ? `<div class="poster-frame w-14 rounded flex-shrink-0"><img src="${adaptation.image_url}" alt="" class="${fit}"></div>`
         : '';
 
     content.innerHTML = `
