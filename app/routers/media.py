@@ -288,7 +288,7 @@ async def taste_dna(
 
     from app import cache
     from app.config import settings
-    from app.models import MediaEntry
+    from app.models import DismissedItem, MediaEntry
 
     cache_key = f"taste_dna:{user.id}"
     if refresh:
