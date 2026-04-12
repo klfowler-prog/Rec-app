@@ -345,22 +345,30 @@ async def taste_dna(user: User = Depends(require_user), db: Session = Depends(ge
 {recent_summary}
 {avoided_summary}
 
+IMPORTANT: This user may consume a mix of fiction and nonfiction. Pay attention to:
+- Whether they read literary fiction, genre fiction, memoirs, idea books, narrative nonfiction
+- Whether their movies include documentaries
+- Whether their podcasts are narrative/storytelling or interview/explainer/news
+The themes should capture BOTH what they read/watch for story AND what they consume for ideas or insight. Don't force everything into "narrative essence" framing if their profile is idea-driven.
+
+For "avoided": Only describe genuine patterns of avoidance based on consistent low ratings in a specific direction. Don't claim they "avoid self-help" just because they rated one poorly, or "avoid nonfiction" if they actually read memoirs. Be specific or leave it empty.
+
 Return ONLY valid JSON, no markdown. Each theme MUST include 2-3 example items from their actual profile that exemplify it:
 
 {{
-  "summary": "A 4-5 sentence essay capturing who this person is as a media consumer. Write in second person ('You gravitate to...'). Be specific, reference items across different media types, show cross-medium patterns. No generic platitudes.",
+  "summary": "A 4-5 sentence essay capturing who this person is as a media consumer. Write in second person ('You gravitate to...'). Be specific, reference items across different media types, show cross-medium patterns. If they read both fiction and nonfiction, reflect that. No generic platitudes.",
   "themes": [
-    {{"name": "specific theme like 'morally complex anti-heroes'", "description": "one-sentence explanation", "examples": ["exact item title from profile", "another exact item title", "a third if available"]}},
+    {{"name": "specific theme like 'morally complex anti-heroes' or 'systems thinking about human behavior'", "description": "one-sentence explanation", "examples": ["exact item title from profile", "another exact item title", "a third if available"]}},
     ... 4-5 themes total
   ],
   "by_medium": {{
-    "movie": "One sentence: what their movie taste reveals about them specifically (reference 1-2 movie titles from their profile). Empty string if no movies.",
+    "movie": "One sentence: what their movie taste reveals about them specifically (reference 1-2 movie titles from their profile, note if they lean fiction or documentary). Empty string if no movies.",
     "tv": "One sentence about their TV taste with example titles. Empty string if no TV.",
-    "book": "One sentence about their book taste with example titles. Empty string if no books.",
-    "podcast": "One sentence about their podcast taste with example titles. Empty string if no podcasts."
+    "book": "One sentence about their book taste with example titles (note the fiction/nonfiction mix explicitly if relevant). Empty string if no books.",
+    "podcast": "One sentence about their podcast taste — note if it's narrative, interview, or explainer-focused. Empty string if no podcasts."
   }},
   "signature_items": ["3-5 exact item titles from their profile that best define them — items you'd point to and say 'this person'"],
-  "avoided": "One sentence describing what they actively don't engage with, based on low-rated and dismissed items. Empty string if nothing stands out.",
+  "avoided": "One sentence describing a real, specific pattern they don't engage with — only if genuinely evident. Empty string if nothing clear stands out.",
   "recent_shift": "One sentence about any mood/theme shift in their last 30 days, or empty string."
 }}"""
 
@@ -458,7 +466,7 @@ async def tonight_pick(
         from app.services.gemini import generate
 
         mood_line = f"\nCURRENT MOOD: {req.mood}" if req.mood else ""
-        prompt = f"""You are NextUp, a cross-medium taste expert. Pick ONE perfect thing for this person to consume right now based on their taste, available time, and mood.
+        prompt = f"""You are NextUp, a cross-medium taste expert. Pick ONE perfect thing — fiction or nonfiction — for this person to consume right now based on their taste, available time, and mood.
 
 USER'S TASTE PROFILE:
 {taste_summary}
@@ -468,7 +476,9 @@ CONTEXT:
 - Available time: {req.available_time}
 - Time-appropriate media: {time_hint}{mood_line}
 
-CRITICAL: The reason MUST cite at least ONE specific item from a DIFFERENT media type in their profile — that's the cross-medium signature of NextUp.
+NONFICTION IS WELCOME: documentaries, memoirs, idea books, interview/explainer podcasts, narrative nonfiction — all valid. Match the user's fiction/nonfiction balance.
+
+CRITICAL: The reason MUST cite at least ONE specific item from a DIFFERENT media type in their profile by name, and the connection must be a concrete theme/idea/tone — not a surface-level shared setting or keyword.
 
 Do NOT recommend any of these titles (already in their library or dismissed): {avoid_str}
 
@@ -599,7 +609,7 @@ async def top_picks(user: User = Depends(require_user), db: Session = Depends(ge
     try:
         from app.services.gemini import generate
 
-        prompt = f"""You are a cross-medium taste expert. Your specialty is finding unexpected connections between books, TV, movies, and podcasts that share the same *essence* — theme, tone, narrative style, or emotional vibe — even when the genre differs.
+        prompt = f"""You are a cross-medium taste expert. Your specialty is finding specific, real connections between books, TV, movies, and podcasts — fiction AND nonfiction — that share themes, ideas, tone, subject matter, or emotional register.
 
 USER'S TASTE PROFILE (across all media types):
 {taste_summary}
@@ -607,22 +617,29 @@ USER'S TASTE PROFILE (across all media types):
 
 TASK: Pick exactly 4 recommendations — ONE movie, ONE TV show, ONE book, ONE podcast.
 
-CRITICAL REQUIREMENT: Each "reason" MUST explicitly cite at least ONE specific item from a DIFFERENT media type in their profile. This is what makes NextUp unique — we find cross-medium connections. Examples:
+NONFICTION IS WELCOME:
+- Movies can include documentaries (*My Octopus Teacher*, *The Social Dilemma*)
+- Books can be literary nonfiction, memoirs, idea books, essays (*Sapiens*, *Educated*, *The Body Keeps the Score*)
+- Podcasts can be interview, science, news, explainer (*Radiolab*, *The Daily*, *Hidden Brain*, *Ezra Klein Show*)
+- Look at the user's profile — if they rate nonfiction or documentaries highly, recommend more of it. If they lean narrative, lean that way.
 
+CRITICAL REQUIREMENT: Each "reason" MUST explicitly cite at least ONE specific item from a DIFFERENT media type in their profile. Good examples:
 - "The atmospheric dread of *Dune* (book) translates directly to this slow-burn sci-fi film."
-- "You loved the slow-burn character work of *The Wire* (TV) — this literary novel has the same patient, morally complex storytelling."
-- "If *Serial* (podcast) hooked you on true crime, this documentary series is its visual counterpart."
+- "You loved the careful character work in *The Wire* (TV) — this nonfiction book has the same patient, morally complex portrait of institutional failure."
+- "If *Serial* (podcast) hooked you on ambiguity and moral inquiry, this documentary explores similar unresolved tension."
+- "You gave *Educated* (book) a 9/10 — this film has the same aching quality of a young person finding their own voice against the weight of their family."
 
 Rules:
 - 4 items exactly (movie, tv, book, podcast)
-- Each reason MUST cite an item from a DIFFERENT media type by name (e.g., a book rec cites a movie/TV/podcast they loved)
-- If recently consumed items suggest a mood shift, lean into that mood
+- Each reason MUST cite an item from a DIFFERENT media type by name
+- The connection must be CONCRETE — cite a shared theme, idea, emotional beat, or narrative approach. Never rely on shared demographic, setting, or keyword.
+- If recently rated items suggest a mood shift, lean into that mood
 - Do NOT recommend any of these (already in their library): {avoid_str}
 - Pick bold, specific things they'll love — not generic bestsellers
 
 Return ONLY valid JSON, no markdown:
 [
-  {{"title": "...", "media_type": "movie", "year": 2020, "reason": "Because you loved [BOOK/TV/PODCAST in their profile], this movie captures the same [specific quality]."}},
+  {{"title": "...", "media_type": "movie", "year": 2020, "reason": "Because you loved [SPECIFIC ITEM in their profile, different media type], this captures the same [specific, concrete quality]."}},
   {{"title": "...", "media_type": "tv", "year": 2020, "reason": "..."}},
   {{"title": "...", "media_type": "book", "year": 2020, "reason": "..."}},
   {{"title": "...", "media_type": "podcast", "year": 2020, "reason": "..."}}
@@ -742,7 +759,7 @@ async def home_suggestions(user: User = Depends(require_user), db: Session = Dep
     try:
         from app.services.gemini import generate
 
-        prompt = f"""You are a cross-medium taste expert. Find connections between books, TV, movies, and podcasts that share the same essence.
+        prompt = f"""You are a cross-medium taste expert. Find connections between books, TV, movies, and podcasts — fiction AND nonfiction — that share themes, ideas, tone, or emotional register.
 
 USER'S TASTE PROFILE (across all media types):
 {taste_summary}
@@ -750,7 +767,16 @@ USER'S TASTE PROFILE (across all media types):
 
 TASK: Suggest 3 items for EACH of these categories: {', '.join(missing_labels)}.
 
-CRITICAL: Each "reason" MUST cite at least one specific item from a DIFFERENT media type in their profile. This cross-medium connection is essential. Example: "The slow-burn morality of [BOOK IN PROFILE] translates directly to this TV show."
+NONFICTION IS WELCOME:
+- Movies include documentaries
+- Books include memoirs, essays, idea books, narrative nonfiction
+- Podcasts include interview, science, explainer, news
+Look at the user's profile and match their fiction/nonfiction balance.
+
+CRITICAL: Each "reason" MUST cite at least one specific item from a DIFFERENT media type in their profile AND name a CONCRETE shared element (theme, idea, emotional register, subject). Never match on surface features like setting, demographic, or keyword alone.
+
+Good example: "You gave *The Wire* (TV) a 10/10 — this nonfiction book on the war on drugs delivers the same unflinching institutional critique."
+Bad example: "Both are about cities."
 
 Return ONLY valid JSON, no markdown:
 {{
@@ -880,7 +906,7 @@ async def related_items(
     try:
         from app.services.gemini import generate
 
-        prompt = f"""You are a cross-medium taste expert. Given this media item, suggest 2 items from EACH OTHER media type that share the same essence — theme, tone, character type, emotional register, or narrative structure.
+        prompt = f"""You are a cross-medium taste expert. Given this media item, suggest 2 items from EACH OTHER media type that share a real, specific connection — theme, tone, subject matter, emotional register, ideas, or storytelling approach.
 
 CURRENT ITEM: {item.title} ({media_type}, {item.year or '?'})
 Genres: {item_genres}
@@ -891,24 +917,36 @@ User's taste profile (for personalization):
 
 TASK: Recommend 2 items each from: {', '.join(other_labels)}.
 
-STRICT RULES:
-1. Recommendations MUST be narrative/creative works: fiction, literary nonfiction, memoir, narrative drama, narrative films, narrative TV, narrative/storytelling podcasts. DO NOT recommend:
-   - Self-help, how-to, textbooks, SAT prep, study guides, reference material
-   - Cookbooks (unless it's a memoir about food)
-   - Generic instructional content
-2. The thematic/tonal connection MUST be real and specific. Reference a CONCRETE element from the current item:
-   - Example (GOOD): "Both *Lady Bird* and *Normal People* capture the raw, aching self-consciousness of young people trying to become themselves, told with quiet empathy and specific detail."
-   - Example (BAD): "Both are about young people."
-3. If you can't find a legitimately strong thematic match, pick fewer items rather than reaching.
-4. NEVER recommend something just because the title contains a similar word (e.g. don't recommend an SAT prep book because *Lady Bird* is set in high school).
+WHAT COUNTS AS A MEDIA ITEM (all valid):
+- Fiction: novels, narrative films, scripted TV, storytelling podcasts
+- Literary nonfiction: memoirs, biographies, essays, narrative journalism
+- Idea books / popular nonfiction: *Sapiens*, *Atomic Habits*, *The Body Keeps the Score*
+- Documentaries: *My Octopus Teacher*, *The Vow*, nature docs, true crime docs
+- News, science, interview, and explanatory podcasts: *Radiolab*, *The Daily*, *Hidden Brain*
+- Self-help and philosophy books are fine IF they match thematically
 
-ADAPTATION: If the current item has a direct adaptation in another medium (book→movie, movie→book, TV→book, etc.), include it in the "adaptation" field.
+WHAT TO AVOID: Pure reference/instructional material with no thematic voice — SAT prep, dictionaries, textbooks, software manuals, cookbooks without narrative. Don't recommend these unless the current item is also reference material.
+
+CONNECTION RULES — this is the most important part:
+1. The connection MUST be real and specific. Reference a CONCRETE element from the current item.
+2. Cross-medium connections can span fiction and nonfiction BOTH WAYS:
+   - A memoir about self-discovery can connect to a coming-of-age film
+   - A documentary about loneliness can connect to a literary novel about isolation
+   - A science podcast about the brain can connect to a thriller novel about memory
+   - A nature doc can connect to a contemplative book about attention
+3. GOOD example: "*Lady Bird* captures the raw self-consciousness of becoming yourself; Tara Westover's memoir *Educated* has that same aching specificity of a young woman learning to claim her own identity."
+4. BAD example: "Both are about young women." — surface-level, no real connection.
+5. BAD example: "This SAT prep book is for high schoolers." — keyword match, not thematic.
+6. If you can't find a strong match for a type, return fewer items rather than reaching.
+7. NEVER recommend based on shared setting, shared demographic, or shared keyword alone.
+
+ADAPTATION: If the current item has a direct adaptation in another medium, include it.
 
 Return ONLY valid JSON, no markdown:
 {{
   "adaptation": {{"title": "...", "media_type": "movie|tv|book", "year": 2020, "note": "one sentence about the adaptation"}} OR null if no direct adaptation,
   "related": {{
-    {', '.join([f'"{t}": [{{"title": "...", "year": 2020, "reason": "specific thematic/tonal connection citing a concrete element from the current item"}}]' for t in other_types])}
+    {', '.join([f'"{t}": [{{"title": "...", "year": 2020, "reason": "specific thematic/idea connection citing a concrete element from the current item"}}]' for t in other_types])}
   }}
 }}"""
 
