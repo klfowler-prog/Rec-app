@@ -431,16 +431,65 @@ Return ONLY valid JSON, no markdown. Each theme MUST include 2-3 example items f
   "recent_shift": "One sentence about any mood/theme shift in their last 30 days, or empty string."
 }}"""
 
+        log.info("taste_dna prompt length: %d chars, entries: %d (loved=%d, liked=%d, consumed_unrated=%d, queued=%d)",
+                 len(prompt), len(entries), len(loved), len(liked), len(consumed_unrated), len(queued))
         text = (await generate(prompt)).strip()
+        if not text:
+            log.error("taste_dna: Gemini returned empty text")
+            return {
+                "themes": [],
+                "summary": "The AI analyzer returned an empty response. Try again in a moment, or check server logs.",
+                "by_medium": {},
+                "signature_items": [],
+                "avoided": "",
+                "recent_shift": "",
+                "error": "empty_ai_response",
+            }
+
+        # Robust JSON extraction — strip markdown fences and grab the first {...} block
         if text.startswith("```"):
             text = text.split("\n", 1)[1] if "\n" in text else text[3:]
             text = text.rsplit("```", 1)[0]
-        result = json.loads(text)
+        # Fall back to finding the outermost JSON object
+        first_brace = text.find("{")
+        last_brace = text.rfind("}")
+        if first_brace >= 0 and last_brace > first_brace:
+            text = text[first_brace : last_brace + 1]
+
+        try:
+            result = json.loads(text)
+        except json.JSONDecodeError as je:
+            log.error("taste_dna JSON parse failed: %s — response snippet: %s", str(je), text[:400])
+            return {
+                "themes": [],
+                "summary": "The AI returned a response we couldn't parse. Try 'Re-analyze my taste' again.",
+                "by_medium": {},
+                "signature_items": [],
+                "avoided": "",
+                "recent_shift": "",
+                "error": "json_parse_failed",
+            }
+
+        # Normalize: ensure top-level keys exist so the template renders something
+        result.setdefault("themes", [])
+        result.setdefault("summary", "")
+        result.setdefault("by_medium", {})
+        result.setdefault("signature_items", [])
+        result.setdefault("avoided", "")
+        result.setdefault("recent_shift", "")
         cache.set(cache_key, result, ttl_seconds=86400)
         return result
     except Exception as e:
-        log.error("taste_dna failed: %s", str(e))
-        return {"themes": [], "summary": "", "by_medium": {}, "signature_items": [], "avoided": "", "recent_shift": ""}
+        log.exception("taste_dna failed")
+        return {
+            "themes": [],
+            "summary": f"Analyzer error: {str(e)[:200]}",
+            "by_medium": {},
+            "signature_items": [],
+            "avoided": "",
+            "recent_shift": "",
+            "error": "exception",
+        }
 
 
 class TonightRequest(BaseModel):

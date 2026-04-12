@@ -104,7 +104,22 @@ async function loadDna(forceRefresh = false) {
 
         if (!data.themes || data.themes.length === 0) {
             document.getElementById('dna-loading').classList.add('hidden');
-            document.getElementById('dna-empty').classList.remove('hidden');
+            // If the analyzer returned an error or message, show it inside the empty state
+            // instead of a generic "Not enough data" screen.
+            if (data.summary || data.error) {
+                const emptyEl = document.getElementById('dna-empty');
+                emptyEl.classList.remove('hidden');
+                const headingEl = emptyEl.querySelector('h3');
+                const msgEl = emptyEl.querySelector('p');
+                if (data.error) {
+                    if (headingEl) headingEl.textContent = 'Analyzer hiccup';
+                    if (msgEl) msgEl.textContent = data.summary || 'Something went wrong. Try again.';
+                } else {
+                    if (msgEl) msgEl.textContent = data.summary;
+                }
+            } else {
+                document.getElementById('dna-empty').classList.remove('hidden');
+            }
             return;
         }
 
