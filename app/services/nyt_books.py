@@ -83,30 +83,65 @@ async def _resolve_openlibrary_work_id(title: str, author: str) -> tuple[str | N
     return None, None
 
 
-async def get_bestsellers(limit_per_list: int = 10) -> list[tuple[str, list[MediaResult]]]:
-    """Return a list of (section_label, books) tuples covering fiction
-    and nonfiction NYT bestseller lists. Each book is enriched with an
-    Open Library work_id (via a parallel lookup) so detail pages work.
+async def get_bestsellers(limit_per_list: int = 15) -> list[tuple[str, list[MediaResult]]]:
+    """Return a list of (section_label, books) tuples covering NYT's
+    fiction and nonfiction bestseller lists. Each book is enriched
+    with an Open Library work_id (via a parallel lookup) so detail
+    pages work.
+
+    Pulls multiple NYT lists to widen the candidate pool before the
+    AI predicted-score filter runs. With a strict 7+ threshold, only
+    a handful of candidates per list clear the bar, so we need a
+    broad pool to end up with anything meaningful surfaced.
 
     Returns an empty list if NYT_API_KEY is missing — caller should
-    fall back to a different source."""
+    treat this as "books feed unavailable" and show an empty state."""
     if not settings.nyt_api_key:
         return []
 
-    # Fetch both lists in parallel
-    fiction_raw, nonfiction_raw = await asyncio.gather(
+    # Fetch all six lists in parallel. combined-print-and-e-book lists
+    # are broader than hardcover-only and overlap heavily, so we dedupe
+    # by (title, author) after fetching.
+    (
+        hc_fiction,
+        hc_nonfiction,
+        combined_fiction,
+        combined_nonfiction,
+        trade_paperback,
+        paperback_nonfiction,
+    ) = await asyncio.gather(
         _fetch_list("hardcover-fiction", limit=limit_per_list),
         _fetch_list("hardcover-nonfiction", limit=limit_per_list),
+        _fetch_list("combined-print-and-e-book-fiction", limit=limit_per_list),
+        _fetch_list("combined-print-and-e-book-nonfiction", limit=limit_per_list),
+        _fetch_list("trade-fiction-paperback", limit=limit_per_list),
+        _fetch_list("paperback-nonfiction", limit=limit_per_list),
     )
 
-    if not fiction_raw and not nonfiction_raw:
+    # Merge fiction and nonfiction pools, deduping by (title, author).
+    def _merge(*lists: list[dict]) -> list[dict]:
+        seen: set[tuple[str, str]] = set()
+        merged: list[dict] = []
+        for src in lists:
+            for b in src:
+                key = (b.get("title", "").strip().lower(), b.get("author", "").strip().lower())
+                if key in seen or not key[0]:
+                    continue
+                seen.add(key)
+                merged.append(b)
+        return merged
+
+    fiction_pool = _merge(hc_fiction, combined_fiction, trade_paperback)
+    nonfiction_pool = _merge(hc_nonfiction, combined_nonfiction, paperback_nonfiction)
+
+    if not fiction_pool and not nonfiction_pool:
         return []
 
     # Collect every (title, author) we need to resolve and dedupe, then
-    # run all lookups in parallel. Each lookup is ~300ms.
+    # run all lookups in parallel.
     lookup_pairs: list[tuple[str, str]] = []
     seen_pairs: set[tuple[str, str]] = set()
-    for b in fiction_raw + nonfiction_raw:
+    for b in fiction_pool + nonfiction_pool:
         pair = (b.get("title", ""), b.get("author", ""))
         if pair not in seen_pairs:
             lookup_pairs.append(pair)
@@ -144,8 +179,12 @@ async def get_bestsellers(limit_per_list: int = 10) -> list[tuple[str, list[Medi
         )
 
     sections: list[tuple[str, list[MediaResult]]] = []
-    if fiction_raw:
-        sections.append(("NYT Fiction Bestsellers", [_to_media_result(b) for b in fiction_raw]))
-    if nonfiction_raw:
-        sections.append(("NYT Nonfiction Bestsellers", [_to_media_result(b) for b in nonfiction_raw]))
+    if fiction_pool:
+        sections.append(("NYT Fiction Bestsellers", [_to_media_result(b) for b in fiction_pool]))
+    if nonfiction_pool:
+        sections.append(("NYT Nonfiction Bestsellers", [_to_media_result(b) for b in nonfiction_pool]))
+    log.info(
+        "NYT bestsellers: fiction=%d nonfiction=%d (merged from 6 lists)",
+        len(fiction_pool), len(nonfiction_pool),
+    )
     return sections
