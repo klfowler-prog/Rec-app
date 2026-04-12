@@ -15,8 +15,8 @@
 
     <div id="dna-content" class="hidden space-y-8">
 
-        <!-- Essay-style summary -->
-        <div class="gradient-navy rounded-2xl p-8 text-white">
+        <!-- Essay-style summary — inline gradient style so it can't be broken by CSS load order -->
+        <div class="rounded-2xl p-8 text-white" style="background: linear-gradient(135deg, #2B3A4E 0%, #1E2A3A 100%);">
             <p class="text-[11px] text-white/50 uppercase tracking-widest mb-4 font-semibold">Who you are</p>
             <p id="dna-summary" class="text-lg md:text-xl leading-relaxed text-white/95 font-serif italic"></p>
             <div id="dna-recent-shift-wrap" class="hidden mt-6 pt-5 border-t border-white/15">
