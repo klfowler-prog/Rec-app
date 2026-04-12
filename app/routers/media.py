@@ -1104,17 +1104,22 @@ async def new_releases(
                 ("Popular on streaming", pop_items),
             ]
         elif media_type == "book":
-            # Prefer NYT bestsellers — curated weekly, much cleaner than
-            # Open Library's sort=rating which surfaces spam. Fall back
-            # to Open Library only if NYT_API_KEY is missing or fails.
+            # NYT bestsellers are the ONLY source for books. Open Library
+            # search surfaces self-published spam, AI-generated slop, and
+            # non-English editions even with filters — it's not fit for
+            # purpose as a "what's new" feed. If NYT_API_KEY isn't
+            # configured we return an empty section and the page shows
+            # "nothing to surface this week" rather than serving junk.
             from app.services.nyt_books import get_bestsellers
             nyt_sections = await get_bestsellers(limit_per_list=15)
-            if nyt_sections:
-                sections = nyt_sections
-            else:
-                from app.services.open_library import get_recent_books
-                books = await get_recent_books(limit=30)
-                sections = [("Recently published", books)]
+            if not nyt_sections:
+                log.warning(
+                    "new_releases [book/user=%d]: NYT returned no sections "
+                    "(NYT_API_KEY configured=%s). Showing empty feed — set "
+                    "NYT_API_KEY on Cloud Run to enable the books feed.",
+                    user.id, bool(settings.nyt_api_key),
+                )
+            sections = nyt_sections
         elif media_type == "podcast":
             from app.services.itunes import get_top_podcasts
             podcasts = await get_top_podcasts(limit=30)
