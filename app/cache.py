@@ -117,7 +117,11 @@ def add_recent_recs(user_id: int, titles: list[str]) -> None:
         return
     with _lock:
         bucket = _recent_recs.setdefault(user_id, [])
-        seen = set(bucket)
+        # Use a set literal, NOT `set(bucket)` — the module defines a
+        # top-level `def set(...)` for the cache setter, which shadows
+        # Python's builtin `set` inside this file. Calling `set(bucket)`
+        # would invoke the cache setter instead of constructing a set.
+        seen = {*bucket}
         for t in titles:
             key = (t or "").lower().strip()
             if not key or key in seen:
