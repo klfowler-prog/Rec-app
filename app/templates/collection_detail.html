@@ -32,7 +32,7 @@ async function loadCollection() {
         const items = data.items || [];
 
         const html = `
-            <div class="gradient-navy rounded-2xl p-6 md:p-8 text-white">
+            <div class="rounded-2xl p-6 md:p-8 text-white" style="background: linear-gradient(135deg, #2B3A4E 0%, #1E2A3A 100%);">
                 <div class="flex items-center gap-2 mb-2">
                     ${c.theme ? `<span class="px-2 py-0.5 bg-white/20 text-[10px] font-semibold rounded-full uppercase tracking-wide">${escapeHtml(c.theme)}</span>` : ''}
                     ${c.is_ai_generated ? `<span class="px-2 py-0.5 bg-coral/30 text-[10px] font-semibold rounded-full uppercase tracking-wide">AI curated</span>` : ''}
