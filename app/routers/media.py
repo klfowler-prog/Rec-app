@@ -2036,10 +2036,26 @@ Return ONLY valid JSON, no markdown:
 }}"""
 
         text = (await generate(prompt)).strip()
+        if not text:
+            log.error("related_items: Gemini returned empty text for %s/%s", media_type, external_id)
+            return {"related": {}, "adaptation": None}
+        # Robust JSON extraction — strip markdown fences and grab the
+        # first balanced {...} block so a wrapped response still parses.
         if text.startswith("```"):
             text = text.split("\n", 1)[1] if "\n" in text else text[3:]
             text = text.rsplit("```", 1)[0]
-        parsed = json.loads(text)
+        first_brace = text.find("{")
+        last_brace = text.rfind("}")
+        if first_brace >= 0 and last_brace > first_brace:
+            text = text[first_brace : last_brace + 1]
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError as je:
+            log.error(
+                "related_items JSON parse failed for %s/%s: %s — snippet: %s",
+                media_type, external_id, str(je), text[:400],
+            )
+            return {"related": {}, "adaptation": None}
 
         # Enrich related items with posters via parallel search
         async def enrich(rel_item, rel_type):
@@ -2115,6 +2131,13 @@ Return ONLY valid JSON, no markdown:
                 pass
 
         result = {"related": enriched_related, "adaptation": adaptation}
+        log.info(
+            "related_items [%s/%s/user=%d]: %d sections, %d total items, adaptation=%s",
+            media_type, external_id, user.id,
+            len(enriched_related),
+            sum(len(v) for v in enriched_related.values()),
+            "yes" if adaptation else "no",
+        )
         # 30 day TTL — related items for a given title shift only when
         # the user's profile changes, which the cache layer already
         # gates on via the "related_items" prefix.
