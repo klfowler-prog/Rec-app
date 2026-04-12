@@ -27,7 +27,7 @@ async def search(query: str, media_type: str | None = None) -> list[MediaResult]
         data = resp.json()
 
     results = []
-    for item in data.get("results", [])[:10]:
+    for item in data.get("results", [])[:15]:
         mt = item.get("media_type", media_type or "movie")
         if mt not in ("movie", "tv"):
             continue
@@ -35,25 +35,35 @@ async def search(query: str, media_type: str | None = None) -> list[MediaResult]
         date = item.get("release_date") or item.get("first_air_date", "")
         year = int(date[:4]) if date and len(date) >= 4 else None
         poster = f"{IMAGE_BASE}{item['poster_path']}" if item.get("poster_path") else None
+        popularity = item.get("popularity") or 0
         genre_ids = item.get("genre_ids", [])
         genres = [GENRE_MAP.get(gid, "") for gid in genre_ids]
         genres = [g for g in genres if g]
 
         results.append(
-            MediaResult(
-                external_id=str(item["id"]),
-                source="tmdb",
-                media_type=mt,
-                title=title,
-                image_url=poster,
-                year=year,
-                creator=None,
-                genres=genres,
-                description=item.get("overview"),
-                external_url=f"https://www.themoviedb.org/{mt}/{item['id']}",
+            (
+                bool(poster),
+                popularity,
+                MediaResult(
+                    external_id=str(item["id"]),
+                    source="tmdb",
+                    media_type=mt,
+                    title=title,
+                    image_url=poster,
+                    year=year,
+                    creator=None,
+                    genres=genres,
+                    description=item.get("overview"),
+                    external_url=f"https://www.themoviedb.org/{mt}/{item['id']}",
+                ),
             )
         )
-    return results
+
+    # Float results with a poster to the top, then by TMDB popularity.
+    # TMDB's multi-search sometimes puts obscure alternate entries ahead
+    # of the canonical popular one for common titles.
+    results.sort(key=lambda t: (0 if t[0] else 1, -t[1]))
+    return [r[2] for r in results]
 
 
 async def get_details(media_type: str, tmdb_id: str) -> MediaResult | None:

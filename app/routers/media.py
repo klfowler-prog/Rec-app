@@ -52,10 +52,13 @@ async def bulk_search(req: BulkSearchRequest):
 
 
 def _rank_by_title_match(query: str, results: list[MediaResult]) -> list[MediaResult]:
-    """Rank search results by how closely the title matches the query."""
+    """Rank search results by title similarity, breaking ties on whether
+    a poster/cover exists. For common titles — especially books on Open
+    Library — the top title match often lacks a cover because multiple
+    editions exist; prefer the edition with an image so cards render."""
     query_lower = query.lower().strip()
 
-    def score(item: MediaResult) -> float:
+    def title_score(item: MediaResult) -> float:
         title_lower = item.title.lower().strip()
         if title_lower == query_lower:
             return 100  # Exact match
@@ -69,7 +72,12 @@ def _rank_by_title_match(query: str, results: list[MediaResult]) -> list[MediaRe
         overlap = len(query_words & title_words)
         return (overlap / max(len(query_words), 1)) * 40
 
-    return sorted(results, key=score, reverse=True)
+    def sort_key(item: MediaResult) -> tuple:
+        # Primary: title score. Secondary: has image (1 if yes, 0 if no).
+        # Both descending via negation so sorted() ascending works.
+        return (-title_score(item), 0 if item.image_url else 1)
+
+    return sorted(results, key=sort_key)
 
 
 @router.get("/trending/{media_type}")

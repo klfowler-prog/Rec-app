@@ -9,7 +9,13 @@ async def search(query: str) -> list[MediaResult]:
     async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.get(
             f"{BASE_URL}/search.json",
-            params={"q": query, "limit": 10, "fields": "key,title,author_name,first_publish_year,cover_i,subject,isbn"},
+            params={
+                "q": query,
+                # Request more results since we'll prefer ones with covers.
+                # Many Open Library matches are edition stubs without cover_i.
+                "limit": 20,
+                "fields": "key,title,author_name,first_publish_year,cover_i,edition_count,subject,isbn",
+            },
         )
         resp.raise_for_status()
         data = resp.json()
@@ -27,20 +33,30 @@ async def search(query: str) -> list[MediaResult]:
         subjects = doc.get("subject", [])[:5]
 
         results.append(
-            MediaResult(
-                external_id=work_id,
-                source="open_library",
-                media_type="book",
-                title=doc.get("title", ""),
-                image_url=image_url,
-                year=doc.get("first_publish_year"),
-                creator=", ".join(authors[:2]) if authors else None,
-                genres=subjects,
-                description=None,
-                external_url=f"https://openlibrary.org/works/{work_id}",
+            (
+                bool(cover_id),
+                doc.get("edition_count") or 0,
+                MediaResult(
+                    external_id=work_id,
+                    source="open_library",
+                    media_type="book",
+                    title=doc.get("title", ""),
+                    image_url=image_url,
+                    year=doc.get("first_publish_year"),
+                    creator=", ".join(authors[:2]) if authors else None,
+                    genres=subjects,
+                    description=None,
+                    external_url=f"https://openlibrary.org/works/{work_id}",
+                ),
             )
         )
-    return results
+
+    # Preserve Open Library's relevance order but float results that have
+    # a cover image to the top. Break further ties by edition_count
+    # (a rough popularity proxy — the real "Great Gatsby" has thousands of
+    # editions, the random stub has 1).
+    results.sort(key=lambda t: (0 if t[0] else 1, -t[1]))
+    return [r[2] for r in results]
 
 
 async def get_details(work_id: str) -> MediaResult | None:
