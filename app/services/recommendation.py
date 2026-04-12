@@ -124,7 +124,10 @@ async def stream_recommendation(
 ) -> AsyncGenerator[str, None]:
     """Stream a recommendation response from Gemini."""
     profile_context = _build_profile_context(db, user_id)
-    system_prompt = SYSTEM_PROMPT.format(profile_context=profile_context)
+    # Use .replace(), NOT .format() — SYSTEM_PROMPT contains literal
+    # `{"title": ...}` inside the JSON example block, which str.format()
+    # would try to parse as format placeholders and raise KeyError.
+    system_prompt = SYSTEM_PROMPT.replace("{profile_context}", profile_context)
 
     if not settings.gemini_api_key:
         yield f'data: {{"error": "Gemini API key not configured. Add GEMINI_API_KEY to your .env file."}}\n\n'
