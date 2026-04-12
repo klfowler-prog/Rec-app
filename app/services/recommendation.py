@@ -67,6 +67,20 @@ def _build_profile_context(db: Session, user_id: int) -> str:
         type_counts[e.media_type] = type_counts.get(e.media_type, 0) + 1
     lines.append(f"Breakdown: {', '.join(f'{v} {k}s' for k, v in type_counts.items())}")
 
+    # Explicit do-not-recommend list — cap at ~6000 chars so the AI
+    # always has enough context to avoid suggesting something already owned.
+    avoid_titles: list[str] = []
+    char_budget = 6000
+    for e in entries:
+        if char_budget <= 0:
+            break
+        avoid_titles.append(e.title)
+        char_budget -= len(e.title) + 2
+    if avoid_titles:
+        lines.append("")
+        lines.append("### DO NOT RECOMMEND — already in their library:")
+        lines.append(", ".join(avoid_titles))
+
     return "\n".join(lines)
 
 
@@ -76,13 +90,13 @@ SYSTEM_PROMPT = """You are a personal media recommendation assistant called Next
 
 ## Your Guidelines:
 - Recommend 3-5 items per request unless the user asks for more or fewer
+- CRITICAL: NEVER recommend anything from the "DO NOT RECOMMEND" list in the profile above. That list is the user's existing library — recommending from it is a failure. If the user asks for something you'd normally suggest from that list, pick an adjacent item instead and note that they already have the obvious pick.
 - Nonfiction is welcome: documentaries, memoirs, idea books, narrative nonfiction, interview/science/news/explainer podcasts. Match the user's fiction/nonfiction balance — if they rate nonfiction highly, recommend more.
 - Explain WHY each recommendation fits the user's taste. Reference specific items from their profile, ideally from a DIFFERENT media type (cross-medium connection).
 - The connection must be CONCRETE — cite a shared theme, idea, emotional beat, or narrative approach. Never rely on shared demographic, setting, or keyword alone.
 - Be conversational and friendly, not robotic
 - If the user's request is vague, ask a clarifying question before recommending
 - You can recommend across media types unless the user specifies one
-- If the user says they've already seen/read something, acknowledge it and suggest alternatives
 
 ## Response Format:
 

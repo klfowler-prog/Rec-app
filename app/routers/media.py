@@ -80,6 +80,61 @@ def _rank_by_title_match(query: str, results: list[MediaResult]) -> list[MediaRe
     return sorted(results, key=sort_key)
 
 
+def _normalize_title(t: str) -> str:
+    """Normalize a title for comparison so that minor variations — case,
+    punctuation, subtitle after a colon, leading articles — are treated
+    as the same item. Used by recommendation endpoints to check whether
+    an AI-suggested title is already in the user's library."""
+    if not t:
+        return ""
+    import re
+    s = t.lower().strip()
+    # Drop subtitle (everything after the first colon) so
+    # "The Body Keeps the Score: Brain, Mind, and Body" matches
+    # "The Body Keeps the Score".
+    if ":" in s:
+        s = s.split(":", 1)[0].strip()
+    # Drop leading articles
+    for article in ("the ", "a ", "an "):
+        if s.startswith(article):
+            s = s[len(article):]
+            break
+    # Strip punctuation and collapse whitespace
+    s = re.sub(r"[^\w\s]", " ", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+
+def _build_known_titles(db: Session, user_id: int) -> tuple[set[str], list[str]]:
+    """Return (normalized_set, display_list) of everything the user has
+    already engaged with or dismissed — consumed, consuming, queued, or
+    explicitly dismissed. The normalized set is used for post-filtering
+    AI suggestions; the display list is used in prompts."""
+    from app.models import DismissedItem, MediaEntry
+
+    rows = db.query(MediaEntry.title).filter(MediaEntry.user_id == user_id).all()
+    dismissed_rows = db.query(DismissedItem.title).filter(DismissedItem.user_id == user_id).all()
+
+    display: list[str] = []
+    normalized: set[str] = set()
+    for (title,) in rows:
+        if not title:
+            continue
+        display.append(title)
+        normalized.add(_normalize_title(title))
+    for (title,) in dismissed_rows:
+        if not title:
+            continue
+        display.append(title)
+        normalized.add(_normalize_title(title))
+
+    return normalized, display
+
+
+def _is_known(title: str, known_normalized: set[str]) -> bool:
+    return _normalize_title(title) in known_normalized
+
+
 @router.get("/trending/{media_type}")
 async def get_trending(media_type: str = "all", limit: int = 10):
     """Get trending movies/TV from TMDB."""
@@ -532,9 +587,7 @@ async def tonight_pick(
         raise HTTPException(status_code=503, detail="AI features not configured")
 
     entries = db.query(MediaEntry).filter(MediaEntry.user_id == user.id).all()
-    existing_titles = {e.title.lower() for e in entries}
-    dismissed = {row[0].lower() for row in db.query(DismissedItem.title).filter(DismissedItem.user_id == user.id).all()}
-    existing_titles = existing_titles | dismissed
+    known_normalized, known_display = _build_known_titles(db, user.id)
 
     # Build cross-medium taste summary
     by_type: dict[str, list] = {"movie": [], "tv": [], "book": [], "podcast": []}
@@ -565,8 +618,15 @@ async def tonight_pick(
         recent_lines = [f"  - {e.title} ({e.media_type}, {e.rating}/10)" for e in recent_items[:6]]
         recent_text = f"\n\nRECENTLY RATED (last 30 days):\n" + "\n".join(recent_lines)
 
-    avoid_list = list(existing_titles)[:40]
-    avoid_str = ", ".join(avoid_list) if avoid_list else "none"
+    # Pack as many known titles into the prompt as will fit in ~6000 chars.
+    avoid_titles: list[str] = []
+    char_budget = 6000
+    for t in known_display:
+        if char_budget <= 0:
+            break
+        avoid_titles.append(t)
+        char_budget -= len(t) + 2
+    avoid_str = ", ".join(avoid_titles) if avoid_titles else "none"
 
     # Time-based guidance for the AI
     time_guidance = {
@@ -613,10 +673,14 @@ Return ONLY valid JSON, no markdown:
             text = text.rsplit("```", 1)[0]
         pick = json.loads(text)
 
+        if _is_known(pick.get("title", ""), known_normalized):
+            log.info("tonight: dropping AI pick '%s' — already in library", pick.get("title"))
+            raise HTTPException(status_code=503, detail="AI suggested an item you already have; try again.")
+
         # Enrich with poster
         matches = await unified_search(pick.get("title", ""), pick.get("media_type"))
         matches = _rank_by_title_match(pick.get("title", ""), matches)
-        if matches:
+        if matches and not _is_known(matches[0].title, known_normalized):
             best = matches[0]
             result = {
                 "title": best.title,
@@ -677,13 +741,7 @@ async def top_picks(user: User = Depends(require_user), db: Session = Depends(ge
         return []
 
     entries = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.status == "consumed").all()
-    all_entries = db.query(MediaEntry).filter(MediaEntry.user_id == user.id).all()
-    existing_titles = {e.title.lower() for e in all_entries}
-
-    # Also exclude dismissed items
-    from app.models import DismissedItem
-    dismissed_titles = {row[0].lower() for row in db.query(DismissedItem.title).filter(DismissedItem.user_id == user.id).all()}
-    existing_titles = existing_titles | dismissed_titles
+    known_normalized, known_display = _build_known_titles(db, user.id)
 
     # Build cross-medium taste summary, grouped by type and weighted by recency
     from datetime import datetime, timedelta
@@ -718,8 +776,20 @@ async def top_picks(user: User = Depends(require_user), db: Session = Depends(ge
         recent_lines = [f"  - {e.title} ({e.media_type}, {e.rating}/10)" for e in recent_items[:10]]
         recent_section = f"\n\nRECENTLY RATED (last 30 days — their current mood, weight heavily):\n" + "\n".join(recent_lines)
 
-    # Build a list of titles to avoid
-    avoid_titles = list(existing_titles)[:50]
+    # Build an avoid list for the prompt — pass as many titles as we can
+    # fit without blowing the prompt budget. Prioritize highly-rated items
+    # first (AI is most tempted to re-recommend those), then the rest.
+    highly_rated_titles = [e.title for e in entries if e.rating and e.rating >= 7]
+    other_known = [t for t in known_display if t not in set(highly_rated_titles)]
+    ordered_avoid = highly_rated_titles + other_known
+    # Cap at ~6000 chars to stay well under token limits
+    avoid_titles: list[str] = []
+    char_budget = 6000
+    for t in ordered_avoid:
+        if char_budget <= 0:
+            break
+        avoid_titles.append(t)
+        char_budget -= len(t) + 2
     avoid_str = ", ".join(avoid_titles) if avoid_titles else "none"
 
     try:
@@ -800,8 +870,23 @@ Return ONLY valid JSON, no markdown:
                 "genres": [],
             }
 
-        found = await asyncio.gather(*[search_pick(p) for p in picks[:4]])
-        results = [r for r in found if r is not None and r["title"].lower() not in dismissed_titles]
+        # Filter out any AI picks that map to something already in the user's
+        # library — check BOTH the AI's original title and the enriched
+        # search result's title, since the search can map a loose AI title
+        # to a canonical one the user already owns.
+        filtered_picks = []
+        for p in picks[:4]:
+            ai_title = p.get("title", "")
+            if _is_known(ai_title, known_normalized):
+                log.info("top_picks: dropping AI pick '%s' — already in library", ai_title)
+                continue
+            filtered_picks.append(p)
+
+        found = await asyncio.gather(*[search_pick(p) for p in filtered_picks])
+        results = [
+            r for r in found
+            if r is not None and not _is_known(r["title"], known_normalized)
+        ]
         cache.set(cache_key, results, ttl_seconds=7200)
         return results
     except Exception as e:
@@ -826,8 +911,7 @@ async def home_suggestions(user: User = Depends(require_user), db: Session = Dep
     consumed = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.status == "consumed").all()
     want = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.status == "want_to_consume").all()
 
-    from app.models import DismissedItem
-    dismissed_titles = {row[0].lower() for row in db.query(DismissedItem.title).filter(DismissedItem.user_id == user.id).all()}
+    known_normalized, known_display = _build_known_titles(db, user.id)
 
     # Figure out which types are missing from the queue
     queue_types = {item.media_type for item in want}
@@ -872,6 +956,16 @@ async def home_suggestions(user: User = Depends(require_user), db: Session = Dep
     type_labels = {"movie": "movies", "tv": "TV shows", "book": "books", "podcast": "podcasts"}
     missing_labels = [type_labels[t] for t in missing_types]
 
+    # Pack the avoid list — cap at ~6000 chars to stay under token limits.
+    avoid_titles: list[str] = []
+    char_budget = 6000
+    for t in known_display:
+        if char_budget <= 0:
+            break
+        avoid_titles.append(t)
+        char_budget -= len(t) + 2
+    avoid_str = ", ".join(avoid_titles) if avoid_titles else "none"
+
     try:
         from app.services.gemini import generate
 
@@ -893,6 +987,8 @@ CRITICAL: Each "reason" MUST cite at least one specific item from a DIFFERENT me
 
 Good example: "You gave *The Wire* (TV) a 10/10 — this nonfiction book on the war on drugs delivers the same unflinching institutional critique."
 Bad example: "Both are about cities."
+
+DO NOT recommend any of these titles — the user has already consumed, queued, or dismissed them: {avoid_str}
 
 Return ONLY valid JSON, no markdown:
 {{
@@ -951,16 +1047,21 @@ Only include categories from this list: {', '.join(missing_types)}"""
             if not isinstance(items, list):
                 continue
             for item in items:
-                # Skip dismissed items before we make API calls
-                if item.get("title", "").lower() in dismissed_titles:
+                # Pre-filter: skip anything the user already has before we spend API calls.
+                if _is_known(item.get("title", ""), known_normalized):
+                    log.info("home_suggestions: dropping AI pick '%s' — already in library", item.get("title"))
                     continue
                 all_tasks.append(enrich(item, media_type))
                 task_keys.append(media_type)
 
         results = await asyncio.gather(*all_tasks)
         for key, result in zip(task_keys, results):
-            if result["title"].lower() not in dismissed_titles:
-                enriched.setdefault(key, []).append(result)
+            # Post-filter: the search enrichment can map a loose AI title to a
+            # canonical one the user already owns.
+            if _is_known(result["title"], known_normalized):
+                log.info("home_suggestions: dropping enriched '%s' — resolves to owned", result["title"])
+                continue
+            enriched.setdefault(key, []).append(result)
 
         result = {"suggestions": enriched}
         cache.set(cache_key, result, ttl_seconds=21600)
