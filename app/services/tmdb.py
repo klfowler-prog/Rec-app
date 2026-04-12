@@ -188,6 +188,72 @@ async def get_trending(media_type: str = "all", time_window: str = "week", limit
     return results
 
 
+async def _fetch_list(path: str, limit: int = 20) -> list[MediaResult]:
+    """Shared helper for TMDB list endpoints (now_playing, upcoming,
+    on_the_air, etc.)."""
+    if not settings.tmdb_api_key:
+        return []
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.get(f"{BASE_URL}{path}", headers=_headers(), params={"page": 1})
+        if resp.status_code != 200:
+            return []
+        data = resp.json()
+
+    # Infer media type from path
+    mt = "tv" if "/tv/" in path else "movie"
+    results = []
+    for item in data.get("results", [])[:limit]:
+        title = item.get("title") or item.get("name", "")
+        date = item.get("release_date") or item.get("first_air_date", "")
+        year = int(date[:4]) if date and len(date) >= 4 else None
+        poster = f"{IMAGE_BASE}{item['poster_path']}" if item.get("poster_path") else None
+        genre_ids = item.get("genre_ids", [])
+        genres = [GENRE_MAP.get(gid, "") for gid in genre_ids]
+        genres = [g for g in genres if g]
+        results.append(
+            MediaResult(
+                external_id=str(item["id"]),
+                source="tmdb",
+                media_type=mt,
+                title=title,
+                image_url=poster,
+                year=year,
+                creator=None,
+                genres=genres,
+                description=item.get("overview"),
+                external_url=f"https://www.themoviedb.org/{mt}/{item['id']}",
+            )
+        )
+    # Float items with posters to the front
+    results.sort(key=lambda r: 0 if r.image_url else 1)
+    return results
+
+
+async def get_movies_now_playing(limit: int = 20) -> list[MediaResult]:
+    """Movies currently in theaters (US)."""
+    return await _fetch_list("/movie/now_playing", limit)
+
+
+async def get_movies_upcoming(limit: int = 20) -> list[MediaResult]:
+    """Movies releasing soon — useful for 'new to streaming' as a proxy."""
+    return await _fetch_list("/movie/upcoming", limit)
+
+
+async def get_movies_popular(limit: int = 20) -> list[MediaResult]:
+    """Currently popular movies — a decent 'what's hot on streaming right now' proxy."""
+    return await _fetch_list("/movie/popular", limit)
+
+
+async def get_tv_on_the_air(limit: int = 20) -> list[MediaResult]:
+    """TV shows currently airing new episodes."""
+    return await _fetch_list("/tv/on_the_air", limit)
+
+
+async def get_tv_popular(limit: int = 20) -> list[MediaResult]:
+    """Currently popular TV — 'what's hot on streaming' for TV."""
+    return await _fetch_list("/tv/popular", limit)
+
+
 # TMDB genre ID to name mapping
 GENRE_MAP = {
     28: "Action", 12: "Adventure", 16: "Animation", 35: "Comedy", 80: "Crime",

@@ -59,6 +59,59 @@ async def search(query: str) -> list[MediaResult]:
     return [r[2] for r in results]
 
 
+async def get_recent_books(limit: int = 20) -> list[MediaResult]:
+    """Fetch recent books from Open Library. There's no direct 'new
+    releases' endpoint, so we query the search API for the current year
+    sorted by popularity. Not as tight as TMDB's now_playing but gives
+    us something reasonable to surface as 'what's new in books'."""
+    from datetime import datetime
+    current_year = datetime.utcnow().year
+    # Search for books published in the last two years, sorted by rating
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.get(
+            f"{BASE_URL}/search.json",
+            params={
+                "q": f"first_publish_year:[{current_year - 1} TO {current_year}]",
+                "limit": limit * 2,
+                "sort": "rating",
+                "fields": "key,title,author_name,first_publish_year,cover_i,subject,edition_count",
+            },
+        )
+        if resp.status_code != 200:
+            return []
+        data = resp.json()
+
+    results = []
+    for doc in data.get("docs", []):
+        work_key = doc.get("key", "")
+        work_id = work_key.replace("/works/", "") if work_key else ""
+        if not work_id:
+            continue
+        cover_id = doc.get("cover_i")
+        if not cover_id:
+            continue  # Skip editions without covers — we want a clean grid
+        image_url = f"https://covers.openlibrary.org/b/id/{cover_id}-M.jpg"
+        authors = doc.get("author_name", [])
+        subjects = doc.get("subject", [])[:5]
+        results.append(
+            MediaResult(
+                external_id=work_id,
+                source="open_library",
+                media_type="book",
+                title=doc.get("title", ""),
+                image_url=image_url,
+                year=doc.get("first_publish_year"),
+                creator=", ".join(authors[:2]) if authors else None,
+                genres=subjects,
+                description=None,
+                external_url=f"https://openlibrary.org/works/{work_id}",
+            )
+        )
+        if len(results) >= limit:
+            break
+    return results
+
+
 async def get_details(work_id: str) -> MediaResult | None:
     async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.get(f"{BASE_URL}/works/{work_id}.json")

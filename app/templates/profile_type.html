@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+{% block title %}{{ type_label }}{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <div class="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+            <p class="text-[11px] text-txt-muted uppercase tracking-widest font-semibold mb-1">My Library</p>
+            <h2 class="text-2xl font-semibold mb-1">{{ type_label }}</h2>
+            <p class="text-txt-muted text-sm">What's new, what's queued, what you've already consumed.</p>
+        </div>
+        <a href="/profile" class="text-xs px-3 py-1.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg text-txt-muted hover:text-sage hover:border-sage transition-base">
+            All media &rarr;
+        </a>
+    </div>
+
+    <!-- What's new for you -->
+    <section>
+        <div class="flex items-center justify-between mb-3">
+            <div>
+                <h3 class="text-lg font-semibold flex items-center gap-2">
+                    <span class="w-7 h-7 rounded-lg gradient-coral flex items-center justify-center">
+                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    </span>
+                    What's new for you
+                </h3>
+                <p class="text-sm text-txt-muted">Fresh releases scored against your taste. Updated weekly.</p>
+            </div>
+            <button id="refresh-new-btn" onclick="refreshNewReleases()" class="text-xs px-3 py-1.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg text-txt-muted hover:text-sage hover:border-sage transition-base inline-flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h4.586M20 20v-5h-4.586M4.929 9A8 8 0 0119.07 9M19.071 15A8 8 0 014.93 15"/></svg>
+                Refresh
+            </button>
+        </div>
+        <div id="new-releases-content" class="space-y-6">
+            <p class="text-sm text-txt-muted py-4 text-center">Loading fresh picks...</p>
+        </div>
+    </section>
+
+    <!-- Your queue (want to consume) -->
+    <section>
+        <h3 class="text-lg font-semibold flex items-center gap-2 mb-3">
+            <span class="w-7 h-7 rounded-lg gradient-sage flex items-center justify-center">
+                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+            </span>
+            Your queue
+        </h3>
+        <div id="queue-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+            <p class="col-span-full text-sm text-txt-muted py-4 text-center">Loading...</p>
+        </div>
+    </section>
+
+    <!-- Picked for you (AI recs for this type) -->
+    <section>
+        <h3 class="text-lg font-semibold flex items-center gap-2 mb-3">
+            <span class="w-7 h-7 rounded-lg gradient-navy flex items-center justify-center">
+                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+            </span>
+            Picked for you
+        </h3>
+        <div id="picks-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+            <p class="col-span-full text-sm text-txt-muted py-4 text-center">Loading...</p>
+        </div>
+    </section>
+
+    <!-- Your library (consumed) -->
+    <section>
+        <h3 class="text-lg font-semibold flex items-center gap-2 mb-3">
+            <span class="w-7 h-7 rounded-lg gradient-amber flex items-center justify-center">
+                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 13l4 4L19 7"/></svg>
+            </span>
+            Your library
+        </h3>
+        <p class="text-sm text-txt-muted mb-3">Everything you've finished in this category.</p>
+        <div id="library-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+            <p class="col-span-full text-sm text-txt-muted py-4 text-center">Loading...</p>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/card_actions.js"></script>
+<script>
+const MEDIA_TYPE = "{{ media_type }}";
+const TYPE_LABEL = "{{ type_label }}";
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = (text === null || text === undefined) ? '' : String(text);
+    return div.innerHTML;
+}
+
+function newReleaseCard(item) {
+    const fit = MEDIA_TYPE === 'podcast' ? 'poster-contain' : 'poster-cover';
+    const link = item.external_id ? `/media/${item.media_type || MEDIA_TYPE}/${item.external_id}?source=${item.source}` : '#';
+    const image = item.image_url
+        ? `<div class="poster-frame"><img src="${item.image_url}" alt="" class="${fit}" loading="lazy"></div>`
+        : `<div class="poster-frame"><div class="poster-fallback bg-sage/10"><span class="text-sage text-xl">${escapeHtml((item.title || '?')[0])}</span></div></div>`;
+    const pr = item.predicted_rating;
+    const prBadge = pr ? `<div class="absolute top-2 right-2 px-1.5 py-0.5 ${pr >= 8 ? 'bg-emerald-500' : pr >= 6 ? 'bg-yellow-500' : pr >= 4 ? 'bg-amber-400' : 'bg-coral'} rounded-full"><span class="text-[10px] font-bold text-white">${pr}</span></div>` : '';
+
+    const consumeAttr = escapeAttr(JSON.stringify({
+        external_id: item.external_id || '', source: item.source || '', title: item.title,
+        media_type: item.media_type || MEDIA_TYPE, image_url: item.image_url || null,
+        year: item.year || null, creator: item.creator || null,
+        genres: (item.genres && item.genres.length) ? item.genres.join(', ') : null,
+        description: item.description || null, status: 'consumed',
+    }));
+    const saveAttr = escapeAttr(JSON.stringify({
+        external_id: item.external_id || '', source: item.source || '', title: item.title,
+        media_type: item.media_type || MEDIA_TYPE, image_url: item.image_url || null,
+        year: item.year || null, creator: item.creator || null,
+        genres: (item.genres && item.genres.length) ? item.genres.join(', ') : null,
+        description: item.description || null, status: 'want_to_consume',
+    }));
+    const dismissAttr = escapeAttr(JSON.stringify({
+        external_id: item.external_id || '', source: item.source || '',
+        title: item.title, media_type: item.media_type || MEDIA_TYPE,
+    }));
+    const verb = {movie:'Watched',tv:'Watched',book:'Read',podcast:'Listened'}[MEDIA_TYPE] || 'Done';
+
+    return `
+        <div class="swim-lane-item flex-shrink-0 w-40" data-rec-card>
+            <div class="rounded-lg overflow-hidden shadow-sm border border-border-light dark:border-border-dark">
+                <a href="${link}" class="relative block">${image}${prBadge}</a>
+                <div class="bg-surface-light dark:bg-surface-dark p-2.5">
+                    <p class="text-xs font-medium truncate">${escapeHtml(item.title)}</p>
+                    ${item.year ? `<p class="text-[10px] text-txt-muted">${item.year}</p>` : ''}
+                    <div class="mt-1.5 quick-add-area">
+                        <div class="flex items-center gap-1">
+                            <button onclick="saveForLater(this, ${saveAttr})" class="p-1 bg-sage/10 hover:bg-sage hover:text-white text-sage rounded transition-base" title="Save for later">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+                            </button>
+                            <button onclick="quickAdd(this, ${consumeAttr})" class="px-2 py-1 bg-sage/10 hover:bg-sage hover:text-white text-sage text-[10px] font-medium rounded transition-base">${verb}</button>
+                            <button onclick="dismissItem(this, ${dismissAttr})" class="p-1 bg-gray-100 dark:bg-gray-800 hover:bg-coral hover:text-white text-txt-muted rounded transition-base" title="Not interested">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function simpleEntryCard(entry) {
+    const fit = entry.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
+    const image = entry.image_url
+        ? `<div class="poster-frame"><img src="${entry.image_url}" alt="" class="${fit}" loading="lazy"></div>`
+        : `<div class="poster-frame"><div class="poster-fallback bg-sage/10"><span class="text-sage text-xl">${escapeHtml((entry.title || '?')[0])}</span></div></div>`;
+    const rating = entry.rating ? `<span class="text-[10px] font-semibold text-sage">${entry.rating}/10</span>` : (entry.predicted_rating ? `<span class="text-[10px] text-txt-muted">~${entry.predicted_rating}</span>` : '');
+    return `
+        <a href="/media/${entry.media_type}/${entry.external_id}?source=${entry.source}" class="group">
+            <div class="rounded-lg overflow-hidden border border-border-light dark:border-border-dark transition-base card-hover">
+                ${image}
+                <div class="bg-surface-light dark:bg-surface-dark p-2">
+                    <p class="text-xs font-medium truncate">${escapeHtml(entry.title)}</p>
+                    ${rating}
+                </div>
+            </div>
+        </a>
+    `;
+}
+
+async function loadNewReleases(refresh = false) {
+    const content = document.getElementById('new-releases-content');
+    content.innerHTML = `<p class="text-sm text-txt-muted py-4 text-center">Finding fresh picks...</p>`;
+    try {
+        const url = `/api/media/new-releases/${MEDIA_TYPE}${refresh ? '?refresh=1' : ''}`;
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error('fetch failed');
+        const data = await resp.json();
+        const sections = data.sections || [];
+        if (sections.length === 0) {
+            content.innerHTML = `<p class="text-sm text-txt-muted py-4 text-center">Nothing new we can surface right now.</p>`;
+            return;
+        }
+        content.innerHTML = sections.map(s => `
+            <div>
+                <p class="text-[11px] text-txt-muted uppercase tracking-widest mb-2 font-semibold">${escapeHtml(s.label)}</p>
+                <div class="swim-lane flex gap-3 pb-1">
+                    ${s.items.map(newReleaseCard).join('')}
+                </div>
+            </div>
+        `).join('');
+    } catch {
+        content.innerHTML = `<p class="text-sm text-txt-muted py-4 text-center">Couldn't load new releases right now.</p>`;
+    }
+}
+
+async function refreshNewReleases() {
+    const btn = document.getElementById('refresh-new-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="w-3.5 h-3.5 border-2 border-sage/30 border-t-sage rounded-full animate-spin inline-block"></span> Refreshing...';
+    await loadNewReleases(true);
+    btn.disabled = false;
+    btn.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h4.586M20 20v-5h-4.586M4.929 9A8 8 0 0119.07 9M19.071 15A8 8 0 014.93 15"/></svg> Refresh';
+}
+
+async function loadQueueAndLibrary() {
+    try {
+        const resp = await fetch(`/api/profile/?media_type=${MEDIA_TYPE}`);
+        const entries = resp.ok ? await resp.json() : [];
+
+        const queue = entries.filter(e => e.status === 'want_to_consume' || e.status === 'consuming');
+        const library = entries.filter(e => e.status === 'consumed');
+
+        const queueGrid = document.getElementById('queue-grid');
+        if (queue.length === 0) {
+            queueGrid.innerHTML = `<p class="col-span-full text-sm text-txt-muted py-4 text-center">Nothing queued yet. Save items from search or recommendations.</p>`;
+        } else {
+            queueGrid.innerHTML = queue.map(simpleEntryCard).join('');
+        }
+
+        const libraryGrid = document.getElementById('library-grid');
+        if (library.length === 0) {
+            libraryGrid.innerHTML = `<p class="col-span-full text-sm text-txt-muted py-4 text-center">No finished items here yet.</p>`;
+        } else {
+            // Sort by rating desc then recency
+            library.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+            libraryGrid.innerHTML = library.slice(0, 30).map(simpleEntryCard).join('');
+        }
+    } catch {
+        document.getElementById('queue-grid').innerHTML = '';
+        document.getElementById('library-grid').innerHTML = '';
+    }
+}
+
+async function loadPicks() {
+    const grid = document.getElementById('picks-grid');
+    try {
+        const resp = await fetch('/api/media/home-bundle');
+        const data = resp.ok ? await resp.json() : {};
+        const picks = (data.top_picks || []).filter(p => p.media_type === MEDIA_TYPE);
+        const suggestions = (data.suggestions && data.suggestions[MEDIA_TYPE]) || [];
+        // Merge, deduped by title
+        const seen = new Set();
+        const merged = [];
+        for (const p of [...picks, ...suggestions]) {
+            const key = (p.title || '').toLowerCase();
+            if (key && !seen.has(key)) {
+                merged.push(p);
+                seen.add(key);
+            }
+        }
+        if (merged.length === 0) {
+            grid.innerHTML = `<p class="col-span-full text-sm text-txt-muted py-4 text-center">No picks for this category yet. Rate more ${TYPE_LABEL.toLowerCase()} to unlock recommendations.</p>`;
+            return;
+        }
+        grid.innerHTML = merged.slice(0, 5).map(p => {
+            const fit = p.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
+            const image = p.image_url
+                ? `<div class="poster-frame"><img src="${p.image_url}" alt="" class="${fit}" loading="lazy"></div>`
+                : `<div class="poster-frame"><div class="poster-fallback bg-sage/10"><span class="text-sage text-xl">${escapeHtml((p.title || '?')[0])}</span></div></div>`;
+            const link = p.external_id ? `/media/${p.media_type}/${p.external_id}?source=${p.source}` : '#';
+            return `
+                <a href="${link}" class="group">
+                    <div class="rounded-lg overflow-hidden border border-border-light dark:border-border-dark transition-base card-hover">
+                        ${image}
+                        <div class="bg-surface-light dark:bg-surface-dark p-2">
+                            <p class="text-xs font-medium truncate">${escapeHtml(p.title)}</p>
+                            ${p.predicted_rating ? `<p class="text-[10px] text-sage">~${p.predicted_rating}</p>` : ''}
+                        </div>
+                    </div>
+                </a>
+            `;
+        }).join('');
+    } catch {
+        grid.innerHTML = '';
+    }
+}
+
+Promise.all([loadNewReleases(false), loadQueueAndLibrary(), loadPicks()]);
+</script>
+{% endblock %}

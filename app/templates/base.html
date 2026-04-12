@@ -101,10 +101,36 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                     Search
                 </a>
-                <a href="/profile" onclick="closeSidebar()" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-base hover:bg-sage/10 {% if request.url.path == '/profile' %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
-                    My Profile
-                </a>
+                {% set library_active = request.url.path == '/profile' or request.url.path.startswith('/profile/') %}
+                <div class="nav-group">
+                    <button type="button" onclick="toggleLibraryGroup()" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-base hover:bg-sage/10 {% if library_active %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                        My Library
+                        <svg id="library-chevron" class="w-4 h-4 ml-auto transition-transform {% if library_active %}rotate-180{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div id="library-submenu" class="{% if not library_active %}hidden {% endif %}mt-1 ml-6 space-y-0.5 border-l border-border-light dark:border-border-dark pl-3">
+                        <a href="/profile" onclick="closeSidebar()" class="nav-link flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-base hover:bg-sage/10 {% if request.url.path == '/profile' %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
+                            <span class="w-1 h-1 rounded-full bg-current opacity-50"></span>
+                            All media
+                        </a>
+                        <a href="/profile/movies" onclick="closeSidebar()" class="nav-link flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-base hover:bg-sage/10 {% if request.url.path == '/profile/movies' %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
+                            <span class="w-1.5 h-1.5 rounded gradient-blue"></span>
+                            Movies
+                        </a>
+                        <a href="/profile/tv" onclick="closeSidebar()" class="nav-link flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-base hover:bg-sage/10 {% if request.url.path == '/profile/tv' %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
+                            <span class="w-1.5 h-1.5 rounded gradient-purple"></span>
+                            TV Shows
+                        </a>
+                        <a href="/profile/books" onclick="closeSidebar()" class="nav-link flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-base hover:bg-sage/10 {% if request.url.path == '/profile/books' %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
+                            <span class="w-1.5 h-1.5 rounded gradient-amber"></span>
+                            Books
+                        </a>
+                        <a href="/profile/podcasts" onclick="closeSidebar()" class="nav-link flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-base hover:bg-sage/10 {% if request.url.path == '/profile/podcasts' %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
+                            <span class="w-1.5 h-1.5 rounded bg-green-500"></span>
+                            Podcasts
+                        </a>
+                    </div>
+                </div>
                 <a href="/taste" onclick="closeSidebar()" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-base hover:bg-sage/10 {% if request.url.path == '/taste' %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
                     Taste DNA
@@ -199,6 +225,13 @@
             setTimeout(() => overlay.classList.add('hidden'), 200);
         }
         document.getElementById('menu-close').addEventListener('click', closeSidebar);
+
+        function toggleLibraryGroup() {
+            const submenu = document.getElementById('library-submenu');
+            const chevron = document.getElementById('library-chevron');
+            submenu.classList.toggle('hidden');
+            chevron.classList.toggle('rotate-180');
+        }
     </script>
     {% block scripts %}{% endblock %}
 </body>

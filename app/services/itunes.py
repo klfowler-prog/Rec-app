@@ -39,6 +39,47 @@ async def search(query: str) -> list[MediaResult]:
     return results
 
 
+async def get_top_podcasts(limit: int = 25) -> list[MediaResult]:
+    """Fetch the current top podcasts from the iTunes Generator RSS feed.
+    Used as a 'what's new/hot in podcasts' source for the per-type
+    profile page."""
+    url = f"https://itunes.apple.com/us/rss/toppodcasts/limit={limit}/json"
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.get(url)
+        if resp.status_code != 200:
+            return []
+        data = resp.json()
+
+    feed = data.get("feed", {})
+    entries = feed.get("entry", [])
+    results = []
+    for item in entries:
+        title = (item.get("im:name") or {}).get("label", "")
+        artist = (item.get("im:artist") or {}).get("label")
+        # Pick the largest image
+        images = item.get("im:image", [])
+        image_url = images[-1].get("label") if images else None
+        # The iTunes collection ID is in the id attributes
+        raw_id = (item.get("id") or {}).get("attributes", {}).get("im:id") or ""
+        category = ((item.get("category") or {}).get("attributes") or {}).get("label")
+        genres = [category] if category else []
+        results.append(
+            MediaResult(
+                external_id=str(raw_id),
+                source="itunes",
+                media_type="podcast",
+                title=title,
+                image_url=image_url,
+                year=None,
+                creator=artist,
+                genres=genres,
+                description=None,
+                external_url=(item.get("link") or {}).get("attributes", {}).get("href") if isinstance(item.get("link"), dict) else None,
+            )
+        )
+    return results
+
+
 async def get_details(collection_id: str) -> MediaResult | None:
     """Get podcast details by collection ID using iTunes lookup API."""
     async with httpx.AsyncClient(timeout=15) as client:

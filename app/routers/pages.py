@@ -1,7 +1,7 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
@@ -134,6 +134,27 @@ async def search_page(request: Request, user: User = Depends(require_user)):
 @router.get("/profile")
 async def profile_page(request: Request, user: User = Depends(require_user)):
     return templates.TemplateResponse("profile.html", {"request": request, "user": user})
+
+
+@router.get("/profile/{media_type}")
+async def profile_type_page(request: Request, media_type: str, user: User = Depends(require_user)):
+    """Per-media-type library page with what's new, queue, AI picks,
+    and the consumed list all on one screen."""
+    if media_type not in ("movies", "tv", "books", "podcasts"):
+        raise HTTPException(status_code=404, detail="Unknown media type")
+    # Normalize URL-friendly plural to the internal singular the APIs use
+    internal_type = {"movies": "movie", "tv": "tv", "books": "book", "podcasts": "podcast"}[media_type]
+    type_label = {"movies": "Movies", "tv": "TV Shows", "books": "Books", "podcasts": "Podcasts"}[media_type]
+    return templates.TemplateResponse(
+        "profile_type.html",
+        {
+            "request": request,
+            "user": user,
+            "media_type": internal_type,
+            "media_type_slug": media_type,
+            "type_label": type_label,
+        },
+    )
 
 
 @router.get("/taste")

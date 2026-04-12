@@ -1008,6 +1008,196 @@ Return ONLY valid JSON, no markdown:
         return empty_bundle
 
 
+@router.get("/new-releases/{media_type}")
+async def new_releases(
+    media_type: str,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+    refresh: bool = Query(False),
+):
+    """Surface what's currently new/hot in a given media type and attach
+    a per-user predicted-rating score to each item. Cached for 7 days
+    per user, bustable with ?refresh=1. Used by the per-type profile
+    pages to answer 'what's in theaters / new to streaming / new
+    podcasts / new books'."""
+    import asyncio
+    import json
+
+    from app import cache
+    from app.config import settings
+    from app.models import MediaEntry
+
+    if media_type not in ("movie", "tv", "book", "podcast"):
+        raise HTTPException(status_code=400, detail="Invalid media type")
+
+    cache_key = f"new_releases:{user.id}:{media_type}"
+    if refresh:
+        cache.invalidate(cache_key)
+    else:
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+    # 1) Fetch raw "what's new" from the right external API
+    raw_items: list = []
+    sections: list[tuple[str, list]] = []
+    try:
+        if media_type == "movie":
+            from app.services.tmdb import get_movies_now_playing, get_movies_popular
+            now_playing, popular = await asyncio.gather(
+                get_movies_now_playing(limit=15),
+                get_movies_popular(limit=15),
+            )
+            # Deduplicate by external_id — popular often overlaps now_playing
+            seen_ids: set[str] = set()
+            np_items = []
+            for item in now_playing:
+                if item.external_id not in seen_ids:
+                    np_items.append(item)
+                    seen_ids.add(item.external_id)
+            streaming_items = []
+            for item in popular:
+                if item.external_id not in seen_ids:
+                    streaming_items.append(item)
+                    seen_ids.add(item.external_id)
+            sections = [
+                ("In theaters", np_items[:10]),
+                ("Popular on streaming", streaming_items[:10]),
+            ]
+        elif media_type == "tv":
+            from app.services.tmdb import get_tv_on_the_air, get_tv_popular
+            on_air, popular = await asyncio.gather(
+                get_tv_on_the_air(limit=15),
+                get_tv_popular(limit=15),
+            )
+            seen_ids = set()
+            oa_items = []
+            for item in on_air:
+                if item.external_id not in seen_ids:
+                    oa_items.append(item)
+                    seen_ids.add(item.external_id)
+            pop_items = []
+            for item in popular:
+                if item.external_id not in seen_ids:
+                    pop_items.append(item)
+                    seen_ids.add(item.external_id)
+            sections = [
+                ("Currently airing", oa_items[:10]),
+                ("Popular on streaming", pop_items[:10]),
+            ]
+        elif media_type == "book":
+            from app.services.open_library import get_recent_books
+            books = await get_recent_books(limit=20)
+            sections = [("Recently published", books[:10])]
+        elif media_type == "podcast":
+            from app.services.itunes import get_top_podcasts
+            podcasts = await get_top_podcasts(limit=20)
+            sections = [("Top podcasts right now", podcasts[:10])]
+    except Exception as e:
+        log.error("new_releases fetch failed for %s: %s", media_type, str(e))
+        return {"sections": [], "updated_at": None}
+
+    # Strip out anything the user already has
+    known_normalized, _ = _build_known_titles(db, user.id)
+    filtered_sections: list[tuple[str, list]] = []
+    for label, items in sections:
+        kept = [it for it in items if not _is_known(it.title, known_normalized)]
+        if kept:
+            filtered_sections.append((label, kept))
+
+    if not filtered_sections:
+        from datetime import datetime as _dt
+        result = {"sections": [], "updated_at": _dt.utcnow().isoformat()}
+        cache.set(cache_key, result, ttl_seconds=604800)
+        return result
+
+    # 2) Ask Gemini to predict how much this user would like each item.
+    # One call per section, batched with asyncio.gather.
+    predicted_map: dict[str, float] = {}
+    if settings.gemini_api_key:
+        try:
+            # Build a minimal taste summary — just the user's highest-rated
+            # items so the AI has something to calibrate against.
+            top_rated = (
+                db.query(MediaEntry)
+                .filter(MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None))
+                .order_by(MediaEntry.rating.desc())
+                .limit(20)
+                .all()
+            )
+            taste_lines = [
+                f"- {e.title} ({e.media_type}, {e.rating}/10) [{e.genres or ''}]"
+                for e in top_rated
+            ]
+            taste_summary = "\n".join(taste_lines) if taste_lines else "no profile yet"
+
+            all_items_flat = []
+            for _, items in filtered_sections:
+                all_items_flat.extend(items)
+
+            items_json = [
+                {"title": it.title, "year": it.year, "genres": it.genres or []}
+                for it in all_items_flat
+            ]
+
+            from app.services.gemini import generate
+
+            prompt = f"""Given this user's taste profile, predict how much they would enjoy each of the items below on a 1-10 scale. Consider genre fit, tonal match, subject matter, and how similar each item is to their highest-rated work.
+
+USER'S TOP-RATED ITEMS:
+{taste_summary}
+
+ITEMS TO SCORE:
+{json.dumps(items_json, indent=2)}
+
+Return ONLY a JSON object mapping each title to a predicted rating (1-10, one decimal place). No markdown.
+
+{{"Title 1": 8.5, "Title 2": 6.0, ...}}"""
+
+            text = (await generate(prompt)).strip()
+            if text.startswith("```"):
+                text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+                text = text.rsplit("```", 1)[0]
+            first_brace = text.find("{")
+            last_brace = text.rfind("}")
+            if first_brace >= 0 and last_brace > first_brace:
+                text = text[first_brace : last_brace + 1]
+            parsed = json.loads(text)
+            # Normalize keys to lowercase for robust matching
+            predicted_map = {str(k).lower(): float(v) for k, v in parsed.items() if v is not None}
+        except Exception as e:
+            log.error("new_releases prediction failed: %s", str(e))
+
+    # 3) Attach predicted scores to each item, sort each section by score,
+    # and serialize for the client.
+    def _serialize(item) -> dict:
+        return {
+            "title": item.title,
+            "media_type": item.media_type,
+            "year": item.year,
+            "image_url": item.image_url,
+            "external_id": item.external_id,
+            "source": item.source,
+            "creator": item.creator,
+            "genres": item.genres or [],
+            "description": item.description,
+            "predicted_rating": predicted_map.get(item.title.lower()),
+        }
+
+    serialized_sections = []
+    for label, items in filtered_sections:
+        rows = [_serialize(it) for it in items]
+        # Sort so the highest predicted scores float to the top
+        rows.sort(key=lambda r: (r["predicted_rating"] or 0), reverse=True)
+        # Cap at 5 per section per the user's request
+        serialized_sections.append({"label": label, "items": rows[:5]})
+
+    from datetime import datetime as _dt
+    result = {"sections": serialized_sections, "updated_at": _dt.utcnow().isoformat()}
+    cache.set(cache_key, result, ttl_seconds=604800)  # 7 days
+    return result
+
+
 @router.get("/top-picks")
 async def top_picks(user: User = Depends(require_user), db: Session = Depends(get_db)):
     """Get 4 personalized top recommendations with poster images. Cached per user."""
