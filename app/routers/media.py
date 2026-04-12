@@ -345,7 +345,13 @@ async def taste_dna(
     db: Session = Depends(get_db),
     refresh: bool = Query(False),
 ):
-    """Generate an AI analysis of the user's taste across all media types. Cached 24h."""
+    """Generate an AI analysis of the user's taste across all media types.
+    Cached for up to 30 days; regeneration is debounced — we only spend
+    a fresh Gemini call if the profile has grown by ≥10 items OR ≥7 days
+    have passed since the last analysis. The answer for a 300-book
+    profile doesn't meaningfully change after one new book, and this
+    saves the largest single prompt in the app from firing every time
+    the user rates something."""
     import json
     from datetime import datetime, timedelta
 
@@ -356,18 +362,32 @@ async def taste_dna(
     cache_key = f"taste_dna:{user.id}"
     if refresh:
         cache.invalidate(cache_key)
-    else:
-        cached = cache.get(cache_key)
-        if cached is not None:
-            return cached
-
-    if not settings.gemini_api_key:
-        return {"themes": [], "summary": "", "by_medium": {}, "signature_items": [], "avoided": "", "recent_shift": ""}
 
     # Pull ALL entries — unrated items (esp. from bulk imports) are still a signal:
     # the user deliberately added/shelved them.
     entries = db.query(MediaEntry).filter(MediaEntry.user_id == user.id).all()
-    if len(entries) < 3:
+    current_entry_count = len(entries)
+
+    if not refresh:
+        cached = cache.get(cache_key)
+        if cached is not None:
+            meta = cached.get("_meta") if isinstance(cached, dict) else None
+            if meta:
+                cached_count = meta.get("entry_count", 0)
+                generated_at = meta.get("generated_at", 0)
+                age_days = (datetime.utcnow().timestamp() - generated_at) / 86400
+                # Debounce: a handful of new items or a few days of no
+                # activity don't meaningfully change the DNA.
+                if current_entry_count - cached_count < 10 and age_days < 7:
+                    return cached
+            else:
+                # Legacy cached result without metadata — return as-is.
+                return cached
+
+    if not settings.gemini_api_key:
+        return {"themes": [], "summary": "", "by_medium": {}, "signature_items": [], "avoided": "", "recent_shift": ""}
+
+    if current_entry_count < 3:
         return {"themes": [], "summary": "Add at least a few items to see your taste DNA.", "by_medium": {}, "signature_items": [], "avoided": "", "recent_shift": ""}
 
     # Partition: loved (rated 8+), liked (6-7), consumed-unrated, queued (want_to_consume), low-rated
@@ -540,7 +560,16 @@ Return ONLY valid JSON, no markdown. Each theme MUST include 2-3 example items f
         result.setdefault("signature_items", [])
         result.setdefault("avoided", "")
         result.setdefault("recent_shift", "")
-        cache.set(cache_key, result, ttl_seconds=86400)
+        # Debounce metadata: entry count and generation timestamp. The
+        # endpoint reads these on subsequent hits and skips regeneration
+        # if the profile hasn't drifted much.
+        result["_meta"] = {
+            "entry_count": current_entry_count,
+            "generated_at": datetime.utcnow().timestamp(),
+        }
+        # 30 day TTL — the debounce gate is what controls freshness,
+        # not the cache TTL. Cache only expires as a last-resort safety.
+        cache.set(cache_key, result, ttl_seconds=2592000)
         return result
     except Exception as e:
         log.exception("taste_dna failed")
@@ -720,6 +749,263 @@ Return ONLY valid JSON, no markdown:
     except Exception as e:
         log.error("tonight_pick failed: %s", str(e))
         raise HTTPException(status_code=500, detail="Could not generate tonight pick")
+
+
+@router.get("/home-bundle")
+async def home_bundle(user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """One-shot endpoint that builds the profile context ONCE and asks
+    Gemini for top picks + missing-type suggestions + insights in a
+    single round-trip. Replaces three separate calls that each resent
+    the same taste summary. Cut home-page Gemini cost by roughly half."""
+    import asyncio
+    import json
+    from datetime import datetime, timedelta
+
+    from app import cache
+    from app.config import settings
+    from app.models import MediaEntry
+    from app.services.unified_search import unified_search
+
+    cache_key = f"home_bundle:{user.id}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    empty_bundle = {"top_picks": [], "suggestions": {}, "insights": []}
+    if not settings.gemini_api_key:
+        return empty_bundle
+
+    consumed = db.query(MediaEntry).filter(
+        MediaEntry.user_id == user.id, MediaEntry.status == "consumed"
+    ).all()
+    want = db.query(MediaEntry).filter(
+        MediaEntry.user_id == user.id, MediaEntry.status == "want_to_consume"
+    ).all()
+    known_normalized, known_display = _build_known_titles(db, user.id)
+
+    if not consumed:
+        return empty_bundle
+
+    # Figure out which types are missing from the queue — only ask the AI
+    # for suggestions in those categories.
+    queue_types = {item.media_type for item in want}
+    all_types = {"movie", "tv", "book", "podcast"}
+    missing_types = all_types - queue_types
+
+    # Build the shared taste summary ONCE — this is the big token cost
+    # we're de-duplicating. Loved items per type + recent mood.
+    now = datetime.utcnow()
+    thirty_days_ago = now - timedelta(days=30)
+
+    by_type: dict[str, list] = {"movie": [], "tv": [], "book": [], "podcast": []}
+    recent_items = []
+    for e in consumed:
+        if e.rating and e.rating >= 7:
+            by_type.setdefault(e.media_type, []).append(e)
+        if e.rated_at and e.rated_at >= thirty_days_ago and e.rating:
+            recent_items.append(e)
+
+    for mt in by_type:
+        by_type[mt].sort(key=lambda x: x.rating or 0, reverse=True)
+
+    taste_sections = []
+    label_map = {"movie": "MOVIES", "tv": "TV SHOWS", "book": "BOOKS", "podcast": "PODCASTS"}
+    for mt, label in label_map.items():
+        items = by_type.get(mt, [])[:8]
+        if items:
+            lines = [f"  - {e.title} ({e.year or '?'}) — {e.rating}/10 [{e.genres or ''}]" for e in items]
+            taste_sections.append(f"{label}:\n" + "\n".join(lines))
+    taste_summary = "\n\n".join(taste_sections) if taste_sections else "No rated items yet."
+
+    recent_section = ""
+    if recent_items:
+        recent_items.sort(key=lambda e: e.rated_at, reverse=True)
+        recent_lines = [f"  - {e.title} ({e.media_type}, {e.rating}/10)" for e in recent_items[:10]]
+        recent_section = "\n\nRECENTLY RATED (last 30 days — their current mood):\n" + "\n".join(recent_lines)
+
+    # Avoid list — pack as many titles as fit in the budget.
+    avoid_titles: list[str] = []
+    char_budget = 6000
+    for t in known_display:
+        if char_budget <= 0:
+            break
+        avoid_titles.append(t)
+        char_budget -= len(t) + 2
+    avoid_str = ", ".join(avoid_titles) if avoid_titles else "none"
+
+    missing_types_list = sorted(missing_types) if missing_types else []
+
+    try:
+        from app.services.gemini import generate
+
+        suggestions_schema = ""
+        if missing_types_list:
+            suggestions_schema = (
+                "  \"suggestions\": {\n"
+                + ",\n".join(
+                    f'    "{mt}": [{{"title": "...", "year": 2020, "reason": "...", "predicted_rating": 8.5}}, ...]'
+                    for mt in missing_types_list
+                )
+                + "\n  },"
+            )
+        else:
+            suggestions_schema = '  "suggestions": {},'
+
+        prompt = f"""You are a cross-medium taste expert. Find connections between books, TV, movies, and podcasts — fiction AND nonfiction — that share themes, ideas, tone, subject matter, or emotional register.
+
+USER'S TASTE PROFILE (across all media types):
+{taste_summary}
+{recent_section}
+
+You are producing THREE outputs in one JSON response — do NOT repeat the same items across sections:
+
+1. top_picks: exactly 4 recommendations — ONE movie, ONE TV show, ONE book, ONE podcast. Bold, specific items the user will love.
+2. suggestions: 3 items for each of these categories: {', '.join(missing_types_list) if missing_types_list else '(none needed)'}. These should be DIFFERENT from top_picks.
+3. insights: 3 sharp, specific observations about cross-medium patterns in their profile.
+
+NONFICTION IS WELCOME:
+- Movies can include documentaries
+- Books can be memoirs, essays, idea books, narrative nonfiction
+- Podcasts can be interview, science, news, explainer
+Match the user's fiction/nonfiction balance.
+
+CRITICAL RULES:
+- Each "reason" field for top_picks and suggestions MUST cite at least ONE specific item from a DIFFERENT media type in their profile, by name. Connection must be CONCRETE — shared theme, idea, emotional beat, narrative approach. Never match on surface features like setting, demographic, or keyword.
+- DO NOT recommend any of these — the user has already consumed, queued, or dismissed them: {avoid_str}
+- Insights must reference actual items from their profile. Bad: "You like drama". Good: "Your top-rated book (The Road) and your top-rated TV show (The Last of Us) both center on post-apocalyptic parent-child journeys."
+
+Return ONLY valid JSON, no markdown:
+{{
+  "top_picks": [
+    {{"title": "...", "media_type": "movie", "year": 2020, "reason": "..."}},
+    {{"title": "...", "media_type": "tv", "year": 2020, "reason": "..."}},
+    {{"title": "...", "media_type": "book", "year": 2020, "reason": "..."}},
+    {{"title": "...", "media_type": "podcast", "year": 2020, "reason": "..."}}
+  ],
+{suggestions_schema}
+  "insights": [
+    {{"icon": "connection|trend|pattern|shift", "text": "specific cross-medium insight citing real items"}},
+    {{"icon": "...", "text": "..."}},
+    {{"icon": "...", "text": "..."}}
+  ]
+}}"""
+
+        text = (await generate(prompt)).strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+            text = text.rsplit("```", 1)[0]
+        # Robust JSON extraction
+        first_brace = text.find("{")
+        last_brace = text.rfind("}")
+        if first_brace >= 0 and last_brace > first_brace:
+            text = text[first_brace : last_brace + 1]
+        parsed = json.loads(text)
+
+        # Normalize
+        raw_top_picks = parsed.get("top_picks", []) or []
+        raw_suggestions = parsed.get("suggestions", {}) or {}
+        raw_insights = parsed.get("insights", []) or []
+
+        # Drop any pick/suggestion already in the library before enriching.
+        raw_top_picks = [p for p in raw_top_picks if not _is_known(p.get("title", ""), known_normalized)]
+        for mt in list(raw_suggestions.keys()):
+            items = raw_suggestions[mt]
+            if isinstance(items, list):
+                raw_suggestions[mt] = [
+                    it for it in items if not _is_known(it.get("title", ""), known_normalized)
+                ]
+
+        # Enrich top picks and suggestions with posters in parallel.
+        async def enrich_pick(pick: dict) -> dict | None:
+            title = pick.get("title", "")
+            mt = pick.get("media_type")
+            matches = await unified_search(title, mt)
+            matches = _rank_by_title_match(title, matches)
+            if matches:
+                best = matches[0]
+                if _is_known(best.title, known_normalized):
+                    return None
+                return {
+                    "title": best.title,
+                    "media_type": best.media_type,
+                    "year": best.year,
+                    "image_url": best.image_url,
+                    "external_id": best.external_id,
+                    "source": best.source,
+                    "description": best.description,
+                    "reason": pick.get("reason", ""),
+                    "genres": best.genres,
+                }
+            return {
+                "title": title,
+                "media_type": mt or "movie",
+                "year": pick.get("year"),
+                "image_url": None,
+                "external_id": "",
+                "source": "",
+                "description": None,
+                "reason": pick.get("reason", ""),
+                "genres": [],
+            }
+
+        async def enrich_suggestion(item: dict, media_type: str) -> dict | None:
+            title = item.get("title", "")
+            pr = item.get("predicted_rating")
+            matches = await unified_search(title, media_type)
+            matches = _rank_by_title_match(title, matches)
+            if matches:
+                best = matches[0]
+                if _is_known(best.title, known_normalized):
+                    return None
+                return {
+                    "title": best.title,
+                    "year": best.year,
+                    "reason": item.get("reason", ""),
+                    "predicted_rating": pr,
+                    "image_url": best.image_url,
+                    "external_id": best.external_id,
+                    "source": best.source,
+                    "media_type": best.media_type,
+                }
+            return {
+                "title": title,
+                "year": item.get("year"),
+                "reason": item.get("reason", ""),
+                "predicted_rating": pr,
+                "image_url": None,
+                "external_id": "",
+                "source": "",
+                "media_type": media_type,
+            }
+
+        pick_tasks = [enrich_pick(p) for p in raw_top_picks[:4]]
+        suggestion_tasks = []
+        suggestion_keys: list[str] = []
+        for mt, items in raw_suggestions.items():
+            if not isinstance(items, list):
+                continue
+            for it in items:
+                suggestion_tasks.append(enrich_suggestion(it, mt))
+                suggestion_keys.append(mt)
+
+        all_results = await asyncio.gather(*pick_tasks, *suggestion_tasks)
+        enriched_picks = [r for r in all_results[: len(pick_tasks)] if r is not None]
+        enriched_suggestions: dict[str, list] = {}
+        for key, result in zip(suggestion_keys, all_results[len(pick_tasks):]):
+            if result is None:
+                continue
+            enriched_suggestions.setdefault(key, []).append(result)
+
+        bundle = {
+            "top_picks": enriched_picks,
+            "suggestions": enriched_suggestions,
+            "insights": raw_insights,
+        }
+        cache.set(cache_key, bundle, ttl_seconds=21600)  # 6 hours
+        return bundle
+    except Exception as e:
+        log.error("home_bundle failed: %s", str(e))
+        return empty_bundle
 
 
 @router.get("/top-picks")
@@ -1088,7 +1374,11 @@ async def related_items(
     from app.models import MediaEntry
     from app.services.unified_search import get_detail, unified_search
 
-    cache_key = f"related:{media_type}:{external_id}"
+    # Per-user cache key — the AI's reasoning cites items from THIS user's
+    # profile, so the output is not shareable across users. Use the
+    # "related_items" prefix so the cache layer knows to keep it alive
+    # until the profile changes.
+    cache_key = f"related_items:{user.id}:{media_type}:{external_id}"
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
@@ -1225,7 +1515,10 @@ Return ONLY valid JSON, no markdown:
                 pass
 
         result = {"related": enriched_related, "adaptation": adaptation}
-        cache.set(cache_key, result, ttl_seconds=86400)
+        # 30 day TTL — related items for a given title shift only when
+        # the user's profile changes, which the cache layer already
+        # gates on via the "related_items" prefix.
+        cache.set(cache_key, result, ttl_seconds=2592000)
         return result
     except Exception as e:
         log.error("related_items failed: %s", str(e))

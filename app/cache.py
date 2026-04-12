@@ -41,7 +41,12 @@ def get(key: str) -> Any | None:
             if time.time() < expires_at:
                 return value
             # Expired — but only regenerate if profile changed since last generation
-            if key.startswith("top_picks") or key.startswith("suggestions_home"):
+            if (
+                key.startswith("top_picks")
+                or key.startswith("suggestions_home")
+                or key.startswith("home_bundle")
+                or key.startswith("related_items")
+            ):
                 if _profile_changed_at <= _recs_generated_at:
                     _cache[key] = (time.time() + 86400, value)
                     return value
@@ -55,7 +60,12 @@ def set(key: str, value: Any, ttl_seconds: int = 86400) -> None:
     with _lock:
         _cleanup_expired()
         _cache[key] = (time.time() + ttl_seconds, value)
-        if key.startswith("top_picks") or key.startswith("suggestions_home"):
+        if (
+            key.startswith("top_picks")
+            or key.startswith("suggestions_home")
+            or key.startswith("home_bundle")
+            or key.startswith("related_items")
+        ):
             _recs_generated_at = time.time()
 
 
@@ -69,7 +79,8 @@ def mark_profile_changed() -> None:
 def force_refresh() -> None:
     """Explicitly clear recommendation caches. Called by user action only."""
     with _lock:
-        keys_to_delete = [k for k in _cache if k.startswith("top_picks") or k.startswith("suggestions_home")]
+        prefixes = ("top_picks", "suggestions_home", "home_bundle", "related_items", "insights")
+        keys_to_delete = [k for k in _cache if any(k.startswith(p) for p in prefixes)]
         for k in keys_to_delete:
             _cache.pop(k, None)
 

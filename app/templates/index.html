@@ -462,21 +462,45 @@ async function refreshRecs() {
     btn.disabled = true;
     try {
         await fetch('/api/media/refresh-recommendations', { method: 'POST' });
-        await Promise.all([loadTopPicks(), loadSuggestions()]);
+        // Clear the in-memory bundle so the renderers fetch fresh data.
+        _homeBundle = null;
+        _homeProfile = null;
+        _bundlePromise = null;
+        await Promise.all([loadTopPicks(), loadSuggestions(), loadInsights()]);
     } catch {}
     btn.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h4.586M20 20v-5h-4.586M4.929 9A8 8 0 0119.07 9M19.071 15A8 8 0 014.93 15"/></svg> Refresh';
     btn.disabled = false;
 }
 
+// Cached across the three renderers so we only fetch the bundle once.
+// _bundlePromise holds the in-flight fetch so concurrent callers share it.
+let _homeBundle = null;
+let _homeProfile = null;
+let _bundlePromise = null;
+
+async function ensureBundle() {
+    if (_homeBundle !== null) return;
+    if (_bundlePromise) return _bundlePromise;
+    _bundlePromise = (async () => {
+        const [bundleResp, profileResp] = await Promise.all([
+            fetch('/api/media/home-bundle'),
+            fetch('/api/profile/'),
+        ]);
+        _homeBundle = bundleResp.ok ? await bundleResp.json() : { top_picks: [], suggestions: {}, insights: [] };
+        _homeProfile = profileResp.ok ? await profileResp.json() : [];
+    })();
+    try {
+        await _bundlePromise;
+    } finally {
+        _bundlePromise = null;
+    }
+}
+
 async function loadTopPicks() {
     const container = document.getElementById('top-picks');
     try {
-        const [picksResp, profileResp] = await Promise.all([
-            fetch('/api/media/top-picks'),
-            fetch('/api/profile/'),
-        ]);
-        const picks = await picksResp.json();
-        const profile = await profileResp.json();
+        await ensureBundle();
+        const picks = _homeBundle.top_picks || [];
 
         if (!picks || picks.length === 0) {
             container.innerHTML = `<p class="col-span-full text-center text-sm text-txt-muted py-6">Add more rated items to get personalized picks.</p>`;
@@ -485,7 +509,7 @@ async function loadTopPicks() {
 
         // Build a lookup of consumed titles
         const consumed = {};
-        for (const entry of profile) {
+        for (const entry of _homeProfile) {
             consumed[entry.title.toLowerCase()] = entry;
         }
 
@@ -500,9 +524,8 @@ async function loadTopPicks() {
 
 async function loadSuggestions() {
     try {
-        const resp = await fetch('/api/media/suggestions/home');
-        const data = await resp.json();
-        const suggestions = data.suggestions || {};
+        await ensureBundle();
+        const suggestions = _homeBundle.suggestions || {};
 
         for (const [type, items] of Object.entries(suggestions)) {
             const lane = document.getElementById(`suggestions-${type}`);
@@ -586,8 +609,8 @@ async function loadInsights() {
     const list = document.getElementById('insights-list');
     if (!list) return;
     try {
-        const resp = await fetch('/api/media/insights');
-        const data = await resp.json();
+        await ensureBundle();
+        const data = { insights: _homeBundle.insights || [] };
         if (data.insights && data.insights.length) {
             const iconMap = {
                 connection: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>`,
