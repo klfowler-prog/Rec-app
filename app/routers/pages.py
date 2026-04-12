@@ -143,6 +143,11 @@ async def bulk_add_page(request: Request, user: User = Depends(require_user)):
     return templates.TemplateResponse("bulk_add.html", {"request": request, "user": user})
 
 
+@router.get("/add")
+async def add_media_page(request: Request, user: User = Depends(require_user)):
+    return templates.TemplateResponse("add_media.html", {"request": request, "user": user})
+
+
 @router.get("/import/goodreads")
 async def goodreads_import_page(request: Request, user: User = Depends(require_user)):
     return templates.TemplateResponse("goodreads_import.html", {"request": request, "user": user})

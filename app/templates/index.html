@@ -39,11 +39,11 @@
         <h3 class="text-lg font-semibold mb-2">Build your taste profile</h3>
         <p class="text-txt-muted mb-6 max-w-md mx-auto">Rate movies, shows, books, and podcasts you've enjoyed. NextUp will learn your taste and recommend what's next.</p>
         <div class="flex gap-3 justify-center">
-            <a href="/quick-start" class="inline-flex items-center gap-2 px-5 py-2.5 bg-sage text-white rounded-lg text-sm font-medium transition-base hover:bg-sage-dark">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                Quick Start
+            <a href="/add" class="inline-flex items-center gap-2 px-5 py-2.5 bg-sage text-white rounded-lg text-sm font-medium transition-base hover:bg-sage-dark">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                Add Media
             </a>
-            <a href="/import/goodreads" class="inline-flex items-center gap-2 px-5 py-2.5 border border-border-light dark:border-border-dark rounded-lg text-sm text-txt-muted hover:text-txt transition-base">Import</a>
+            <a href="/search" class="inline-flex items-center gap-2 px-5 py-2.5 border border-border-light dark:border-border-dark rounded-lg text-sm text-txt-muted hover:text-txt transition-base">Search</a>
         </div>
     </div>
     {% else %}
@@ -76,6 +76,16 @@
         </div>
     </div>
     {% endif %}
+
+    <!-- Mood buttons -->
+    <div class="flex gap-2 flex-wrap">
+        <a href="/recommend?mood=What+should+I+watch+tonight%3F+Something+easy+and+fun" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Movie night</a>
+        <a href="/recommend?mood=Recommend+a+gripping+book+I+won't+be+able+to+put+down" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Page turner</a>
+        <a href="/recommend?mood=I+want+something+thought-provoking+and+deep" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Make me think</a>
+        <a href="/recommend?mood=Something+light+and+funny+to+watch+or+read" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Light &amp; funny</a>
+        <a href="/recommend?mood=Recommend+a+great+podcast+for+my+commute" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Commute listen</a>
+        <a href="/recommend?mood=I+need+a+show+to+binge+this+weekend" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Weekend binge</a>
+    </div>
 
     <div class="section-divider"></div>
 

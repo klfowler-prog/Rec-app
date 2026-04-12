@@ -56,4 +56,12 @@
 
 {% block scripts %}
 <script src="/static/js/recommend.js"></script>
+<script>
+    // Auto-send mood from URL params
+    const urlMood = new URLSearchParams(window.location.search).get('mood');
+    if (urlMood) {
+        recInput.value = urlMood;
+        setTimeout(sendMessage, 300);
+    }
+</script>
 {% endblock %}

@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% block title %}Add Media{% endblock %}
+
+{% block head %}
+<style>
+    .tab-btn { border-bottom: 2px solid transparent; }
+    .tab-btn.active { border-bottom-color: #8B9E6B; color: #2B3A4E; }
+    .dark .tab-btn.active { color: #E5E5E3; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div>
+        <h2 class="text-2xl font-semibold mb-1">Add Media</h2>
+        <p class="text-txt-muted">Build your taste profile — pick a method below.</p>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex gap-6 border-b border-border-light dark:border-border-dark">
+        <button class="tab-btn active px-1 pb-3 text-sm font-medium transition-base" onclick="switchTab('quick-start')">
+            <span class="flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                Quick Start
+            </span>
+        </button>
+        <button class="tab-btn px-1 pb-3 text-sm font-medium text-txt-muted transition-base" onclick="switchTab('bulk-add')">
+            <span class="flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                Bulk Add
+            </span>
+        </button>
+        <button class="tab-btn px-1 pb-3 text-sm font-medium text-txt-muted transition-base" onclick="switchTab('import')">
+            <span class="flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                Import
+            </span>
+        </button>
+    </div>
+
+    <!-- Quick Start Tab -->
+    <div id="tab-quick-start" class="tab-content active">
+        <p class="text-sm text-txt-muted mb-4">Rate popular items or type your favorites to build your profile fast.</p>
+        <a href="/quick-start" class="inline-flex items-center gap-2 px-5 py-2.5 bg-sage text-white rounded-lg text-sm font-medium transition-base hover:bg-sage-dark">
+            Open Quick Start Quiz &rarr;
+        </a>
+    </div>
+
+    <!-- Bulk Add Tab -->
+    <div id="tab-bulk-add" class="tab-content">
+        <p class="text-sm text-txt-muted mb-4">Add titles by category — one per line. Each box searches the correct API so you get accurate matches.</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-5">
+                <label class="flex items-center gap-2 text-sm font-semibold mb-2">
+                    <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                    Movies
+                </label>
+                <textarea id="bulk-movies" rows="5" placeholder="The Shawshank Redemption&#10;Parasite&#10;Everything Everywhere..."
+                    class="w-full px-3 py-2.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sage/40 font-mono"></textarea>
+            </div>
+            <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-5">
+                <label class="flex items-center gap-2 text-sm font-semibold mb-2">
+                    <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                    TV Shows
+                </label>
+                <textarea id="bulk-tv" rows="5" placeholder="Breaking Bad&#10;Severance&#10;The Bear..."
+                    class="w-full px-3 py-2.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sage/40 font-mono"></textarea>
+            </div>
+            <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-5">
+                <label class="flex items-center gap-2 text-sm font-semibold mb-2">
+                    <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                    Books
+                </label>
+                <textarea id="bulk-books" rows="5" placeholder="Project Hail Mary&#10;The Girl on the Train..."
+                    class="w-full px-3 py-2.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sage/40 font-mono"></textarea>
+            </div>
+            <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-5">
+                <label class="flex items-center gap-2 text-sm font-semibold mb-2">
+                    <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                    Podcasts
+                </label>
+                <textarea id="bulk-podcasts" rows="5" placeholder="Serial&#10;Radiolab&#10;The Daily..."
+                    class="w-full px-3 py-2.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sage/40 font-mono"></textarea>
+            </div>
+        </div>
+        <div class="flex items-center gap-4 mt-4">
+            <select id="bulk-status" class="px-3 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg text-sm">
+                <option value="consumed">I've consumed these</option>
+                <option value="consuming">Currently enjoying</option>
+                <option value="want_to_consume">Want to consume</option>
+            </select>
+            <div class="flex-1"></div>
+            <button id="bulk-search-btn" onclick="doBulkAdd()" class="px-6 py-2.5 bg-sage text-white rounded-lg text-sm font-medium transition-base hover:bg-sage-dark">Find &amp; add</button>
+        </div>
+        <div id="bulk-status-msg" class="hidden mt-3 text-sm text-txt-muted"></div>
+    </div>
+
+    <!-- Import Tab -->
+    <div id="tab-import" class="tab-content">
+        <p class="text-sm text-txt-muted mb-4">Import your library from external services.</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <a href="/import/goodreads" class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-6 hover:border-sage/40 transition-base block">
+                <div class="flex items-center gap-3 mb-2">
+                    <span class="w-10 h-10 rounded-lg gradient-amber flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                    </span>
+                    <div>
+                        <h3 class="text-sm font-semibold">Goodreads</h3>
+                        <p class="text-xs text-txt-muted">Import books, ratings, and shelves from CSV export</p>
+                    </div>
+                </div>
+            </a>
+            <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark border-dashed p-6 opacity-50">
+                <div class="flex items-center gap-3 mb-2">
+                    <span class="w-10 h-10 rounded-lg gradient-coral flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </span>
+                    <div>
+                        <h3 class="text-sm font-semibold">Netflix</h3>
+                        <p class="text-xs text-txt-muted">Coming soon — import watch history</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark border-dashed p-6 opacity-50">
+                <div class="flex items-center gap-3 mb-2">
+                    <span class="w-10 h-10 rounded-lg gradient-navy flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                    </span>
+                    <div>
+                        <h3 class="text-sm font-semibold">Plex</h3>
+                        <p class="text-xs text-txt-muted">Coming soon — import watch history</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('active'); b.classList.add('text-txt-muted'); });
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+    document.getElementById(`tab-${tab}`).classList.add('active');
+    event.currentTarget.classList.add('active');
+    event.currentTarget.classList.remove('text-txt-muted');
+}
+
+async function doBulkAdd() {
+    const sections = [
+        { id: 'bulk-movies', type: 'movie' },
+        { id: 'bulk-tv', type: 'tv' },
+        { id: 'bulk-books', type: 'book' },
+        { id: 'bulk-podcasts', type: 'podcast' },
+    ];
+    const items = [];
+    for (const { id, type } of sections) {
+        const lines = document.getElementById(id).value.split('\n').map(l => l.trim()).filter(l => l);
+        for (const title of lines) items.push({ title, media_type: type });
+    }
+    if (items.length === 0) return;
+
+    const btn = document.getElementById('bulk-search-btn');
+    const msg = document.getElementById('bulk-status-msg');
+    btn.disabled = true;
+    btn.textContent = 'Searching...';
+    msg.classList.remove('hidden');
+    msg.textContent = `Searching for ${items.length} titles...`;
+
+    try {
+        const resp = await fetch('/api/media/bulk-search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items }),
+        });
+        const matches = await resp.json();
+        const status = document.getElementById('bulk-status').value;
+
+        let added = 0;
+        for (const [title, results] of Object.entries(matches)) {
+            if (!results || !results.length) continue;
+            const best = results[0];
+            try {
+                const r = await fetch('/api/profile/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        external_id: best.external_id, source: best.source, title: best.title,
+                        media_type: best.media_type, image_url: best.image_url, year: best.year,
+                        creator: best.creator || null,
+                        genres: best.genres ? best.genres.join(', ') : null,
+                        description: best.description || null, status: status,
+                    }),
+                });
+                if (r.ok) added++;
+            } catch {}
+        }
+
+        msg.innerHTML = `<span class="text-sage font-medium">Done! ${added} items added.</span> <a href="/profile" class="text-sage underline">View profile</a>`;
+        sections.forEach(s => document.getElementById(s.id).value = '');
+    } catch {
+        msg.textContent = 'Error. Please try again.';
+    }
+    btn.disabled = false;
+    btn.textContent = 'Find & add';
+}
+</script>
+{% endblock %}
