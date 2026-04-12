@@ -184,6 +184,55 @@ function parseItems(text) {
     }
 }
 
+// Rank search results against the AI-provided title so we don't
+// blindly take results[0]. TMDB (and Open Library) will fuzzy-match
+// a short query like "The Act" to unrelated titles starting with
+// similar words — we need to prefer exact/startswith matches that
+// also actually have posters.
+function pickBestSearchResult(aiTitle, aiMediaType, results) {
+    if (!Array.isArray(results) || results.length === 0) return null;
+    const q = (aiTitle || '').toLowerCase().trim();
+
+    function titleScore(item) {
+        const t = (item.title || '').toLowerCase().trim();
+        if (!t) return 0;
+        if (t === q) return 100;
+        if (t.startsWith(q) || q.startsWith(t)) return 80;
+        if (t.includes(q) || q.includes(t)) return 60;
+        // Word overlap
+        const qw = new Set(q.split(/\s+/));
+        const tw = new Set(t.split(/\s+/));
+        let overlap = 0;
+        for (const w of qw) if (tw.has(w)) overlap++;
+        return (overlap / Math.max(qw.size, 1)) * 40;
+    }
+
+    // Strict pass: respect media_type if the AI gave us one
+    let candidates = results;
+    if (aiMediaType) {
+        const filtered = results.filter(r => r.media_type === aiMediaType);
+        if (filtered.length > 0) candidates = filtered;
+    }
+
+    // Sort by (title score desc, has image desc)
+    candidates.sort((a, b) => {
+        const sa = titleScore(a);
+        const sb = titleScore(b);
+        if (sa !== sb) return sb - sa;
+        const ia = a.image_url ? 1 : 0;
+        const ib = b.image_url ? 1 : 0;
+        return ib - ia;
+    });
+
+    // Require at least a meaningful title score. If the top candidate
+    // is under 40 the search probably returned junk — better to show
+    // the AI's raw title with no cover than to link to an unrelated
+    // movie with a misleading poster.
+    const top = candidates[0];
+    if (!top || titleScore(top) < 40) return null;
+    return top;
+}
+
 async function renderCards(container, items) {
     // Search each item for poster + external IDs so we can render proper cards
     const resultsEl = document.createElement('div');
@@ -196,11 +245,16 @@ async function renderCards(container, items) {
             if (item.media_type) params.set('media_type', item.media_type);
             const resp = await fetch(`/api/media/search?${params}`);
             const results = await resp.json();
-            if (results && results.length > 0) {
-                const best = results[0];
+            const best = pickBestSearchResult(item.title, item.media_type, results);
+            if (best) {
+                // Keep the AI's prose title if the best match's title
+                // diverges wildly — but the real safeguard is in
+                // pickBestSearchResult returning null on weak matches.
                 return { ...best, reason: item.reason || '' };
             }
         } catch {}
+        // Fallback: render a card with the AI's raw title and no cover
+        // rather than linking to something unrelated.
         return {
             title: item.title, media_type: item.media_type, year: item.year,
             image_url: null, external_id: '', source: '',
