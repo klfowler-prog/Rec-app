@@ -206,6 +206,11 @@ async def top_picks(user: User = Depends(require_user), db: Session = Depends(ge
     all_entries = db.query(MediaEntry).filter(MediaEntry.user_id == user.id).all()
     existing_titles = {e.title.lower() for e in all_entries}
 
+    # Also exclude dismissed items
+    from app.models import DismissedItem
+    dismissed_titles = {d.title.lower() for d in db.query(DismissedItem).filter(DismissedItem.user_id == user.id).all()}
+    existing_titles = existing_titles | dismissed_titles
+
     # Build taste summary
     high_rated = sorted([e for e in entries if e.rating and e.rating >= 7], key=lambda e: e.rating, reverse=True)[:12]
     taste_lines = []
@@ -279,7 +284,7 @@ Rules:
             }
 
         found = await asyncio.gather(*[search_pick(p) for p in picks[:4]])
-        results = [r for r in found if r is not None]
+        results = [r for r in found if r is not None and r["title"].lower() not in dismissed_titles]
         cache.set(cache_key, results, ttl_seconds=7200)
         return results
     except Exception:
@@ -302,6 +307,9 @@ async def home_suggestions(user: User = Depends(require_user), db: Session = Dep
 
     consumed = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.status == "consumed").all()
     want = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.status == "want_to_consume").all()
+
+    from app.models import DismissedItem
+    dismissed_titles = {d.title.lower() for d in db.query(DismissedItem).filter(DismissedItem.user_id == user.id).all()}
 
     # Figure out which types are missing from the queue
     queue_types = {item.media_type for item in want}
@@ -388,7 +396,8 @@ Only include categories from this list: {', '.join(missing_types)}"""
 
         results = await asyncio.gather(*all_tasks)
         for key, result in zip(task_keys, results):
-            enriched.setdefault(key, []).append(result)
+            if result["title"].lower() not in dismissed_titles:
+                enriched.setdefault(key, []).append(result)
 
         result = {"suggestions": enriched}
         cache.set(cache_key, result, ttl_seconds=21600)

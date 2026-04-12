@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_user
 from app.database import get_db
-from app.models import MediaEntry, User
-from app.schemas import MediaEntryCreate, MediaEntryResponse, MediaEntryUpdate, ProfileStats
+from app.models import DismissedItem, MediaEntry, User
+from app.schemas import DismissedItemCreate, DismissedItemResponse, MediaEntryCreate, MediaEntryResponse, MediaEntryUpdate, ProfileStats
 
 router = APIRouter()
 
@@ -231,6 +231,31 @@ Be honest — not everything will be a high rating. Use the full 1-10 range."""
             db.rollback()
 
     return {"predicted": total_predicted}
+
+
+@router.post("/dismiss", response_model=DismissedItemResponse)
+def dismiss_item(item: DismissedItemCreate, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    from app import cache
+
+    existing = (
+        db.query(DismissedItem)
+        .filter(DismissedItem.user_id == user.id, DismissedItem.title == item.title, DismissedItem.media_type == item.media_type)
+        .first()
+    )
+    if existing:
+        return existing
+
+    db_item = DismissedItem(user_id=user.id, **item.model_dump())
+    db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
+    cache.mark_profile_changed()
+    return db_item
+
+
+@router.get("/dismissed", response_model=list[DismissedItemResponse])
+def list_dismissed(user: User = Depends(require_user), db: Session = Depends(get_db)):
+    return db.query(DismissedItem).filter(DismissedItem.user_id == user.id).order_by(DismissedItem.created_at.desc()).all()
 
 
 @router.post("/import/goodreads")

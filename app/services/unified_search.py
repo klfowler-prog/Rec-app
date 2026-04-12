@@ -31,5 +31,6 @@ async def get_detail(media_type: str, external_id: str, source: str) -> MediaRes
         return await tmdb.get_details(media_type, external_id)
     elif source == "open_library" or media_type == "book":
         return await open_library.get_details(external_id)
-    # Podcasts don't have a detail endpoint in iTunes search — return None
+    elif source == "itunes" or media_type == "podcast":
+        return await itunes.get_details(external_id)
     return None

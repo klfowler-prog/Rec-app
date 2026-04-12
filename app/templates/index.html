@@ -312,6 +312,43 @@ async function rateItem(btn, entryId, rating) {
     }
 }
 
+async function saveForLater(btn, data) {
+    btn.disabled = true;
+    try {
+        const resp = await fetch('/api/profile/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+        if (resp.ok || resp.status === 409) {
+            const container = btn.closest('.quick-add-area');
+            container.innerHTML = '<span class="text-xs font-medium text-sage">✓ Saved to queue</span>';
+        }
+    } catch {
+        btn.disabled = false;
+    }
+}
+
+async function dismissItem(btn, data) {
+    btn.disabled = true;
+    try {
+        await fetch('/api/profile/dismiss', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+        const card = btn.closest('[data-rec-card]') || btn.closest('.swim-lane-item') || btn.closest('.rounded-lg');
+        if (card) {
+            card.style.transition = 'opacity 0.4s, transform 0.4s';
+            card.style.opacity = '0';
+            card.style.transform = 'scale(0.95)';
+            setTimeout(() => card.remove(), 400);
+        }
+    } catch {
+        btn.disabled = false;
+    }
+}
+
 function recCard(item, reason, profileEntry) {
     const badgeClass = typeBadgeColors[item.media_type] || typeBadgeColors.movie;
     const gradClass = typeColors[item.media_type] || typeColors.movie;
@@ -319,25 +356,45 @@ function recCard(item, reason, profileEntry) {
         ? `<img src="${item.image_url}" alt="" class="w-full aspect-[2/3] object-cover">`
         : `<div class="w-full aspect-[2/3] ${gradClass} flex items-center justify-center"><span class="text-white text-3xl font-bold">${escapeHtml((item.title || '?')[0])}</span></div>`;
     const link = item.external_id ? `/media/${item.media_type}/${item.external_id}?source=${item.source}` : '#';
-    const dataAttr = escapeAttr(JSON.stringify({
+    const consumeData = escapeAttr(JSON.stringify({
         external_id: item.external_id, source: item.source, title: item.title,
         media_type: item.media_type, image_url: item.image_url, year: item.year,
         creator: item.creator || null, genres: item.genres ? item.genres.join(', ') : null,
         description: item.description || null, status: 'consumed',
     }));
+    const saveData = escapeAttr(JSON.stringify({
+        external_id: item.external_id, source: item.source, title: item.title,
+        media_type: item.media_type, image_url: item.image_url, year: item.year,
+        creator: item.creator || null, genres: item.genres ? item.genres.join(', ') : null,
+        description: item.description || null, status: 'want_to_consume',
+    }));
+    const dismissData = escapeAttr(JSON.stringify({
+        external_id: item.external_id || '', source: item.source || '',
+        title: item.title, media_type: item.media_type,
+    }));
     const verb = {movie:'Watched',tv:'Watched',book:'Read',podcast:'Listened'}[item.media_type] || 'Done';
 
-    // If already in profile, show as consumed with rating
     const isConsumed = profileEntry && profileEntry.status === 'consumed';
+    const isInProfile = profileEntry != null;
     const cardStyle = isConsumed ? 'opacity: 0.4; filter: grayscale(50%);' : '';
     let actionArea;
     if (isConsumed && profileEntry.rating) {
         const rc = profileEntry.rating <= 3 ? 'text-coral' : profileEntry.rating <= 5 ? 'text-amber-500' : profileEntry.rating <= 7 ? 'text-yellow-600' : 'text-emerald-500';
         actionArea = `<span class="text-xs font-semibold ${rc}">${profileEntry.rating}/10 ✓</span>`;
-    } else if (isConsumed) {
+    } else if (isInProfile) {
         actionArea = `<span class="text-xs text-txt-muted">✓ In your profile</span>`;
     } else {
-        actionArea = `<button onclick="quickAdd(this, ${dataAttr})" class="px-3 py-1.5 bg-sage/10 hover:bg-sage hover:text-white text-sage text-xs font-medium rounded-lg transition-base">${verb} it</button>`;
+        actionArea = `
+            <div class="flex items-center gap-1.5">
+                <button onclick="saveForLater(this, ${saveData})" class="p-1.5 bg-sage/10 hover:bg-sage hover:text-white text-sage rounded-lg transition-base" title="Save for later">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+                </button>
+                <button onclick="quickAdd(this, ${consumeData})" class="px-2.5 py-1.5 bg-sage/10 hover:bg-sage hover:text-white text-sage text-xs font-medium rounded-lg transition-base">${verb} it</button>
+                <button onclick="dismissItem(this, ${dismissData})" class="p-1.5 bg-gray-100 dark:bg-gray-800 hover:bg-coral hover:text-white text-txt-muted rounded-lg transition-base" title="Not interested">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+        `;
     }
 
     return `
@@ -421,21 +478,40 @@ async function loadSuggestions() {
                         ? `<img src="${item.image_url}" alt="" class="w-full aspect-[2/3] object-cover" loading="lazy">`
                         : `<div class="w-full aspect-[2/3] bg-sage/10 flex items-center justify-center"><span class="text-sage text-xl">${escapeHtml((item.title || '?')[0])}</span></div>`;
                     const link = item.external_id ? `/media/${item.media_type || type}/${item.external_id}?source=${item.source}` : `/search`;
-                    const dataAttr = escapeAttr(JSON.stringify({
+                    const mt = item.media_type || type;
+                    const consumeAttr = escapeAttr(JSON.stringify({
                         external_id: item.external_id || '', source: item.source || '', title: item.title,
-                        media_type: item.media_type || type, image_url: item.image_url || null,
+                        media_type: mt, image_url: item.image_url || null,
                         year: item.year || null, creator: null, genres: null,
                         description: null, status: 'consumed',
                     }));
-                    const verb = {movie:'Watched',tv:'Watched',book:'Read',podcast:'Listened'}[item.media_type || type] || 'Done';
+                    const saveAttr = escapeAttr(JSON.stringify({
+                        external_id: item.external_id || '', source: item.source || '', title: item.title,
+                        media_type: mt, image_url: item.image_url || null,
+                        year: item.year || null, creator: null, genres: null,
+                        description: null, status: 'want_to_consume',
+                    }));
+                    const dismissAttr = escapeAttr(JSON.stringify({
+                        external_id: item.external_id || '', source: item.source || '',
+                        title: item.title, media_type: mt,
+                    }));
+                    const verb = {movie:'Watched',tv:'Watched',book:'Read',podcast:'Listened'}[mt] || 'Done';
                     return `
                         <div class="swim-lane-item flex-shrink-0">
-                            <div class="rounded-lg overflow-hidden shadow-sm border border-border-light dark:border-border-dark border-dashed">
+                            <div class="rounded-lg overflow-hidden shadow-sm border border-border-light dark:border-border-dark border-dashed" data-rec-card>
                                 <a href="${link}">${image}</a>
                                 <div class="bg-surface-light dark:bg-surface-dark p-2.5">
                                     <p class="text-xs font-medium truncate">${escapeHtml(item.title)}</p>
                                     <div class="mt-1.5 quick-add-area">
-                                        <button onclick="quickAdd(this, ${dataAttr})" class="px-2 py-1 bg-sage/10 hover:bg-sage hover:text-white text-sage text-[10px] font-medium rounded transition-base">${verb} it</button>
+                                        <div class="flex items-center gap-1">
+                                            <button onclick="saveForLater(this, ${saveAttr})" class="p-1 bg-sage/10 hover:bg-sage hover:text-white text-sage rounded transition-base" title="Save for later">
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+                                            </button>
+                                            <button onclick="quickAdd(this, ${consumeAttr})" class="px-2 py-1 bg-sage/10 hover:bg-sage hover:text-white text-sage text-[10px] font-medium rounded transition-base">${verb} it</button>
+                                            <button onclick="dismissItem(this, ${dismissAttr})" class="p-1 bg-gray-100 dark:bg-gray-800 hover:bg-coral hover:text-white text-txt-muted rounded transition-base" title="Not interested">
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

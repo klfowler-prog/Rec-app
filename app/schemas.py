@@ -76,3 +76,21 @@ class ProfileStats(BaseModel):
     by_status: dict[str, int]
     avg_rating: float | None
     top_genres: list[str]
+
+
+class DismissedItemCreate(BaseModel):
+    external_id: str | None = None
+    source: str | None = None
+    title: str
+    media_type: str
+
+
+class DismissedItemResponse(BaseModel):
+    id: int
+    external_id: str | None = None
+    source: str | None = None
+    title: str
+    media_type: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
