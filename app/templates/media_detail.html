@@ -55,6 +55,37 @@
             </div>
         </div>
     </div>
+
+    <!-- Adaptation notice -->
+    <div id="adaptation-section" class="hidden mt-8">
+        <div class="bg-coral/5 border border-coral/20 rounded-xl p-5">
+            <div class="flex items-start gap-4">
+                <div class="w-10 h-10 gradient-coral rounded-lg flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                </div>
+                <div class="flex-1">
+                    <p class="text-xs text-coral font-semibold uppercase tracking-wide mb-1">Adaptation</p>
+                    <div id="adaptation-content"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cross-medium related section -->
+    <div id="related-section" class="mt-10">
+        <h3 class="text-lg font-bold mb-1 flex items-center gap-2">
+            <span class="w-7 h-7 rounded-lg gradient-sage flex items-center justify-center">
+                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+            </span>
+            If you love this, try...
+        </h3>
+        <p class="text-sm text-txt-muted mb-4">Across movies, TV, books, and podcasts — connected by theme and tone.</p>
+        <div id="related-loading" class="text-center py-6">
+            <div class="inline-block w-5 h-5 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
+            <p class="text-xs text-txt-muted mt-2">Finding cross-medium connections...</p>
+        </div>
+        <div id="related-content" class="hidden space-y-5"></div>
+    </div>
 </div>
 
 <!-- Add to profile modal -->

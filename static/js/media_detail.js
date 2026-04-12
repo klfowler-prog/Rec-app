@@ -78,9 +78,109 @@ async function loadDetail() {
 
         // Update page title
         document.title = `${currentMedia.title} — NextUp`;
+
+        // Load cross-medium related items
+        loadRelated();
     } catch (err) {
         detailLoading.innerHTML = `<p class="text-txt-muted">Could not load details for this item.</p>`;
     }
+}
+
+async function loadRelated() {
+    try {
+        const resp = await fetch(`/api/media/related/${MEDIA_TYPE}/${EXTERNAL_ID}?source=${SOURCE}`);
+        const data = await resp.json();
+
+        // Adaptation card
+        if (data.adaptation && data.adaptation.title) {
+            renderAdaptation(data.adaptation);
+        }
+
+        // Related items grouped by type
+        const related = data.related || {};
+        const loading = document.getElementById('related-loading');
+        const content = document.getElementById('related-content');
+
+        if (Object.keys(related).length === 0) {
+            loading.innerHTML = '<p class="text-sm text-txt-muted">No related items found right now.</p>';
+            return;
+        }
+
+        const typeLabels = { movie: 'Movies', tv: 'TV Shows', book: 'Books', podcast: 'Podcasts' };
+        const typeGradients = {
+            movie: 'gradient-blue', tv: 'gradient-purple',
+            book: 'gradient-amber', podcast: 'bg-green-500',
+        };
+
+        let html = '';
+        for (const [type, items] of Object.entries(related)) {
+            if (!items || items.length === 0) continue;
+            const label = typeLabels[type] || type;
+            const grad = typeGradients[type] || 'bg-gray-500';
+
+            html += `
+                <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-5">
+                    <h4 class="text-sm font-semibold uppercase tracking-wide mb-3 flex items-center gap-2">
+                        <span class="w-5 h-5 rounded ${grad}"></span>
+                        ${label}
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        ${items.map(item => relatedCard(item, type)).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        content.innerHTML = html;
+        loading.classList.add('hidden');
+        content.classList.remove('hidden');
+    } catch (e) {
+        document.getElementById('related-loading').innerHTML =
+            '<p class="text-sm text-txt-muted">Couldn\'t load related items.</p>';
+    }
+}
+
+function relatedCard(item, fallbackType) {
+    const mt = item.media_type || fallbackType;
+    const aspect = mt === 'podcast' ? 'aspect-square' : 'aspect-[2/3]';
+    const link = item.external_id ? `/media/${mt}/${item.external_id}?source=${item.source}` : '#';
+    const safeTitle = item.title || 'Untitled';
+    const image = item.image_url
+        ? `<img src="${item.image_url}" alt="" class="w-16 h-24 object-cover rounded flex-shrink-0">`
+        : `<div class="w-16 h-24 bg-sage/10 rounded flex-shrink-0 flex items-center justify-center"><span class="text-sage text-lg">${escapeHtml(safeTitle[0] || '?')}</span></div>`;
+
+    return `
+        <a href="${link}" class="flex gap-3 p-2 rounded-lg hover:bg-bg-light dark:hover:bg-bg-dark transition-base">
+            ${image}
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-semibold truncate">${escapeHtml(safeTitle)}</p>
+                ${item.year ? `<p class="text-[10px] text-txt-muted mb-1">${item.year}</p>` : ''}
+                <p class="text-xs text-txt-muted leading-snug line-clamp-3">${escapeHtml(item.reason || '')}</p>
+            </div>
+        </a>
+    `;
+}
+
+function renderAdaptation(adaptation) {
+    const section = document.getElementById('adaptation-section');
+    const content = document.getElementById('adaptation-content');
+    const mt = adaptation.media_type || 'movie';
+    const link = adaptation.external_id ? `/media/${mt}/${adaptation.external_id}?source=${adaptation.source}` : '#';
+    const image = adaptation.image_url
+        ? `<img src="${adaptation.image_url}" alt="" class="w-14 h-20 object-cover rounded flex-shrink-0">`
+        : '';
+
+    content.innerHTML = `
+        <a href="${link}" class="flex items-start gap-3 group">
+            ${image}
+            <div class="flex-1">
+                <p class="text-base font-semibold group-hover:text-coral transition-base">${escapeHtml(adaptation.title)}</p>
+                <p class="text-xs text-txt-muted capitalize mb-1">${mt}${adaptation.year ? ' · ' + adaptation.year : ''}</p>
+                <p class="text-sm text-txt leading-relaxed">${escapeHtml(adaptation.note || '')}</p>
+            </div>
+        </a>
+    `;
+    section.classList.remove('hidden');
 }
 
 // Add to profile

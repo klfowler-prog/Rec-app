@@ -650,6 +650,146 @@ Only include categories from this list: {', '.join(missing_types)}"""
         return {"suggestions": {}}
 
 
+@router.get("/related/{media_type}/{external_id}")
+async def related_items(
+    media_type: str,
+    external_id: str,
+    source: str = "",
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Get cross-medium related items for a given media item. Cached per-item."""
+    import asyncio
+    import json
+
+    from app import cache
+    from app.config import settings
+    from app.models import MediaEntry
+    from app.services.unified_search import get_detail, unified_search
+
+    cache_key = f"related:{media_type}:{external_id}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    if not settings.gemini_api_key:
+        return {"related": {}, "adaptation": None}
+
+    # Get the current item's details for context
+    item = await get_detail(media_type, external_id, source)
+    if not item:
+        return {"related": {}, "adaptation": None}
+
+    # Get the user's top-rated items for cross-medium personalization
+    top_rated = (
+        db.query(MediaEntry)
+        .filter(MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None))
+        .order_by(MediaEntry.rating.desc())
+        .limit(15)
+        .all()
+    )
+    taste_lines = [f"- {e.title} ({e.media_type}, {e.rating}/10)" for e in top_rated] if top_rated else []
+    taste_summary = "\n".join(taste_lines) if taste_lines else "no profile yet"
+
+    # Figure out which media types to recommend (all except current)
+    other_types = [mt for mt in ("movie", "tv", "book", "podcast") if mt != media_type]
+    type_labels = {"movie": "movies", "tv": "TV shows", "book": "books", "podcast": "podcasts"}
+    other_labels = [type_labels[t] for t in other_types]
+
+    item_desc = item.description[:300] if item.description else ""
+    item_genres = ", ".join(item.genres) if item.genres else ""
+
+    try:
+        from app.services.gemini import generate
+
+        prompt = f"""You are a cross-medium taste expert. Given this media item, suggest 2 items from EACH OTHER media type that share the same essence — theme, tone, narrative style — not just genre.
+
+CURRENT ITEM: {item.title} ({media_type}, {item.year or '?'})
+Genres: {item_genres}
+Description: {item_desc}
+
+User's taste profile (for personalization):
+{taste_summary}
+
+TASK: Recommend 2 items each from: {', '.join(other_labels)}.
+
+Also identify if this item has a direct adaptation in another medium (book→movie, movie→book, TV→book, etc.). If yes, include it in the "adaptation" field.
+
+Each reason should explain the thematic/tonal connection, not just "also good".
+
+Return ONLY valid JSON, no markdown:
+{{
+  "adaptation": {{"title": "...", "media_type": "movie|tv|book", "year": 2020, "note": "one sentence about the adaptation"}} OR null if no direct adaptation,
+  "related": {{
+    {', '.join([f'"{t}": [{{"title": "...", "year": 2020, "reason": "specific thematic/tonal connection"}}]' for t in other_types])}
+  }}
+}}"""
+
+        text = (await generate(prompt)).strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+            text = text.rsplit("```", 1)[0]
+        parsed = json.loads(text)
+
+        # Enrich related items with posters via parallel search
+        async def enrich(rel_item, rel_type):
+            title = rel_item.get("title", "")
+            matches = await unified_search(title, rel_type)
+            matches = _rank_by_title_match(title, matches)
+            if matches:
+                best = matches[0]
+                return {
+                    "title": best.title, "year": best.year,
+                    "image_url": best.image_url, "external_id": best.external_id,
+                    "source": best.source, "media_type": best.media_type,
+                    "reason": rel_item.get("reason", ""),
+                }
+            return {
+                "title": title, "year": rel_item.get("year"),
+                "image_url": None, "external_id": "", "source": "",
+                "media_type": rel_type,
+                "reason": rel_item.get("reason", ""),
+            }
+
+        enriched_related = {}
+        tasks = []
+        task_types = []
+        for rel_type, items in parsed.get("related", {}).items():
+            if not isinstance(items, list):
+                continue
+            for rel_item in items[:2]:
+                tasks.append(enrich(rel_item, rel_type))
+                task_types.append(rel_type)
+
+        results = await asyncio.gather(*tasks) if tasks else []
+        for rel_type, result in zip(task_types, results):
+            enriched_related.setdefault(rel_type, []).append(result)
+
+        # Enrich adaptation if present
+        adaptation = parsed.get("adaptation")
+        if adaptation and adaptation.get("title"):
+            try:
+                ad_matches = await unified_search(adaptation["title"], adaptation.get("media_type"))
+                ad_matches = _rank_by_title_match(adaptation["title"], ad_matches)
+                if ad_matches:
+                    best = ad_matches[0]
+                    adaptation = {
+                        "title": best.title, "year": best.year,
+                        "image_url": best.image_url, "external_id": best.external_id,
+                        "source": best.source, "media_type": best.media_type,
+                        "note": adaptation.get("note", ""),
+                    }
+            except Exception:
+                pass
+
+        result = {"related": enriched_related, "adaptation": adaptation}
+        cache.set(cache_key, result, ttl_seconds=86400)
+        return result
+    except Exception as e:
+        log.error("related_items failed: %s", str(e))
+        return {"related": {}, "adaptation": None}
+
+
 @router.get("/{media_type}/{external_id}")
 async def get_media_detail(media_type: str, external_id: str, source: str = ""):
     """Get detailed info for a specific media item."""
