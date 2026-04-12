@@ -15,6 +15,12 @@ MAX_CACHE_SIZE = 500
 _cache: dict[str, tuple[float, Any]] = {}
 _profile_changed_at: float = 0.0
 _recs_generated_at: float = 0.0
+# Per-user rolling log of recently-recommended titles (lowercased). Used
+# to diversify related_items so the AI can't keep serving the same
+# prestige-TV fallbacks (Fleabag, Succession, The Bear…) across every
+# detail page a user opens.
+_recent_recs: dict[int, list[str]] = {}
+_RECENT_RECS_MAX = 60
 _lock = threading.Lock()
 
 
@@ -94,3 +100,30 @@ def invalidate(prefix: str = "") -> None:
         keys_to_delete = [k for k in _cache if k.startswith(prefix)]
         for k in keys_to_delete:
             _cache.pop(k, None)
+
+
+def get_recent_recs(user_id: int) -> list[str]:
+    """Return the list of titles recently surfaced to this user (lowercased).
+    Used to diversify subsequent recommendations — the caller passes these
+    to the AI as an avoid list and post-filters the response."""
+    with _lock:
+        return list(_recent_recs.get(user_id, []))
+
+
+def add_recent_recs(user_id: int, titles: list[str]) -> None:
+    """Append freshly-recommended titles to the user's rolling log.
+    Caps at _RECENT_RECS_MAX; oldest entries fall off first."""
+    if not titles:
+        return
+    with _lock:
+        bucket = _recent_recs.setdefault(user_id, [])
+        seen = set(bucket)
+        for t in titles:
+            key = (t or "").lower().strip()
+            if not key or key in seen:
+                continue
+            bucket.append(key)
+            seen.add(key)
+        # Keep only the most recent N
+        if len(bucket) > _RECENT_RECS_MAX:
+            del bucket[: len(bucket) - _RECENT_RECS_MAX]

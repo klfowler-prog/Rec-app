@@ -1410,6 +1410,13 @@ async def related_items(
     item_desc = item.description[:300] if item.description else ""
     item_genres = ", ".join(item.genres) if item.genres else ""
 
+    # Recently-recommended titles across this user's last ~60 related_items
+    # calls. Used to diversify — without this, Gemini keeps falling back on
+    # prestige TV defaults (Fleabag, Succession, The Bear, The Crown) for
+    # anything it finds vaguely emotionally complex.
+    recent_recs = cache.get_recent_recs(user.id)
+    recent_recs_str = ", ".join(recent_recs[-40:]) if recent_recs else "none yet"
+
     try:
         from app.services.gemini import generate
 
@@ -1433,6 +1440,13 @@ WHAT COUNTS AS A MEDIA ITEM (all valid):
 - Self-help and philosophy books are fine IF they match thematically AND tonally
 
 WHAT TO AVOID: Pure reference/instructional material with no thematic voice — SAT prep, dictionaries, textbooks, software manuals, cookbooks without narrative.
+
+DIVERSITY — DO NOT REPEAT YOURSELF:
+The user has recently been shown these titles from previous related-items lookups: {recent_recs_str}
+DO NOT recommend any of them again in this response. Pick something different even if your first instinct would be to reuse one — the user wants variety across the items they browse, not the same four or five prestige picks attached to everything.
+
+ANTI-LOOP RULE:
+Prestige titles (*Fleabag*, *Succession*, *The Bear*, *The Crown*, *Ted Lasso*, *Severance*, *Atlanta*, *Sapiens*, *Educated*, *The Body Keeps the Score*, *This American Life*, *Serial*, *Radiolab*, etc.) are genuinely great and may be perfectly appropriate recommendations — but you have a tendency to reach for them whenever the connection is fuzzy, which turns every detail page into the same four picks. It's fine to recommend one when the link is concrete and sharp. But if your first instinct is a famous prestige title AND the thematic link feels generic ("both explore complex emotions"), STOP and dig deeper — name a less-obvious item with a tighter fit instead. The goal is variety across the user's browsing session, not to blacklist any title.
 
 AUDIENCE AND TONE — THIS IS A HARD CONSTRAINT:
 Before you suggest anything, classify the current item along two axes:
@@ -1491,6 +1505,9 @@ Return ONLY valid JSON, no markdown:
                 "reason": rel_item.get("reason", ""),
             }
 
+        # Pre-filter: drop any AI pick whose raw title is in the user's
+        # recent-recs log before we spend API calls on enrichment.
+        recent_set = set(recent_recs)
         enriched_related = {}
         tasks = []
         task_types = []
@@ -1498,12 +1515,31 @@ Return ONLY valid JSON, no markdown:
             if not isinstance(items, list):
                 continue
             for rel_item in items[:2]:
+                raw_title = (rel_item.get("title") or "").lower().strip()
+                if raw_title and raw_title in recent_set:
+                    log.info("related_items: dropping repeat '%s' for user %d", raw_title, user.id)
+                    continue
                 tasks.append(enrich(rel_item, rel_type))
                 task_types.append(rel_type)
 
         results = await asyncio.gather(*tasks) if tasks else []
+        # Post-filter: check the canonical enriched title too, since the
+        # search can map a loose AI title to a canonical one the user
+        # already saw.
+        surfaced_titles: list[str] = []
         for rel_type, result in zip(task_types, results):
+            canonical = (result.get("title") or "").lower().strip()
+            if canonical and canonical in recent_set:
+                log.info("related_items: dropping canonical repeat '%s' for user %d", canonical, user.id)
+                continue
             enriched_related.setdefault(rel_type, []).append(result)
+            if canonical:
+                surfaced_titles.append(canonical)
+
+        # Record this round of recommendations so the next related_items
+        # call for a different item can diversify.
+        if surfaced_titles:
+            cache.add_recent_recs(user.id, surfaced_titles)
 
         # Enrich adaptation if present
         adaptation = parsed.get("adaptation")
