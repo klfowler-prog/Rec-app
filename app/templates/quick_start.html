@@ -14,14 +14,47 @@
     .quiz-card:hover .overlay { opacity: 0.8; }
     .quiz-card.selected:hover .overlay { opacity: 1; }
     .quiz-card.rated .check { display: flex; }
+    .taste-card { transition: all 150ms ease; }
+    .taste-card:hover { transform: translateY(-2px); }
+    .taste-card[disabled] { cursor: not-allowed; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="space-y-8">
+<div class="space-y-10">
     <div class="text-center max-w-lg mx-auto">
         <h2 class="text-2xl font-bold mb-2">Build your taste profile</h2>
-        <p class="text-txt-muted">Aim for <span class="font-semibold text-txt">5 items in each category</span> — 5 movies, 5 shows, 5 books, 5 podcasts you've enjoyed. That's enough for NextUp to start finding cross-medium patterns in your taste.</p>
+        <p class="text-txt-muted">Start with a quick this-or-that test, then rate five things you love in each category. Takes about 3 minutes.</p>
+    </div>
+
+    <!-- This-or-that taste test — probes real taste dimensions -->
+    <section id="taste-test-section" class="bg-surface-light dark:bg-surface-dark rounded-2xl border border-border-light dark:border-border-dark p-5 md:p-6">
+        <div class="flex items-center justify-between mb-1 gap-3 flex-wrap">
+            <div>
+                <h3 class="text-base font-semibold flex items-center gap-2">
+                    <span class="w-6 h-6 rounded gradient-coral flex items-center justify-center">
+                        <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h8m-8 5h8m-5 5h5M4 7h0M4 12h0M4 17h0"/></svg>
+                    </span>
+                    This or that
+                </h3>
+                <p class="text-xs text-txt-muted">Force a choice. Pick the one that sounds more like you — even if you haven't seen the other.</p>
+            </div>
+            <p id="taste-test-progress" class="text-xs text-txt-muted">0 / 0</p>
+        </div>
+        <div id="taste-test-loading" class="py-8 text-center">
+            <div class="inline-block w-5 h-5 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
+        </div>
+        <div id="taste-test-content" class="hidden space-y-5 mt-4"></div>
+        <div id="taste-test-done" class="hidden text-center py-3 text-sm text-sage font-medium">
+            <svg class="w-5 h-5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            Nice — the AI now knows which way you lean.
+        </div>
+    </section>
+
+    <!-- Divider + curated grid intro -->
+    <div class="text-center max-w-lg mx-auto pt-2">
+        <h3 class="text-lg font-semibold mb-1">Now rate 5 in each category</h3>
+        <p class="text-txt-muted text-sm">Tap items you've watched, read, or listened to, then rate them. Aim for <span class="font-semibold text-txt">5 per category</span>.</p>
     </div>
 
     <!-- Per-type progress -->
@@ -354,5 +387,130 @@ async function finishQuiz() {
 }
 
 loadQuiz();
+
+// -----------------------------------------------------------------
+// This-or-that taste test. Fetches a set of contrasting pairs from
+// /api/media/taste-test, renders each as two side-by-side cards, and
+// saves the chosen side as a 9/10 consumed rating in the user's
+// profile. Each pair probes a specific taste axis (blockbuster vs
+// art house, silly vs serious, etc.) — the goal is to force a real
+// decision rather than let the user coast on prestige-neutral picks.
+// -----------------------------------------------------------------
+const taste_test_state = { pairs: [], picked: new Set() };
+
+async function loadTasteTest() {
+    try {
+        const resp = await fetch('/api/media/taste-test');
+        if (!resp.ok) throw new Error('fetch failed');
+        const data = await resp.json();
+        taste_test_state.pairs = data.pairs || [];
+        document.getElementById('taste-test-loading').classList.add('hidden');
+        if (taste_test_state.pairs.length === 0) {
+            document.getElementById('taste-test-section').classList.add('hidden');
+            return;
+        }
+        renderTasteTest();
+    } catch {
+        document.getElementById('taste-test-loading').classList.add('hidden');
+        document.getElementById('taste-test-section').classList.add('hidden');
+    }
+}
+
+function tasteCard(item, axis, idx, side) {
+    const mt = item.media_type;
+    const fit = mt === 'podcast' ? 'poster-contain' : 'poster-cover';
+    const image = item.image_url
+        ? `<div class="poster-frame rounded-lg"><img src="${item.image_url}" alt="" class="${fit}"></div>`
+        : `<div class="poster-frame rounded-lg"><div class="poster-fallback bg-sage/10"><span class="text-sage text-xl">${escapeHtml((item.title || '?')[0])}</span></div></div>`;
+    const creatorLine = item.creator ? `<p class="text-[10px] text-txt-muted truncate">${escapeHtml(item.creator)}</p>` : '';
+    return `
+        <button type="button"
+                onclick="pickTaste(${idx}, '${side}', this)"
+                data-taste-card
+                class="taste-card group flex-1 text-left p-2 rounded-xl border-2 border-border-light dark:border-border-dark hover:border-sage transition-base focus:outline-none focus:border-sage">
+            ${image}
+            <div class="mt-2 px-1">
+                <p class="text-xs font-semibold leading-snug line-clamp-2">${escapeHtml(item.title)}</p>
+                ${creatorLine}
+                <p class="text-[9px] text-txt-muted uppercase tracking-wide mt-0.5">${escapeHtml(mt)}</p>
+            </div>
+        </button>
+    `;
+}
+
+function renderTasteTest() {
+    const content = document.getElementById('taste-test-content');
+    content.innerHTML = taste_test_state.pairs.map((pair, i) => `
+        <div class="taste-pair ${taste_test_state.picked.has(i) ? 'taste-picked' : ''}" data-pair-idx="${i}">
+            <p class="text-[11px] text-txt-muted uppercase tracking-widest mb-2 text-center font-semibold">${escapeHtml(pair.axis)}</p>
+            <div class="grid grid-cols-2 gap-3 items-start">
+                ${tasteCard(pair.left, pair.axis, i, 'left')}
+                ${tasteCard(pair.right, pair.axis, i, 'right')}
+            </div>
+        </div>
+    `).join('');
+    updateTasteProgress();
+}
+
+function updateTasteProgress() {
+    document.getElementById('taste-test-progress').textContent =
+        `${taste_test_state.picked.size} / ${taste_test_state.pairs.length}`;
+    if (taste_test_state.picked.size === taste_test_state.pairs.length && taste_test_state.pairs.length > 0) {
+        document.getElementById('taste-test-done').classList.remove('hidden');
+    }
+}
+
+async function pickTaste(idx, side, btn) {
+    if (taste_test_state.picked.has(idx)) return;
+    const pair = taste_test_state.pairs[idx];
+    const chosen = side === 'left' ? pair.left : pair.right;
+    const loser = side === 'left' ? pair.right : pair.left;
+
+    // Mark the chosen card visually immediately
+    const pairEl = btn.closest('[data-pair-idx]');
+    if (pairEl) {
+        pairEl.querySelectorAll('[data-taste-card]').forEach(c => {
+            if (c === btn) {
+                c.classList.add('border-sage', 'bg-sage/5');
+            } else {
+                c.classList.add('opacity-40');
+                c.setAttribute('disabled', 'true');
+            }
+        });
+    }
+    taste_test_state.picked.add(idx);
+
+    // Save the chosen item as a consumed 9/10 rating so it flows into
+    // the existing recommendation pipeline as a loved signal. We also
+    // bump per-type progress so the curated grid below reflects it.
+    try {
+        await fetch('/api/profile/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                external_id: chosen.external_id || '',
+                source: chosen.source || '',
+                title: chosen.title,
+                media_type: chosen.media_type,
+                image_url: chosen.image_url || null,
+                year: chosen.year || null,
+                creator: chosen.creator || null,
+                genres: (chosen.genres && chosen.genres.length) ? chosen.genres.join(', ') : null,
+                description: chosen.description || null,
+                status: 'consumed',
+                rating: 9,
+            }),
+        });
+        ratedCount++;
+        if (chosen.media_type && ratedByType.hasOwnProperty(chosen.media_type)) {
+            ratedByType[chosen.media_type]++;
+        }
+        updateProgress();
+    } catch {}
+
+    updateTasteProgress();
+}
+
+loadTasteTest();
 </script>
 {% endblock %}

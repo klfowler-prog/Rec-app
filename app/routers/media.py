@@ -173,40 +173,93 @@ async def quiz_items():
     if cached is not None:
         return cached
 
-    # Curated movies spanning genres and decades
+    # Curated quiz items — intentionally span different TASTE REGIONS so
+    # the AI can tell whether this person is a blockbuster fan, an
+    # art-house devotee, a sitcom comfort-watcher, a silly-comedy lover,
+    # a literary reader, a genre reader, etc. Lists below are grouped
+    # into loose "regions" in comments so future edits stay balanced.
     movie_titles = [
-        "The Shawshank Redemption", "Pulp Fiction", "The Dark Knight", "Inception",
-        "Forrest Gump", "The Matrix", "Goodfellas", "Interstellar",
-        "Parasite", "Get Out", "The Grand Budapest Hotel", "Mad Max Fury Road",
-        "Eternal Sunshine of the Spotless Mind", "No Country for Old Men",
-        "The Social Network", "Knives Out", "Everything Everywhere All at Once",
-        "Arrival", "Whiplash", "The Departed", "Superbad", "Mean Girls",
-        "The Notebook", "Bridesmaids", "Gladiator",
+        # Blockbusters / big studio crowd-pleasers
+        "Avengers: Endgame", "Top Gun: Maverick", "Jurassic Park", "The Dark Knight",
+        "Mission: Impossible - Fallout", "Inception",
+        # Silly / broad comedy
+        "Step Brothers", "Anchorman", "Superbad", "Bridesmaids", "Mean Girls",
+        # Prestige drama
+        "The Godfather", "Goodfellas", "No Country for Old Men", "There Will Be Blood",
+        "Moonlight", "The Social Network",
+        # Art house / auteur
+        "Past Lives", "Portrait of a Lady on Fire", "Tár", "The Lighthouse",
+        "Everything Everywhere All at Once", "Parasite", "Lady Bird",
+        # Sci-fi / fantasy
+        "Arrival", "Dune", "Interstellar", "Blade Runner 2049", "The Matrix",
+        # Horror / thriller
+        "Get Out", "Hereditary", "Knives Out",
+        # Romance / heart
+        "The Notebook", "Call Me by Your Name", "La La Land",
+        # Classic
+        "Casablanca", "Chinatown",
     ]
-    # Curated TV shows spanning genres
     tv_titles = [
-        "Breaking Bad", "The Office", "Game of Thrones", "Stranger Things",
-        "The Wire", "Friends", "The Sopranos", "Fleabag",
-        "Ted Lasso", "Succession", "Schitt's Creek", "The Crown",
-        "Black Mirror", "The Mandalorian", "Severance", "The Bear",
-        "Lost", "Mad Men", "Parks and Recreation", "The Last of Us",
-        "Yellowstone", "Downton Abbey", "Ozark", "The Great British Bake Off",
+        # Prestige drama
+        "Breaking Bad", "The Sopranos", "The Wire", "Succession", "Mad Men",
+        "Severance", "Better Call Saul",
+        # Comfort sitcom
+        "The Office", "Parks and Recreation", "Friends", "Seinfeld", "Schitt's Creek",
+        "Abbott Elementary",
+        # Dark comedy / prestige comedy
+        "Fleabag", "Atlanta", "Barry", "The Bear", "Curb Your Enthusiasm",
+        # Genre / fantasy / sci-fi
+        "Game of Thrones", "Stranger Things", "The Mandalorian", "The Last of Us",
+        "Black Mirror",
+        # Reality / competition / unscripted
+        "The Great British Bake Off", "Survivor", "RuPaul's Drag Race",
+        # Crime / procedural
+        "True Detective", "Mindhunter", "Only Murders in the Building",
+        # International / art
+        "Chernobyl", "Fleabag", "The Crown", "Squid Game",
+        # Animation / kids-friendly
+        "Bluey", "Arcane", "Avatar: The Last Airbender",
     ]
-    # Books spanning genres — literary fiction, sci-fi, thriller, nonfiction, YA
     book_titles = [
-        "The Great Gatsby", "To Kill a Mockingbird", "1984", "Harry Potter",
-        "The Hunger Games", "Gone Girl", "Dune", "The Alchemist",
-        "Atomic Habits", "Educated", "Where the Crawdads Sing", "Project Hail Mary",
-        "The Kite Runner", "Sapiens", "The Girl on the Train", "Normal People",
-        "Becoming", "The Martian", "Circe", "A Court of Thorns and Roses",
-        "The Silent Patient", "Outlander", "The Goldfinch", "Station Eleven",
+        # Literary fiction
+        "The Great Gatsby", "To Kill a Mockingbird", "Beloved",
+        "A Little Life", "Normal People", "Pachinko", "Demon Copperhead",
+        # Page-turner thrillers / mysteries
+        "Gone Girl", "The Silent Patient", "The Girl on the Train", "Before the Coffee Gets Cold",
+        # Sci-fi / fantasy / speculative
+        "Dune", "Project Hail Mary", "The Fifth Season", "Babel",
+        "Fourth Wing", "A Court of Thorns and Roses",
+        # Romance
+        "The Seven Husbands of Evelyn Hugo", "Beach Read", "Red White and Royal Blue",
+        # Nonfiction ideas
+        "Sapiens", "Atomic Habits", "The Body Keeps the Score", "Thinking Fast and Slow",
+        # Memoir / narrative nonfiction
+        "Educated", "Crying in H Mart", "Becoming", "Just Kids",
+        # Classic / literary canon
+        "1984", "Pride and Prejudice", "Their Eyes Were Watching God",
+        # YA / popular
+        "The Hunger Games", "Harry Potter and the Sorcerer's Stone",
+        # Contemporary literary-adjacent
+        "Tomorrow and Tomorrow and Tomorrow", "Lessons in Chemistry",
     ]
-    # Podcasts spanning genres
     podcast_titles = [
-        "Serial", "The Daily", "Radiolab", "How I Built This",
-        "Crime Junkie", "Freakonomics", "Conan O'Brien Needs a Friend", "SmartLess",
-        "This American Life", "Stuff You Should Know", "The Joe Rogan Experience",
-        "Armchair Expert", "Hidden Brain", "My Favorite Murder",
+        # True crime / narrative investigation
+        "Serial", "Crime Junkie", "My Favorite Murder", "Scam Inc",
+        # News / politics
+        "The Daily", "The Ezra Klein Show", "Pod Save America",
+        # Explainer / science
+        "Radiolab", "Hidden Brain", "Freakonomics", "Huberman Lab", "99% Invisible",
+        # Business / tech
+        "How I Built This", "Hard Fork", "Planet Money", "Acquired",
+        # Celebrity / comedy interview
+        "Conan O'Brien Needs a Friend", "SmartLess", "Armchair Expert",
+        "Office Ladies",
+        # Storytelling / idea
+        "This American Life", "Revisionist History", "Hardcore History",
+        # Sports / pop culture
+        "Pardon My Take", "The Rewatchables",
+        # Culture / society
+        "The Bill Simmons Podcast",
     ]
 
     async def search_tmdb_titles(titles, media_type):
@@ -225,12 +278,49 @@ async def quiz_items():
                 results.append(best)
         return results
 
+    # Reject study guides, summaries, and other derivative works that
+    # masquerade as the original book in Open Library results.
+    _JUNK_SUBSTRINGS = (
+        "study guide", "studyguide", "summary of", "a summary",
+        "cliffsnotes", "sparknotes", "shmoop", "quicklet",
+        "analysis of", "workbook", "companion to", "notes on",
+        "reader's guide", "teacher's guide",
+    )
+
+    def _is_real_book(result_title: str) -> bool:
+        t = (result_title or "").lower()
+        return not any(junk in t for junk in _JUNK_SUBSTRINGS)
+
     async def search_book_titles():
         results = []
-        searches = await asyncio.gather(*[search_books(t) for t in book_titles], return_exceptions=True)
-        for s in searches:
-            if isinstance(s, list) and s:
-                results.append(s[0])
+        searches = await asyncio.gather(
+            *[search_books(t) for t in book_titles], return_exceptions=True
+        )
+        for query, s in zip(book_titles, searches):
+            if not isinstance(s, list) or not s:
+                continue
+            q_lower = query.lower().strip()
+            # Pick the first result that (a) matches the title closely,
+            # (b) has a cover image, and (c) isn't a study guide / summary.
+            best = None
+            for item in s[:10]:
+                t_lower = (item.title or "").lower().strip()
+                title_match = (
+                    t_lower == q_lower
+                    or t_lower.startswith(q_lower)
+                    or q_lower.startswith(t_lower)
+                )
+                if title_match and item.image_url and _is_real_book(item.title):
+                    best = item
+                    break
+            # Fallback: first result that at least isn't junk and has a cover
+            if not best:
+                for item in s[:10]:
+                    if item.image_url and _is_real_book(item.title):
+                        best = item
+                        break
+            if best:
+                results.append(best)
         return results
 
     async def search_podcast_titles():
@@ -248,13 +338,122 @@ async def quiz_items():
         search_podcast_titles(),
     )
 
+    # Cap per category at enough items to fill ~3 rows on desktop (the
+    # grid is 6-wide at lg). 18 gives three full rows, which matches the
+    # "at least two more rows" ask and leaves room for duds that failed
+    # to find a cover or good match in the external APIs.
     result = {
-        "movie": [m.model_dump() for m in movies[:10]],
-        "tv": [t.model_dump() for t in tv[:10]],
-        "book": [b.model_dump() for b in books[:10]],
-        "podcast": [p.model_dump() for p in podcasts[:8]],
+        "movie": [m.model_dump() for m in movies[:18]],
+        "tv": [t.model_dump() for t in tv[:18]],
+        "book": [b.model_dump() for b in books[:18]],
+        "podcast": [p.model_dump() for p in podcasts[:18]],
     }
     cache.set("quiz_items", result, ttl_seconds=86400)  # 24 hours
+    return result
+
+
+@router.get("/taste-test")
+async def taste_test():
+    """Return a set of contrasting A/B pairs that probe genuinely different
+    taste dimensions. Each pair is labeled with a taste axis so we can
+    later feed the user's picks into recommendation prompts as
+    structured signals.
+
+    The goal is NOT to be comprehensive — it's to force real decisions
+    between items that represent different ways of engaging with media.
+    Someone who picks Step Brothers over Manchester by the Sea is
+    telling us something very different from someone who picks the
+    opposite."""
+    import asyncio
+
+    from app import cache
+    from app.services.tmdb import search as tmdb_search
+    from app.services.open_library import search as search_books
+    from app.services.itunes import search as search_podcasts
+
+    cached = cache.get("taste_test")
+    if cached is not None:
+        return cached
+
+    # Each pair probes one taste axis. Format: (axis_label, left, right)
+    # where each side is (title, media_type).
+    PAIRS: list[tuple[str, tuple[str, str], tuple[str, str]]] = [
+        ("Spectacle or intimacy?",
+         ("Avengers: Endgame", "movie"),
+         ("Past Lives", "movie")),
+        ("Silly or serious?",
+         ("Step Brothers", "movie"),
+         ("Manchester by the Sea", "movie")),
+        ("Prestige drama or comfort sitcom?",
+         ("Succession", "tv"),
+         ("The Office", "tv")),
+        ("Plot-driven or vibes-driven?",
+         ("Knives Out", "movie"),
+         ("Lost in Translation", "movie")),
+        ("Page-turner thriller or literary slow-burn?",
+         ("Gone Girl", "book"),
+         ("A Little Life", "book")),
+        ("Fantasy escapism or contemporary realism?",
+         ("Dune", "book"),
+         ("Normal People", "book")),
+        ("Nonfiction ideas or narrative fiction?",
+         ("Sapiens", "book"),
+         ("Pachinko", "book")),
+        ("True crime or explainer?",
+         ("Serial", "podcast"),
+         ("Radiolab", "podcast")),
+    ]
+
+    async def fetch_one(title: str, media_type: str) -> dict | None:
+        try:
+            if media_type in ("movie", "tv"):
+                results = await tmdb_search(title, media_type)
+            elif media_type == "book":
+                results = await search_books(title)
+            elif media_type == "podcast":
+                results = await search_podcasts(title)
+            else:
+                return None
+        except Exception:
+            return None
+        if not results:
+            return None
+        # Prefer an exact or near-exact title match with an image
+        t_lower = title.lower().strip()
+        best = None
+        for item in results[:5]:
+            it_lower = (item.title or "").lower().strip()
+            if (it_lower == t_lower or it_lower.startswith(t_lower) or t_lower.startswith(it_lower)) and item.image_url:
+                best = item
+                break
+        if not best:
+            # Fallback: first with an image
+            for item in results[:5]:
+                if item.image_url:
+                    best = item
+                    break
+        if not best:
+            best = results[0]
+        return best.model_dump()
+
+    # Fetch every item in parallel
+    all_requests = []
+    for _, left, right in PAIRS:
+        all_requests.append(fetch_one(*left))
+        all_requests.append(fetch_one(*right))
+    resolved = await asyncio.gather(*all_requests)
+
+    # Re-pair results with their axis labels, dropping any pair where
+    # either side failed to resolve (would look broken in the UI).
+    pairs_out = []
+    for i, (axis, _, _) in enumerate(PAIRS):
+        left = resolved[i * 2]
+        right = resolved[i * 2 + 1]
+        if left and right:
+            pairs_out.append({"axis": axis, "left": left, "right": right})
+
+    result = {"pairs": pairs_out}
+    cache.set("taste_test", result, ttl_seconds=86400 * 7)  # 7 days, content is static
     return result
 
 
