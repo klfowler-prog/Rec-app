@@ -180,6 +180,11 @@ async function inlineRate(entryId, rating, btn) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rating }),
     });
+
+    // Trigger post-rating discovery panel
+    if (typeof showPostRatingPanel === 'function') {
+        showPostRatingPanel(entryId);
+    }
 }
 
 async function deleteEntry(id) {
@@ -224,5 +229,107 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+async function loadTopTen() {
+    try {
+        const resp = await fetch('/api/profile/top?limit=10');
+        const items = await resp.json();
+        if (!items || items.length === 0) return;
+
+        const typeColors = {
+            movie: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
+            tv: 'bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400',
+            book: 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
+            podcast: 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400',
+        };
+
+        const grid = document.getElementById('top-ten-grid');
+        grid.innerHTML = items.map((item, i) => {
+            const aspect = item.media_type === 'podcast' ? 'aspect-square' : 'aspect-[2/3]';
+            const image = item.image_url
+                ? `<img src="${item.image_url}" alt="" class="w-full ${aspect} object-cover">`
+                : `<div class="w-full ${aspect} bg-sage/10 flex items-center justify-center"><span class="text-sage text-2xl">${escapeHtml(item.title[0] || '?')}</span></div>`;
+            const badge = typeColors[item.media_type] || typeColors.movie;
+            const rc = item.rating <= 3 ? 'text-coral' : item.rating <= 5 ? 'text-amber-500' : item.rating <= 7 ? 'text-yellow-600' : 'text-emerald-500';
+            return `
+                <a href="/media/${item.media_type}/${item.external_id}?source=${item.source}" class="group">
+                    <div class="bg-surface-light dark:bg-surface-dark rounded-lg border border-border-light dark:border-border-dark overflow-hidden transition-base card-hover relative">
+                        <div class="absolute top-2 left-2 w-6 h-6 bg-coral rounded-full flex items-center justify-center text-white text-[10px] font-bold shadow-md">${i + 1}</div>
+                        ${image}
+                        <div class="p-2.5">
+                            <p class="text-xs font-medium truncate">${escapeHtml(item.title)}</p>
+                            <div class="flex items-center justify-between mt-1">
+                                <span class="px-1.5 py-0.5 ${badge} text-[10px] font-medium rounded capitalize">${item.media_type}</span>
+                                <span class="text-xs font-semibold ${rc}">${item.rating}/10</span>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            `;
+        }).join('');
+        document.getElementById('top-ten-section').classList.remove('hidden');
+    } catch {}
+}
+
+async function loadTasteShape() {
+    try {
+        const resp = await fetch('/api/profile/shape');
+        const data = await resp.json();
+        if (!data.total) return;
+
+        // Rating histogram
+        const hist = data.rating_histogram || {};
+        const maxCount = Math.max(1, ...Object.values(hist));
+        const histEl = document.getElementById('rating-histogram');
+        histEl.innerHTML = '';
+        for (let i = 1; i <= 10; i++) {
+            const count = hist[i] || 0;
+            const height = (count / maxCount) * 100;
+            const color = i <= 3 ? 'bg-coral' : i <= 5 ? 'bg-amber-400' : i <= 7 ? 'bg-yellow-500' : 'bg-emerald-500';
+            histEl.innerHTML += `
+                <div class="flex-1 ${color} rounded-t opacity-80" style="height: ${Math.max(height, 3)}%" title="${i}/10: ${count} item${count === 1 ? '' : 's'}"></div>
+            `;
+        }
+
+        // Type distribution
+        const dist = data.type_distribution || {};
+        const typeEmoji = { movie: '🎬', tv: '📺', book: '📖', podcast: '🎧' };
+        const typeLabel = { movie: 'Movies', tv: 'TV', book: 'Books', podcast: 'Podcasts' };
+        const totalItems = Object.values(dist).reduce((a, b) => a + b, 0) || 1;
+        const distEl = document.getElementById('type-distribution');
+        distEl.innerHTML = Object.entries(dist).map(([type, count]) => {
+            const pct = Math.round((count / totalItems) * 100);
+            return `
+                <div>
+                    <div class="flex items-center justify-between text-xs mb-0.5">
+                        <span>${typeEmoji[type] || ''} ${typeLabel[type] || type}</span>
+                        <span class="text-txt-muted">${count} · ${pct}%</span>
+                    </div>
+                    <div class="h-1.5 bg-border-light dark:bg-border-dark rounded-full overflow-hidden">
+                        <div class="h-full bg-sage rounded-full" style="width: ${pct}%"></div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // Top genres with avg rating
+        const genres = data.top_genres || [];
+        const genreEl = document.getElementById('top-genres-avg');
+        genreEl.innerHTML = genres.slice(0, 6).map(g => {
+            const avgRating = g.avg_rating;
+            const rc = !avgRating ? 'text-txt-muted' : avgRating <= 3 ? 'text-coral' : avgRating <= 5 ? 'text-amber-500' : avgRating <= 7 ? 'text-yellow-600' : 'text-emerald-500';
+            return `
+                <div class="flex items-center justify-between text-xs">
+                    <span class="truncate">${escapeHtml(g.genre)}</span>
+                    <span class="text-txt-muted ml-2 flex-shrink-0">${g.count} · <span class="font-semibold ${rc}">${avgRating || '—'}</span></span>
+                </div>
+            `;
+        }).join('');
+
+        document.getElementById('shape-section').classList.remove('hidden');
+    } catch {}
+}
+
 // Initial load
 loadProfile();
+loadTopTen();
+loadTasteShape();

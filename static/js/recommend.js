@@ -46,6 +46,7 @@ async function sendMessage() {
     // Create AI message placeholder
     const aiMsg = appendMessage('ai', '');
     const contentEl = aiMsg.querySelector('.chat-content');
+    const extrasEl = aiMsg.querySelector('.chat-extras');
 
     try {
         const resp = await fetch('/api/recommend/', {
@@ -75,7 +76,9 @@ async function sendMessage() {
                     const data = JSON.parse(line.slice(6));
                     if (data.text) {
                         fullText += data.text;
-                        contentEl.innerHTML = renderMarkdown(fullText);
+                        // Strip ITEMS block from rendered text
+                        const displayText = fullText.split('===ITEMS===')[0];
+                        contentEl.innerHTML = renderMarkdown(displayText);
                         chatMessages.scrollTop = chatMessages.scrollHeight;
                     }
                     if (data.error) {
@@ -85,7 +88,16 @@ async function sendMessage() {
             }
         }
 
-        conversationHistory.push({ role: 'assistant', content: fullText });
+        // Parse structured items and render cards + follow-up chips
+        const items = parseItems(fullText);
+        const cleanText = fullText.split('===ITEMS===')[0];
+        conversationHistory.push({ role: 'assistant', content: cleanText });
+
+        if (items.length > 0) {
+            renderCards(extrasEl, items);
+        }
+        renderFollowUpChips(extrasEl, message);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
     } catch (err) {
         contentEl.innerHTML = `<p class="text-red-500">Failed to get recommendations. Please try again.</p>`;
     }
@@ -114,8 +126,11 @@ function appendMessage(role, content) {
             <div class="w-8 h-8 bg-sage/10 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                 <svg class="w-4 h-4 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
             </div>
-            <div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg rounded-tl-sm px-4 py-3 max-w-2xl">
-                <div class="chat-content text-sm">${content ? renderMarkdown(content) : '<span class="inline-block w-2 h-4 bg-sage/40 animate-pulse rounded-sm"></span>'}</div>
+            <div class="flex-1 max-w-2xl space-y-3">
+                <div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg rounded-tl-sm px-4 py-3">
+                    <div class="chat-content text-sm">${content ? renderMarkdown(content) : '<span class="inline-block w-2 h-4 bg-sage/40 animate-pulse rounded-sm"></span>'}</div>
+                </div>
+                <div class="chat-extras"></div>
             </div>
         `;
     }
@@ -150,4 +165,108 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+function parseItems(text) {
+    // Extract the ===ITEMS=== ... ===END=== block and parse JSON
+    const match = text.match(/===ITEMS===([\s\S]*?)===END===/);
+    if (!match) return [];
+    let jsonStr = match[1].trim();
+    // Strip markdown code fences if present
+    if (jsonStr.startsWith('```')) {
+        jsonStr = jsonStr.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+    }
+    try {
+        const parsed = JSON.parse(jsonStr);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+}
+
+async function renderCards(container, items) {
+    // Search each item for poster + external IDs so we can render proper cards
+    const resultsEl = document.createElement('div');
+    resultsEl.className = 'grid grid-cols-1 sm:grid-cols-2 gap-2';
+    container.appendChild(resultsEl);
+
+    const enriched = await Promise.all(items.slice(0, 5).map(async (item) => {
+        try {
+            const params = new URLSearchParams({ q: item.title });
+            if (item.media_type) params.set('media_type', item.media_type);
+            const resp = await fetch(`/api/media/search?${params}`);
+            const results = await resp.json();
+            if (results && results.length > 0) {
+                const best = results[0];
+                return { ...best, reason: item.reason || '' };
+            }
+        } catch {}
+        return {
+            title: item.title, media_type: item.media_type, year: item.year,
+            image_url: null, external_id: '', source: '',
+            reason: item.reason || '',
+        };
+    }));
+
+    resultsEl.innerHTML = enriched.map(item => chatRecCard(item)).join('');
+}
+
+function chatRecCard(item) {
+    const typeBadgeColors = {
+        movie: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
+        tv: 'bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400',
+        book: 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
+        podcast: 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400',
+    };
+    const badgeClass = typeBadgeColors[item.media_type] || typeBadgeColors.movie;
+    const link = item.external_id ? `/media/${item.media_type}/${item.external_id}?source=${item.source}` : '#';
+    const safeTitle = item.title || 'Untitled';
+    const image = item.image_url
+        ? `<img src="${item.image_url}" alt="" class="w-14 h-20 object-cover rounded flex-shrink-0">`
+        : `<div class="w-14 h-20 bg-sage/10 rounded flex-shrink-0 flex items-center justify-center"><span class="text-sage text-lg">${escapeHtml(safeTitle[0] || '?')}</span></div>`;
+
+    let actions;
+    if (typeof buildActionBar === 'function') {
+        actions = `<div class="quick-add-area mt-1.5">${buildActionBar(item, 'sm')}</div>`;
+    } else {
+        actions = '';
+    }
+
+    return `
+        <div class="bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg p-2.5 flex gap-2.5" data-rec-card>
+            <a href="${link}" class="flex-shrink-0">${image}</a>
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-1.5 mb-0.5">
+                    <span class="px-1.5 py-0.5 ${badgeClass} text-[9px] font-semibold rounded capitalize">${item.media_type}</span>
+                    ${item.year ? `<span class="text-[10px] text-txt-muted">${item.year}</span>` : ''}
+                </div>
+                <a href="${link}" class="text-xs font-semibold block truncate hover:text-sage transition-base">${escapeHtml(safeTitle)}</a>
+                <p class="text-[10px] text-txt-muted line-clamp-2 leading-tight mt-0.5">${escapeHtml(item.reason || '')}</p>
+                ${actions}
+            </div>
+        </div>
+    `;
+}
+
+function renderFollowUpChips(container, lastMessage) {
+    const chips = [
+        { label: 'Darker', query: 'Same vibe but darker' },
+        { label: 'Lighter', query: 'Same vibe but lighter' },
+        { label: 'Shorter', query: 'Same but shorter' },
+        { label: 'Older', query: 'Same but older, classics' },
+        { label: 'Newer', query: 'Same but from the last 5 years' },
+        { label: 'Different medium', query: 'Same essence but in a different media type' },
+        { label: 'More like these', query: 'Give me more recommendations like these' },
+    ];
+    const chipsEl = document.createElement('div');
+    chipsEl.className = 'flex flex-wrap gap-1.5';
+    chipsEl.innerHTML = chips.map(c =>
+        `<button onclick="sendFollowUp('${c.query.replace(/'/g, "\\'")}')" class="px-2.5 py-1 bg-sage/10 hover:bg-sage hover:text-white text-sage text-[11px] font-medium rounded-full transition-base">${c.label}</button>`
+    ).join('');
+    container.appendChild(chipsEl);
+}
+
+function sendFollowUp(query) {
+    recInput.value = query;
+    sendMessage();
 }

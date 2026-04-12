@@ -105,6 +105,67 @@ def check_in_profile(source: str, external_id: str, user: User = Depends(require
     return {"in_profile": False}
 
 
+@router.get("/top", response_model=list[MediaEntryResponse])
+def profile_top(limit: int = 10, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """Top rated items across all media types, sorted by rating then recency."""
+    return (
+        db.query(MediaEntry)
+        .filter(MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None))
+        .order_by(MediaEntry.rating.desc(), MediaEntry.rated_at.desc().nullslast(), MediaEntry.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+
+@router.get("/shape")
+def profile_shape(user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """Taste shape data: rating histogram, media type distribution, genre breakdown."""
+    entries = db.query(MediaEntry).filter(MediaEntry.user_id == user.id).all()
+    if not entries:
+        return {"rating_histogram": {}, "type_distribution": {}, "top_genres": [], "total": 0}
+
+    # Rating histogram (1-10 bins)
+    rating_hist: dict[int, int] = {i: 0 for i in range(1, 11)}
+    for e in entries:
+        if e.rating is not None:
+            bin_val = max(1, min(10, int(round(e.rating))))
+            rating_hist[bin_val] += 1
+
+    # Type distribution
+    type_dist: dict[str, int] = {}
+    for e in entries:
+        type_dist[e.media_type] = type_dist.get(e.media_type, 0) + 1
+
+    # Top genres with avg rating
+    genre_data: dict[str, dict] = {}
+    for e in entries:
+        if e.genres:
+            for g in e.genres.split(","):
+                g = g.strip()
+                if not g:
+                    continue
+                if g not in genre_data:
+                    genre_data[g] = {"count": 0, "rating_sum": 0.0, "rating_count": 0}
+                genre_data[g]["count"] += 1
+                if e.rating is not None:
+                    genre_data[g]["rating_sum"] += e.rating
+                    genre_data[g]["rating_count"] += 1
+
+    top_genres = []
+    for genre, data in genre_data.items():
+        avg = round(data["rating_sum"] / data["rating_count"], 1) if data["rating_count"] > 0 else None
+        top_genres.append({"genre": genre, "count": data["count"], "avg_rating": avg})
+    top_genres.sort(key=lambda g: g["count"], reverse=True)
+    top_genres = top_genres[:10]
+
+    return {
+        "rating_histogram": rating_hist,
+        "type_distribution": type_dist,
+        "top_genres": top_genres,
+        "total": len(entries),
+    }
+
+
 @router.get("/stats", response_model=ProfileStats)
 def profile_stats(user: User = Depends(require_user), db: Session = Depends(get_db)):
     entries = db.query(MediaEntry).filter(MediaEntry.user_id == user.id).all()

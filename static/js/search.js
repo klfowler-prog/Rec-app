@@ -6,6 +6,19 @@ const emptyEl = document.getElementById('search-empty');
 const initialEl = document.getElementById('search-initial');
 
 let debounceTimer = null;
+let profileMap = {};  // key: title.toLowerCase() -> entry
+
+// Preload profile for cross-referencing
+async function loadProfileMap() {
+    try {
+        const resp = await fetch('/api/profile/');
+        const entries = await resp.json();
+        profileMap = {};
+        for (const e of entries) {
+            profileMap[e.title.toLowerCase()] = e;
+        }
+    } catch {}
+}
 
 searchInput.addEventListener('input', () => {
     clearTimeout(debounceTimer);
@@ -69,21 +82,46 @@ function mediaCard(item) {
 
     const year = item.year ? `<span class="text-xs text-txt-muted">${item.year}</span>` : '';
     const badgeClass = typeColors[item.media_type] || typeColors.movie;
+    const detailLink = `/media/${item.media_type}/${item.external_id}?source=${item.source}`;
+
+    // Check if already in profile
+    const profileEntry = profileMap[safeTitle.toLowerCase()];
+    let actionArea;
+    let cardStyle = '';
+
+    if (profileEntry) {
+        if (profileEntry.rating) {
+            const rc = profileEntry.rating <= 3 ? 'text-coral' : profileEntry.rating <= 5 ? 'text-amber-500' : profileEntry.rating <= 7 ? 'text-yellow-600' : 'text-emerald-500';
+            actionArea = `<span class="text-xs font-semibold ${rc}">${profileEntry.rating}/10 ✓</span>`;
+        } else if (profileEntry.status === 'consumed') {
+            actionArea = `<span class="text-xs text-txt-muted">✓ Consumed</span>`;
+        } else if (profileEntry.status === 'consuming') {
+            actionArea = `<span class="text-xs text-coral">● Enjoying now</span>`;
+        } else if (profileEntry.status === 'want_to_consume') {
+            actionArea = `<span class="text-xs text-sage">✓ In queue</span>`;
+        } else {
+            actionArea = `<span class="text-xs text-txt-muted">✓ In profile</span>`;
+        }
+        cardStyle = 'opacity: 0.7;';
+    } else {
+        actionArea = buildActionBar(item, 'sm');
+    }
 
     return `
-        <a href="/media/${item.media_type}/${item.external_id}?source=${item.source}" class="group">
-            <div class="bg-surface-light dark:bg-surface-dark rounded-lg border border-border-light dark:border-border-dark overflow-hidden transition-base card-hover">
-                ${image}
-                <div class="p-3">
+        <div class="bg-surface-light dark:bg-surface-dark rounded-lg border border-border-light dark:border-border-dark overflow-hidden transition-base card-hover" data-rec-card style="${cardStyle}">
+            <a href="${detailLink}" class="block">${image}</a>
+            <div class="p-3">
+                <a href="${detailLink}" class="block hover:text-sage transition-base">
                     <p class="text-sm font-medium truncate mb-1">${escapeHtml(safeTitle)}</p>
-                    <div class="flex items-center gap-1.5">
-                        <span class="px-1.5 py-0.5 ${badgeClass} text-[10px] font-medium rounded capitalize">${item.media_type}</span>
-                        ${year}
-                    </div>
-                    ${item.creator ? `<p class="text-xs text-txt-muted mt-1 truncate">${escapeHtml(item.creator)}</p>` : ''}
+                </a>
+                <div class="flex items-center gap-1.5 mb-1">
+                    <span class="px-1.5 py-0.5 ${badgeClass} text-[10px] font-medium rounded capitalize">${item.media_type}</span>
+                    ${year}
                 </div>
+                ${item.creator ? `<p class="text-xs text-txt-muted mb-2 truncate">${escapeHtml(item.creator)}</p>` : '<div class="mb-2"></div>'}
+                <div class="quick-add-area">${actionArea}</div>
             </div>
-        </a>
+        </div>
     `;
 }
 
@@ -92,3 +130,6 @@ function escapeHtml(text) {
     div.textContent = text;
     return div.innerHTML;
 }
+
+// Initial load
+loadProfileMap();

@@ -324,6 +324,10 @@ async function rateItem(btn, entryId, rating) {
         card.style.opacity = '0.4';
         card.style.filter = 'grayscale(50%)';
     }
+    // Trigger post-rating discovery panel
+    if (typeof showPostRatingPanel === 'function') {
+        showPostRatingPanel(entryId);
+    }
 }
 
 async function saveForLater(btn, data) {

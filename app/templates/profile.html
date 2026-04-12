@@ -14,6 +14,48 @@
     <div id="profile-stats" class="grid grid-cols-2 md:grid-cols-4 gap-3">
     </div>
 
+    <!-- Top 10 of all time -->
+    <div id="top-ten-section" class="hidden">
+        <h3 class="text-lg font-semibold mb-1 flex items-center gap-2">
+            <span class="w-7 h-7 rounded-lg gradient-coral flex items-center justify-center">
+                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+            </span>
+            Your top 10 of all time
+        </h3>
+        <p class="text-sm text-txt-muted mb-3">Highest-rated across movies, TV, books, and podcasts.</p>
+        <div id="top-ten-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3"></div>
+    </div>
+
+    <!-- Taste shape -->
+    <div id="shape-section" class="hidden bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-5">
+        <h3 class="text-sm font-semibold uppercase tracking-wide text-txt-muted mb-4 flex items-center gap-2">
+            <svg class="w-4 h-4 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/></svg>
+            Your taste shape
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Rating histogram -->
+            <div>
+                <p class="text-xs text-txt-muted mb-2">Rating distribution</p>
+                <div id="rating-histogram" class="flex items-end gap-1 h-24"></div>
+                <div class="flex justify-between text-[10px] text-txt-muted mt-1">
+                    <span>1</span><span>5</span><span>10</span>
+                </div>
+            </div>
+            <!-- Type mix -->
+            <div>
+                <p class="text-xs text-txt-muted mb-2">Media mix</p>
+                <div id="type-distribution" class="space-y-1.5"></div>
+            </div>
+            <!-- Top genres with avg rating -->
+            <div>
+                <p class="text-xs text-txt-muted mb-2">Top genres</p>
+                <div id="top-genres-avg" class="space-y-1.5"></div>
+            </div>
+        </div>
+    </div>
+
+    <h3 class="text-lg font-semibold pt-2">All items</h3>
+
     <!-- Filters -->
     <div class="flex gap-2 flex-wrap">
         <button data-filter="all" class="profile-filter px-3 py-1.5 rounded-lg text-sm transition-base bg-sage/10 text-sage-dark dark:text-sage-light font-medium">All</button>
