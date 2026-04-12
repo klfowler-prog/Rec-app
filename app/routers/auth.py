@@ -56,7 +56,7 @@ async def auth_callback(request: Request, code: str = "", state: str = "", db: S
         redirect_uri = redirect_uri.replace("http://", "https://")
 
     # Exchange code for token
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=10) as client:
         token_resp = await client.post(
             GOOGLE_TOKEN_URL,
             data={
@@ -82,22 +82,25 @@ async def auth_callback(request: Request, code: str = "", state: str = "", db: S
 
     # Find or create user
     google_id = userinfo["id"]
-    user = db.query(User).filter(User.google_id == google_id).first()
-    if not user:
-        user = User(
-            google_id=google_id,
-            email=userinfo.get("email", ""),
-            name=userinfo.get("name", ""),
-            picture=userinfo.get("picture"),
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-    else:
-        # Update name/picture in case they changed
-        user.name = userinfo.get("name", user.name)
-        user.picture = userinfo.get("picture", user.picture)
-        db.commit()
+    try:
+        user = db.query(User).filter(User.google_id == google_id).first()
+        if not user:
+            user = User(
+                google_id=google_id,
+                email=userinfo.get("email", ""),
+                name=userinfo.get("name", ""),
+                picture=userinfo.get("picture"),
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        else:
+            user.name = userinfo.get("name", user.name)
+            user.picture = userinfo.get("picture", user.picture)
+            db.commit()
+    except Exception:
+        db.rollback()
+        return RedirectResponse("/?error=db_failed")
 
     # Set session
     request.session["user_id"] = user.id

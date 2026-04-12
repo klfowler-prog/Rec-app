@@ -224,8 +224,13 @@ Be honest — not everything will be a high rating. Use the full 1-10 range."""
                 entry_id = pred.get("id")
                 pr = pred.get("predicted_rating")
                 if entry_id in want_map and pr is not None:
-                    want_map[entry_id].predicted_rating = round(float(pr), 1)
-                    total_predicted += 1
+                    try:
+                        pr_f = float(pr)
+                        if 1 <= pr_f <= 10:
+                            want_map[entry_id].predicted_rating = round(pr_f, 1)
+                            total_predicted += 1
+                    except (ValueError, TypeError):
+                        pass
 
             db.commit()
         except Exception:
@@ -266,6 +271,9 @@ async def import_goodreads(file: UploadFile = File(...), user: User = Depends(re
     content = await file.read()
     text = content.decode("utf-8-sig")
     reader = csv.DictReader(io.StringIO(text))
+
+    if not reader.fieldnames or "Title" not in reader.fieldnames:
+        raise HTTPException(status_code=400, detail="Invalid Goodreads CSV — missing 'Title' column")
 
     rows = []
     for row in reader:
@@ -371,6 +379,9 @@ async def import_netflix(file: UploadFile = File(...), user: User = Depends(requ
     text = content.decode("utf-8-sig")
     reader = csv.DictReader(io.StringIO(text))
 
+    if not reader.fieldnames or "Title" not in reader.fieldnames:
+        raise HTTPException(status_code=400, detail="Invalid Netflix CSV — missing 'Title' column")
+
     rows = []
     for row in reader:
         title = row.get("Title", "").strip()
@@ -472,33 +483,37 @@ class PlexImportRequest(PydanticBaseModel):
 @router.post("/import/plex")
 async def import_plex(req: PlexImportRequest, user: User = Depends(require_user), db: Session = Depends(get_db)):
     """Import watch history from a Plex server via API."""
+    from urllib.parse import urlparse
+
     import httpx
 
     from app.services.tmdb import search as tmdb_search
 
+    # Validate URL to prevent SSRF
+    parsed = urlparse(req.server_url)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        raise HTTPException(status_code=400, detail="Invalid Plex server URL")
+
     server_url = req.server_url.rstrip("/")
     headers = {"X-Plex-Token": req.token, "Accept": "application/json"}
 
-    # Get all library sections
-    try:
-        async with httpx.AsyncClient(timeout=30) as client:
+    # Reuse one client for all Plex requests
+    async with httpx.AsyncClient(timeout=30) as client:
+        try:
             sections_resp = await client.get(f"{server_url}/library/sections", headers=headers)
             sections_resp.raise_for_status()
             sections = sections_resp.json()
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Could not connect to Plex server: {str(e)}")
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Could not connect to Plex server: {str(e)}")
 
-    # Collect watched items from movie and show libraries
-    watched_items = []
-    for section in sections.get("MediaContainer", {}).get("Directory", []):
-        section_type = section.get("type")
-        section_key = section.get("key")
-        if section_type not in ("movie", "show"):
-            continue
+        watched_items = []
+        for section in sections.get("MediaContainer", {}).get("Directory", []):
+            section_type = section.get("type")
+            section_key = section.get("key")
+            if section_type not in ("movie", "show"):
+                continue
 
-        try:
-            async with httpx.AsyncClient(timeout=30) as client:
-                # Get all items, filter to watched
+            try:
                 items_resp = await client.get(
                     f"{server_url}/library/sections/{section_key}/all",
                     headers=headers,
@@ -507,25 +522,24 @@ async def import_plex(req: PlexImportRequest, user: User = Depends(require_user)
                 items_resp.raise_for_status()
                 data = items_resp.json()
 
-            for item in data.get("MediaContainer", {}).get("Metadata", []):
-                if not item.get("viewCount", 0):
-                    continue
-                title = item.get("title", "").strip()
-                if not title:
-                    continue
-                year = item.get("year")
-                media_type = "movie" if section_type == "movie" else "tv"
-                rating = None
-                if item.get("userRating"):
-                    # Plex uses 1-10 scale
-                    rating = round(float(item["userRating"]), 1)
+                for item in data.get("MediaContainer", {}).get("Metadata", []):
+                    if not item.get("viewCount", 0):
+                        continue
+                    title = item.get("title", "").strip()
+                    if not title:
+                        continue
+                    year = item.get("year")
+                    media_type = "movie" if section_type == "movie" else "tv"
+                    rating = None
+                    if item.get("userRating"):
+                        rating = round(float(item["userRating"]), 1)
 
-                watched_items.append({
-                    "title": title, "year": year,
-                    "media_type": media_type, "rating": rating,
-                })
-        except Exception:
-            continue
+                    watched_items.append({
+                        "title": title, "year": year,
+                        "media_type": media_type, "rating": rating,
+                    })
+            except Exception:
+                continue
 
     # Deduplicate
     seen = set()

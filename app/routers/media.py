@@ -1,8 +1,12 @@
+import logging
+
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.auth import require_user
+
+log = logging.getLogger(__name__)
 from app.database import get_db
 from app.models import User
 from app.schemas import MediaResult
@@ -287,7 +291,8 @@ Rules:
         results = [r for r in found if r is not None and r["title"].lower() not in dismissed_titles]
         cache.set(cache_key, results, ttl_seconds=7200)
         return results
-    except Exception:
+    except Exception as e:
+        log.error("top_picks failed: %s", str(e))
         return []
 
 
@@ -395,6 +400,9 @@ Only include categories from this list: {', '.join(missing_types)}"""
             if not isinstance(items, list):
                 continue
             for item in items:
+                # Skip dismissed items before we make API calls
+                if item.get("title", "").lower() in dismissed_titles:
+                    continue
                 all_tasks.append(enrich(item, media_type))
                 task_keys.append(media_type)
 
@@ -406,7 +414,8 @@ Only include categories from this list: {', '.join(missing_types)}"""
         result = {"suggestions": enriched}
         cache.set(cache_key, result, ttl_seconds=21600)
         return result
-    except Exception:
+    except Exception as e:
+        log.error("home_suggestions failed: %s", str(e))
         return {"suggestions": {}}
 
 

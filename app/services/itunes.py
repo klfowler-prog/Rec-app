@@ -7,7 +7,7 @@ LOOKUP_URL = "https://itunes.apple.com/lookup"
 
 
 async def search(query: str) -> list[MediaResult]:
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.get(
             SEARCH_URL,
             params={"term": query, "entity": "podcast", "limit": 10},
@@ -41,7 +41,7 @@ async def search(query: str) -> list[MediaResult]:
 
 async def get_details(collection_id: str) -> MediaResult | None:
     """Get podcast details by collection ID using iTunes lookup API."""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.get(LOOKUP_URL, params={"id": collection_id})
         if resp.status_code == 404:
             return None

@@ -61,9 +61,11 @@ function mediaCard(item) {
     };
 
     const cardAspect = item.media_type === 'podcast' ? 'aspect-square' : 'aspect-[2/3]';
+    const safeTitle = item.title || 'Untitled';
+    const firstChar = safeTitle[0] || '?';
     const image = item.image_url
-        ? `<img src="${item.image_url}" alt="${escapeHtml(item.title)}" class="w-full ${cardAspect} object-cover" loading="lazy">`
-        : `<div class="w-full ${cardAspect} bg-sage/10 flex items-center justify-center"><span class="text-sage text-3xl">${escapeHtml(item.title[0] || '?')}</span></div>`;
+        ? `<img src="${item.image_url}" alt="${escapeHtml(safeTitle)}" class="w-full ${cardAspect} object-cover" loading="lazy">`
+        : `<div class="w-full ${cardAspect} bg-sage/10 flex items-center justify-center"><span class="text-sage text-3xl">${escapeHtml(firstChar)}</span></div>`;
 
     const year = item.year ? `<span class="text-xs text-txt-muted">${item.year}</span>` : '';
     const badgeClass = typeColors[item.media_type] || typeColors.movie;
@@ -73,7 +75,7 @@ function mediaCard(item) {
             <div class="bg-surface-light dark:bg-surface-dark rounded-lg border border-border-light dark:border-border-dark overflow-hidden transition-base card-hover">
                 ${image}
                 <div class="p-3">
-                    <p class="text-sm font-medium truncate mb-1">${escapeHtml(item.title)}</p>
+                    <p class="text-sm font-medium truncate mb-1">${escapeHtml(safeTitle)}</p>
                     <div class="flex items-center gap-1.5">
                         <span class="px-1.5 py-0.5 ${badgeClass} text-[10px] font-medium rounded capitalize">${item.media_type}</span>
                         ${year}

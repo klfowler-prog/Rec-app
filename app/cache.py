@@ -6,54 +6,80 @@ Recommendations are cached with long TTLs (24h) and only refreshed when:
 3. No cached results exist yet (first time)
 """
 
+import threading
 import time
 from typing import Any
+
+MAX_CACHE_SIZE = 500
 
 _cache: dict[str, tuple[float, Any]] = {}
 _profile_changed_at: float = 0.0
 _recs_generated_at: float = 0.0
+_lock = threading.Lock()
+
+
+def _cleanup_expired() -> None:
+    """Remove expired entries to prevent unbounded growth."""
+    if len(_cache) < MAX_CACHE_SIZE:
+        return
+    now = time.time()
+    expired = [k for k, (exp, _) in _cache.items() if exp < now]
+    for k in expired:
+        _cache.pop(k, None)
+    # If still too large, remove oldest entries
+    if len(_cache) >= MAX_CACHE_SIZE:
+        sorted_keys = sorted(_cache.items(), key=lambda x: x[1][0])
+        for k, _ in sorted_keys[: len(_cache) - MAX_CACHE_SIZE + 50]:
+            _cache.pop(k, None)
 
 
 def get(key: str) -> Any | None:
     """Get a cached value if it exists and hasn't expired."""
-    if key in _cache:
-        expires_at, value = _cache[key]
-        if time.time() < expires_at:
-            return value
-        # Expired — but only regenerate if profile changed since last generation
-        if key in ("top_picks", "suggestions_home") and _profile_changed_at <= _recs_generated_at:
-            # Profile hasn't changed, extend the cache another 24h
-            _cache[key] = (time.time() + 86400, value)
-            return value
-        del _cache[key]
-    return None
+    with _lock:
+        if key in _cache:
+            expires_at, value = _cache[key]
+            if time.time() < expires_at:
+                return value
+            # Expired — but only regenerate if profile changed since last generation
+            if key.startswith("top_picks") or key.startswith("suggestions_home"):
+                if _profile_changed_at <= _recs_generated_at:
+                    _cache[key] = (time.time() + 86400, value)
+                    return value
+            _cache.pop(key, None)
+        return None
 
 
 def set(key: str, value: Any, ttl_seconds: int = 86400) -> None:
     """Cache a value. Default TTL is 24 hours."""
     global _recs_generated_at
-    _cache[key] = (time.time() + ttl_seconds, value)
-    if key in ("top_picks", "suggestions_home"):
-        _recs_generated_at = time.time()
+    with _lock:
+        _cleanup_expired()
+        _cache[key] = (time.time() + ttl_seconds, value)
+        if key.startswith("top_picks") or key.startswith("suggestions_home"):
+            _recs_generated_at = time.time()
 
 
 def mark_profile_changed() -> None:
     """Record that the profile was modified. Does NOT bust the cache."""
     global _profile_changed_at
-    _profile_changed_at = time.time()
+    with _lock:
+        _profile_changed_at = time.time()
 
 
 def force_refresh() -> None:
     """Explicitly clear recommendation caches. Called by user action only."""
-    for key in ("top_picks", "suggestions_home"):
-        _cache.pop(key, None)
+    with _lock:
+        keys_to_delete = [k for k in _cache if k.startswith("top_picks") or k.startswith("suggestions_home")]
+        for k in keys_to_delete:
+            _cache.pop(k, None)
 
 
 def invalidate(prefix: str = "") -> None:
     """Invalidate all cache entries matching a prefix, or all if empty."""
-    if not prefix:
-        _cache.clear()
-        return
-    keys_to_delete = [k for k in _cache if k.startswith(prefix)]
-    for k in keys_to_delete:
-        del _cache[k]
+    with _lock:
+        if not prefix:
+            _cache.clear()
+            return
+        keys_to_delete = [k for k in _cache if k.startswith(prefix)]
+        for k in keys_to_delete:
+            _cache.pop(k, None)

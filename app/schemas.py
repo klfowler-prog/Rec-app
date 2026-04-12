@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class MediaResult(BaseModel):
@@ -29,14 +29,14 @@ class MediaEntryCreate(BaseModel):
     genres: str | None = None
     description: str | None = None
     status: str = "consumed"
-    rating: float | None = None
+    rating: float | None = Field(None, ge=1, le=10)
     notes: str | None = None
     tags: str | None = None
 
 
 class MediaEntryUpdate(BaseModel):
     status: str | None = None
-    rating: float | None = None
+    rating: float | None = Field(None, ge=1, le=10)
     notes: str | None = None
     tags: str | None = None
 

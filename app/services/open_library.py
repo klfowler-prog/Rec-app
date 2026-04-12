@@ -6,7 +6,7 @@ BASE_URL = "https://openlibrary.org"
 
 
 async def search(query: str) -> list[MediaResult]:
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.get(
             f"{BASE_URL}/search.json",
             params={"q": query, "limit": 10, "fields": "key,title,author_name,first_publish_year,cover_i,subject,isbn"},
@@ -44,7 +44,7 @@ async def search(query: str) -> list[MediaResult]:
 
 
 async def get_details(work_id: str) -> MediaResult | None:
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.get(f"{BASE_URL}/works/{work_id}.json")
         if resp.status_code == 404:
             return None
@@ -67,15 +67,17 @@ async def get_details(work_id: str) -> MediaResult | None:
     covers = work.get("covers", [])
     image_url = f"https://covers.openlibrary.org/b/id/{covers[0]}-M.jpg" if covers else None
 
-    # Get authors
-    author_keys = [a.get("author", {}).get("key", "") for a in work.get("authors", [])]
+    # Get authors in parallel
+    import asyncio
+    author_keys = [a.get("author", {}).get("key", "") for a in work.get("authors", [])[:2]]
     author_names = []
-    async with httpx.AsyncClient() as client:
-        for key in author_keys[:2]:
-            if key:
-                aresp = await client.get(f"{BASE_URL}{key}.json")
-                if aresp.status_code == 200:
-                    author_names.append(aresp.json().get("name", ""))
+    async with httpx.AsyncClient(timeout=10) as client:
+        tasks = [client.get(f"{BASE_URL}{key}.json") for key in author_keys if key]
+        if tasks:
+            responses = await asyncio.gather(*tasks, return_exceptions=True)
+            for r in responses:
+                if hasattr(r, "status_code") and r.status_code == 200:
+                    author_names.append(r.json().get("name", ""))
 
     year = None
     if work.get("first_publish_date"):

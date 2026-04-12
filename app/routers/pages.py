@@ -60,10 +60,12 @@ def _get_greeting_context(user_name: str) -> dict:
 
 @router.get("/")
 async def home(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
-    consuming = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.status == "consuming").all()
-    want_to_consume = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.status == "want_to_consume").all()
-    consumed = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.status == "consumed").all()
-    total = db.query(MediaEntry).filter(MediaEntry.user_id == user.id).count()
+    # Single query, filter in Python
+    all_entries = db.query(MediaEntry).filter(MediaEntry.user_id == user.id).all()
+    consuming = [e for e in all_entries if e.status == "consuming"]
+    want_to_consume = [e for e in all_entries if e.status == "want_to_consume"]
+    consumed = [e for e in all_entries if e.status == "consumed"]
+    total = len(all_entries)
 
     queue_by_type: dict[str, list] = {}
     queue_total: dict[str, int] = {}

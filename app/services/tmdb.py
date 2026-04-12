@@ -15,7 +15,7 @@ def _headers() -> dict:
 async def search(query: str, media_type: str | None = None) -> list[MediaResult]:
     if not settings.tmdb_api_key:
         return []
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=15) as client:
         if media_type == "movie":
             url = f"{BASE_URL}/search/movie"
         elif media_type == "tv":
@@ -59,7 +59,7 @@ async def search(query: str, media_type: str | None = None) -> list[MediaResult]
 async def get_details(media_type: str, tmdb_id: str) -> MediaResult | None:
     if not settings.tmdb_api_key:
         return None
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.get(
             f"{BASE_URL}/{media_type}/{tmdb_id}",
             headers=_headers(),
@@ -105,7 +105,7 @@ async def get_details(media_type: str, tmdb_id: str) -> MediaResult | None:
 async def get_watch_providers(media_type: str, tmdb_id: str, region: str = "US") -> list[dict]:
     if not settings.tmdb_api_key:
         return []
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.get(
             f"{BASE_URL}/{media_type}/{tmdb_id}/watch/providers", headers=_headers()
         )
@@ -138,7 +138,7 @@ async def get_trending(media_type: str = "all", time_window: str = "week", limit
     """Get trending movies/TV from TMDB."""
     if not settings.tmdb_api_key:
         return []
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.get(
             f"{BASE_URL}/trending/{media_type}/{time_window}", headers=_headers()
         )
