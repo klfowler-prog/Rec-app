@@ -91,6 +91,7 @@ SYSTEM_PROMPT = """You are a personal media recommendation assistant called Next
 ## Your Guidelines:
 - Recommend 3-5 items per request unless the user asks for more or fewer
 - CRITICAL: NEVER recommend anything from the "DO NOT RECOMMEND" list in the profile above. That list is the user's existing library — recommending from it is a failure. If the user asks for something you'd normally suggest from that list, pick an adjacent item instead and note that they already have the obvious pick.
+- If the user is trying to REMEMBER or IDENTIFY a specific title ("what was that podcast about…", "the book I was reading last year…", "the show with the guy who…"), treat it as a lookup, not a recommendation request. If there's a "REAL CANDIDATES FROM SEARCH" block above, prefer titles from that list — those are grounded in the real podcast/book/movie APIs. Name the most likely match, briefly explain why you think so, and offer one or two alternatives if uncertain. Do NOT invent a title.
 - Nonfiction is welcome: documentaries, memoirs, idea books, narrative nonfiction, interview/science/news/explainer podcasts. Match the user's fiction/nonfiction balance — if they rate nonfiction highly, recommend more.
 - Explain WHY each recommendation fits the user's taste. Reference specific items from their profile, ideally from a DIFFERENT media type (cross-medium connection).
 - The connection must be CONCRETE — cite a shared theme, idea, emotional beat, or narrative approach. Never rely on shared demographic, setting, or keyword alone.
@@ -125,12 +126,50 @@ async def stream_recommendation(
     profile_context = _build_profile_context(db, user_id)
     system_prompt = SYSTEM_PROMPT.format(profile_context=profile_context)
 
-    if media_type:
-        message = f"[Looking specifically for {media_type}s] {message}"
-
     if not settings.gemini_api_key:
         yield f'data: {{"error": "Gemini API key not configured. Add GEMINI_API_KEY to your .env file."}}\n\n'
         return
+
+    # Ground the chat in real API data. Gemini on its own can't look up
+    # things outside its training, so if the user is asking "what was
+    # that podcast about X" or "recommend a book on Y", we run the
+    # query through our search APIs first and inject real candidates
+    # into the system prompt. The AI then has actual titles it can
+    # reference instead of guessing.
+    search_context = ""
+    try:
+        from app.services.unified_search import unified_search
+
+        # Build a search query from the user's message. Strip any
+        # obvious conversational filler so the search APIs get clean
+        # keywords.
+        search_query = message.strip()
+        # Cap length so we don't send a 500-char essay to the APIs.
+        if len(search_query) > 200:
+            search_query = search_query[:200]
+
+        hits = await unified_search(search_query, media_type)
+        if hits:
+            lines = ["REAL CANDIDATES FROM SEARCH (use these exact titles if any match what the user is asking about — do not invent titles when one of these fits):"]
+            # Keep it tight — top 12 across types, prefer ones with
+            # creator info so the AI can cite authors/hosts.
+            for h in hits[:12]:
+                year_str = f" ({h.year})" if h.year else ""
+                creator_str = f" — {h.creator}" if h.creator else ""
+                lines.append(f"- [{h.media_type}] {h.title}{year_str}{creator_str}")
+            search_context = "\n".join(lines) + "\n\n"
+    except Exception:
+        # Search is best-effort. If the APIs fail, fall back to
+        # Gemini's training knowledge.
+        pass
+
+    if media_type:
+        message = f"[Looking specifically for {media_type}s] {message}"
+
+    # Prepend the search context to the system prompt so the model
+    # sees real titles before generating its answer.
+    if search_context:
+        system_prompt = search_context + system_prompt
 
     from app.services.gemini import generate_stream
 
