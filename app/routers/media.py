@@ -1038,15 +1038,17 @@ async def new_releases(
         if cached is not None:
             return cached
 
-    # 1) Fetch raw "what's new" from the right external API
+    # 1) Fetch raw "what's new" from the right external API.
+    # Pull a wide pool (30 per sub-section) so we have enough signal left
+    # after filtering out low-predicted items and items the user already has.
     raw_items: list = []
     sections: list[tuple[str, list]] = []
     try:
         if media_type == "movie":
             from app.services.tmdb import get_movies_now_playing, get_movies_popular
             now_playing, popular = await asyncio.gather(
-                get_movies_now_playing(limit=15),
-                get_movies_popular(limit=15),
+                get_movies_now_playing(limit=30),
+                get_movies_popular(limit=30),
             )
             # Deduplicate by external_id — popular often overlaps now_playing
             seen_ids: set[str] = set()
@@ -1061,14 +1063,14 @@ async def new_releases(
                     streaming_items.append(item)
                     seen_ids.add(item.external_id)
             sections = [
-                ("In theaters", np_items[:10]),
-                ("Popular on streaming", streaming_items[:10]),
+                ("In theaters", np_items),
+                ("Popular on streaming", streaming_items),
             ]
         elif media_type == "tv":
             from app.services.tmdb import get_tv_on_the_air, get_tv_popular
             on_air, popular = await asyncio.gather(
-                get_tv_on_the_air(limit=15),
-                get_tv_popular(limit=15),
+                get_tv_on_the_air(limit=30),
+                get_tv_popular(limit=30),
             )
             seen_ids = set()
             oa_items = []
@@ -1082,17 +1084,17 @@ async def new_releases(
                     pop_items.append(item)
                     seen_ids.add(item.external_id)
             sections = [
-                ("Currently airing", oa_items[:10]),
-                ("Popular on streaming", pop_items[:10]),
+                ("Currently airing", oa_items),
+                ("Popular on streaming", pop_items),
             ]
         elif media_type == "book":
             from app.services.open_library import get_recent_books
-            books = await get_recent_books(limit=20)
-            sections = [("Recently published", books[:10])]
+            books = await get_recent_books(limit=30)
+            sections = [("Recently published", books)]
         elif media_type == "podcast":
             from app.services.itunes import get_top_podcasts
-            podcasts = await get_top_podcasts(limit=20)
-            sections = [("Top podcasts right now", podcasts[:10])]
+            podcasts = await get_top_podcasts(limit=30)
+            sections = [("Top podcasts right now", podcasts)]
     except Exception as e:
         log.error("new_releases fetch failed for %s: %s", media_type, str(e))
         return {"sections": [], "updated_at": None}
@@ -1142,7 +1144,17 @@ async def new_releases(
 
             from app.services.gemini import generate
 
-            prompt = f"""Given this user's taste profile, predict how much they would enjoy each of the items below on a 1-10 scale. Consider genre fit, tonal match, subject matter, and how similar each item is to their highest-rated work.
+            prompt = f"""Given this user's taste profile, predict how much they would enjoy each of the items below on a 1-10 scale.
+
+USER'S TOP-RATED ITEMS:
+{taste_summary}
+
+SCORING RULES:
+- Compare each candidate item's genre, tone, subject matter, and audience register against what the user actually rates highly.
+- Be HARSH on genre and tonal mismatches. If the user's top items are literary dramas and a candidate is a superhero blockbuster, that's a 3 — not a 6. If their top items are warm comedies and a candidate is bleak horror, that's a 2-4.
+- Reward real fits generously. If a candidate's genre, tone, and subject matter all line up with the user's taste, score it 8-9. Only score 10 for items that perfectly match the user's highest-rated work.
+- A score of 7 is the threshold for "worth surfacing". Items scoring below 7 will not be shown to the user — so do NOT inflate scores out of politeness. It's better to score something a 4 and have it hidden than to score it a 7 and waste the user's attention.
+- Ignore popularity. A prestigious blockbuster the user clearly wouldn't enjoy still gets a low score.
 
 USER'S TOP-RATED ITEMS:
 {taste_summary}
@@ -1150,9 +1162,9 @@ USER'S TOP-RATED ITEMS:
 ITEMS TO SCORE:
 {json.dumps(items_json, indent=2)}
 
-Return ONLY a JSON object mapping each title to a predicted rating (1-10, one decimal place). No markdown.
+Return ONLY a JSON object mapping each exact title to a predicted rating (1-10, one decimal place). No markdown, no preamble.
 
-{{"Title 1": 8.5, "Title 2": 6.0, ...}}"""
+{{"Title 1": 8.5, "Title 2": 3.0, ...}}"""
 
             text = (await generate(prompt)).strip()
             if text.startswith("```"):
@@ -1184,13 +1196,20 @@ Return ONLY a JSON object mapping each title to a predicted rating (1-10, one de
             "predicted_rating": predicted_map.get(item.title.lower()),
         }
 
+    MIN_SCORE = 7.0
     serialized_sections = []
     for label, items in filtered_sections:
         rows = [_serialize(it) for it in items]
+        # Drop anything the AI scored below the threshold. We only surface
+        # items the user is likely to actually enjoy — a list full of 5s
+        # is worse than a short list of 8s.
+        rows = [r for r in rows if (r["predicted_rating"] or 0) >= MIN_SCORE]
         # Sort so the highest predicted scores float to the top
         rows.sort(key=lambda r: (r["predicted_rating"] or 0), reverse=True)
-        # Cap at 5 per section per the user's request
-        serialized_sections.append({"label": label, "items": rows[:5]})
+        # Cap at 5 per section
+        rows = rows[:5]
+        if rows:
+            serialized_sections.append({"label": label, "items": rows})
 
     from datetime import datetime as _dt
     result = {"sections": serialized_sections, "updated_at": _dt.utcnow().isoformat()}
