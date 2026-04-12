@@ -59,9 +59,9 @@
                 <div class="rounded-lg overflow-hidden transition-base card-hover shadow-sm border border-border-light dark:border-border-dark">
                     <div class="relative">
                         {% if item.image_url %}
-                        <img src="{{ item.image_url }}" alt="{{ item.title }}" class="w-full aspect-[2/3] object-cover">
+                        <img src="{{ item.image_url }}" alt="{{ item.title }}" class="w-full {{ 'aspect-square' if item.media_type == 'podcast' else 'aspect-[2/3]' }} object-cover">
                         {% else %}
-                        <div class="w-full aspect-[2/3] bg-sage/10 flex items-center justify-center">
+                        <div class="w-full {{ 'aspect-square' if item.media_type == 'podcast' else 'aspect-[2/3]' }} bg-sage/10 flex items-center justify-center">
                             <span class="text-sage text-2xl">{{ item.title[0] }}</span>
                         </div>
                         {% endif %}
@@ -143,9 +143,9 @@
                     <a href="/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}" class="swim-lane-item flex-shrink-0">
                         <div class="rounded-lg overflow-hidden transition-base card-hover shadow-sm border border-border-light dark:border-border-dark relative">
                             {% if item.image_url %}
-                            <img src="{{ item.image_url }}" alt="{{ item.title }}" class="w-full aspect-[2/3] object-cover" loading="lazy">
+                            <img src="{{ item.image_url }}" alt="{{ item.title }}" class="w-full {{ 'aspect-square' if item.media_type == 'podcast' else 'aspect-[2/3]' }} object-cover" loading="lazy">
                             {% else %}
-                            <div class="w-full aspect-[2/3] bg-sage/10 flex items-center justify-center">
+                            <div class="w-full {{ 'aspect-square' if item.media_type == 'podcast' else 'aspect-[2/3]' }} bg-sage/10 flex items-center justify-center">
                                 <span class="text-sage text-2xl">{{ item.title[0] }}</span>
                             </div>
                             {% endif %}
@@ -352,9 +352,10 @@ async function dismissItem(btn, data) {
 function recCard(item, reason, profileEntry) {
     const badgeClass = typeBadgeColors[item.media_type] || typeBadgeColors.movie;
     const gradClass = typeColors[item.media_type] || typeColors.movie;
+    const aspect = item.media_type === 'podcast' ? 'aspect-square' : 'aspect-[2/3]';
     const image = item.image_url
-        ? `<img src="${item.image_url}" alt="" class="w-full aspect-[2/3] object-cover">`
-        : `<div class="w-full aspect-[2/3] ${gradClass} flex items-center justify-center"><span class="text-white text-3xl font-bold">${escapeHtml((item.title || '?')[0])}</span></div>`;
+        ? `<img src="${item.image_url}" alt="" class="w-full ${aspect} object-cover">`
+        : `<div class="w-full ${aspect} ${gradClass} flex items-center justify-center"><span class="text-white text-3xl font-bold">${escapeHtml((item.title || '?')[0])}</span></div>`;
     const link = item.external_id ? `/media/${item.media_type}/${item.external_id}?source=${item.source}` : '#';
     const consumeData = escapeAttr(JSON.stringify({
         external_id: item.external_id, source: item.source, title: item.title,
@@ -474,9 +475,10 @@ async function loadSuggestions() {
             const lane = document.getElementById(`suggestions-${type}`);
             if (lane && items && items.length > 0) {
                 lane.innerHTML = items.map(item => {
+                    const sugAspect = mt === 'podcast' ? 'aspect-square' : 'aspect-[2/3]';
                     const image = item.image_url
-                        ? `<img src="${item.image_url}" alt="" class="w-full aspect-[2/3] object-cover" loading="lazy">`
-                        : `<div class="w-full aspect-[2/3] bg-sage/10 flex items-center justify-center"><span class="text-sage text-xl">${escapeHtml((item.title || '?')[0])}</span></div>`;
+                        ? `<img src="${item.image_url}" alt="" class="w-full ${sugAspect} object-cover" loading="lazy">`
+                        : `<div class="w-full ${sugAspect} bg-sage/10 flex items-center justify-center"><span class="text-sage text-xl">${escapeHtml((item.title || '?')[0])}</span></div>`;
                     const link = item.external_id ? `/media/${item.media_type || type}/${item.external_id}?source=${item.source}` : `/search`;
                     const mt = item.media_type || type;
                     const consumeAttr = escapeAttr(JSON.stringify({

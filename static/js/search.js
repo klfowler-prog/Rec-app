@@ -60,9 +60,10 @@ function mediaCard(item) {
         podcast: 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400',
     };
 
+    const cardAspect = item.media_type === 'podcast' ? 'aspect-square' : 'aspect-[2/3]';
     const image = item.image_url
-        ? `<img src="${item.image_url}" alt="${escapeHtml(item.title)}" class="w-full aspect-[2/3] object-cover" loading="lazy">`
-        : `<div class="w-full aspect-[2/3] bg-sage/10 flex items-center justify-center"><span class="text-sage text-3xl">${escapeHtml(item.title[0] || '?')}</span></div>`;
+        ? `<img src="${item.image_url}" alt="${escapeHtml(item.title)}" class="w-full ${cardAspect} object-cover" loading="lazy">`
+        : `<div class="w-full ${cardAspect} bg-sage/10 flex items-center justify-center"><span class="text-sage text-3xl">${escapeHtml(item.title[0] || '?')}</span></div>`;
 
     const year = item.year ? `<span class="text-xs text-txt-muted">${item.year}</span>` : '';
     const badgeClass = typeColors[item.media_type] || typeColors.movie;
