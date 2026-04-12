@@ -218,8 +218,14 @@ async def get_trending(media_type: str = "all", limit: int = 10):
 
 
 @router.get("/quiz-items")
-async def quiz_items():
-    """Get a curated mix of well-known items across genres for the taste quiz."""
+async def quiz_items(user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """Get a curated mix of well-known items across genres for the
+    taste quiz. The underlying item catalog is shared across all users
+    (expensive to fetch), but the response is then filtered against
+    THIS user's profile so anything they've already rated — including
+    items they just rated via the this-or-that section on the same
+    page — is removed. Fixes the dupe-between-taste-test-and-quiz bug
+    where the same item could appear in both sections."""
     import asyncio
 
     from app import cache
@@ -227,9 +233,10 @@ async def quiz_items():
     from app.services.open_library import search as search_books
     from app.services.itunes import search as search_podcasts
 
-    cached = cache.get("quiz_items")
+    # Shared base catalog — resolved external items, not filtered.
+    cached = cache.get("quiz_items_base")
     if cached is not None:
-        return cached
+        return _filter_quiz_items_for_user(cached, db, user.id)
 
     # Curated quiz items — intentionally span different TASTE REGIONS so
     # the AI can tell whether this person is a blockbuster fan, an
@@ -406,8 +413,21 @@ async def quiz_items():
         "book": [b.model_dump() for b in books[:18]],
         "podcast": [p.model_dump() for p in podcasts[:18]],
     }
-    cache.set("quiz_items", result, ttl_seconds=86400)  # 24 hours
-    return result
+    # Store the UNFILTERED catalog. The response is filtered per-user
+    # below so items they've already rated are removed.
+    cache.set("quiz_items_base", result, ttl_seconds=86400)
+    return _filter_quiz_items_for_user(result, db, user.id)
+
+
+def _filter_quiz_items_for_user(base: dict, db: Session, user_id: int) -> dict:
+    """Drop any items already in the user's profile or dismissed list.
+    Used by /api/media/quiz-items so items the user rated via the
+    this-or-that section above don't reappear in the curated grid."""
+    known_normalized, _ = _build_known_titles(db, user_id)
+    return {
+        media_type: [item for item in items if not _is_known(item.get("title", ""), known_normalized)]
+        for media_type, items in base.items()
+    }
 
 
 @router.get("/taste-test")
@@ -436,8 +456,11 @@ async def taste_test():
 
     # Each axis probes one taste dimension. Format:
     #   (axis_label, left_label, right_label, [left items], [right items])
-    # Items are (title, media_type).
-    AXES: list[tuple[str, str, str, list[tuple[str, str]], list[tuple[str, str]]]] = [
+    # Items are (title, media_type) for movies/tv/podcasts, or
+    # (title, media_type, author) for books — author helps us nail the
+    # right Open Library record instead of grabbing a random edition
+    # or study guide.
+    AXES: list[tuple[str, str, str, list[tuple], list[tuple]]] = [
         (
             "Spectacle or intimacy?",
             "Spectacle",
@@ -470,22 +493,46 @@ async def taste_test():
             "Page-turner thriller or literary slow-burn?",
             "Page-turner",
             "Slow-burn",
-            [("Gone Girl", "book"), ("The Silent Patient", "book"), ("The Girl on the Train", "book")],
-            [("A Little Life", "book"), ("Normal People", "book"), ("Pachinko", "book")],
+            [
+                ("Gone Girl", "book", "Gillian Flynn"),
+                ("The Silent Patient", "book", "Alex Michaelides"),
+                ("The Girl on the Train", "book", "Paula Hawkins"),
+            ],
+            [
+                ("A Little Life", "book", "Hanya Yanagihara"),
+                ("Normal People", "book", "Sally Rooney"),
+                ("Pachinko", "book", "Min Jin Lee"),
+            ],
         ),
         (
             "Fantasy escapism or contemporary realism?",
             "Fantasy",
             "Contemporary",
-            [("Dune", "book"), ("Fourth Wing", "book"), ("A Court of Thorns and Roses", "book")],
-            [("Normal People", "book"), ("Lessons in Chemistry", "book"), ("Tomorrow and Tomorrow and Tomorrow", "book")],
+            [
+                ("Dune", "book", "Frank Herbert"),
+                ("Fourth Wing", "book", "Rebecca Yarros"),
+                ("A Court of Thorns and Roses", "book", "Sarah J. Maas"),
+            ],
+            [
+                ("Normal People", "book", "Sally Rooney"),
+                ("Lessons in Chemistry", "book", "Bonnie Garmus"),
+                ("Tomorrow, and Tomorrow, and Tomorrow", "book", "Gabrielle Zevin"),
+            ],
         ),
         (
             "Nonfiction ideas or narrative fiction?",
             "Nonfiction",
             "Narrative fiction",
-            [("Sapiens", "book"), ("Atomic Habits", "book"), ("Thinking Fast and Slow", "book")],
-            [("Pachinko", "book"), ("The Kite Runner", "book"), ("Demon Copperhead", "book")],
+            [
+                ("Sapiens", "book", "Yuval Noah Harari"),
+                ("Atomic Habits", "book", "James Clear"),
+                ("Thinking, Fast and Slow", "book", "Daniel Kahneman"),
+            ],
+            [
+                ("Pachinko", "book", "Min Jin Lee"),
+                ("The Kite Runner", "book", "Khaled Hosseini"),
+                ("Demon Copperhead", "book", "Barbara Kingsolver"),
+            ],
         ),
         (
             "True crime or explainer?",
@@ -496,29 +543,59 @@ async def taste_test():
         ),
     ]
 
-    async def fetch_one(title: str, media_type: str) -> dict | None:
+    _BOOK_JUNK_SUBSTRINGS = (
+        "study guide", "studyguide", "summary of", "a summary",
+        "cliffsnotes", "sparknotes", "shmoop", "quicklet",
+        "analysis of", "workbook", "companion to", "notes on",
+    )
+
+    def _is_real_book_title(t: str) -> bool:
+        tl = (t or "").lower()
+        return not any(j in tl for j in _BOOK_JUNK_SUBSTRINGS)
+
+    async def fetch_one(*args) -> dict | None:
+        # Accept (title, media_type) or (title, media_type, author).
+        title = args[0]
+        media_type = args[1]
+        author = args[2] if len(args) >= 3 else None
         try:
             if media_type in ("movie", "tv"):
                 results = await tmdb_search(title, media_type)
             elif media_type == "book":
-                results = await search_books(title)
+                # For books, include the author in the query so Open
+                # Library returns the right work instead of a random
+                # edition, study guide, or unrelated book.
+                query = f"{title} {author}" if author else title
+                results = await search_books(query)
             elif media_type == "podcast":
                 results = await search_podcasts(title)
             else:
                 return None
-        except Exception:
+        except Exception as e:
+            log.info("taste_test fetch_one failed for %s: %s", title, str(e))
             return None
         if not results:
+            log.info("taste_test fetch_one: no results for %s (%s)", title, media_type)
             return None
+
+        # For books, pre-filter out study guides / companions.
+        if media_type == "book":
+            results = [r for r in results if _is_real_book_title(r.title)]
+            if not results:
+                log.info("taste_test fetch_one: no real-book results for %s", title)
+                return None
+
         t_lower = title.lower().strip()
         best = None
-        for item in results[:5]:
+        # 1) Exact / startswith title match with image
+        for item in results[:10]:
             it_lower = (item.title or "").lower().strip()
             if (it_lower == t_lower or it_lower.startswith(t_lower) or t_lower.startswith(it_lower)) and item.image_url:
                 best = item
                 break
         if not best:
-            for item in results[:5]:
+            # 2) Any result with an image
+            for item in results[:10]:
                 if item.image_url:
                     best = item
                     break
@@ -526,12 +603,13 @@ async def taste_test():
             best = results[0]
         return best.model_dump()
 
-    # Flatten every item, fetch in parallel, then reassemble per axis.
-    flat_requests: list[tuple[str, str]] = []
+    # Flatten every item (can be 2-tuple or 3-tuple) and fetch in
+    # parallel, then reassemble per axis.
+    flat_requests: list[tuple] = []
     for _, _, _, left, right in AXES:
         flat_requests.extend(left)
         flat_requests.extend(right)
-    resolved = await asyncio.gather(*[fetch_one(t, mt) for t, mt in flat_requests])
+    resolved = await asyncio.gather(*[fetch_one(*entry) for entry in flat_requests])
 
     axes_out = []
     idx = 0
