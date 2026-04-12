@@ -21,17 +21,30 @@
 <div class="space-y-8">
     <div class="text-center max-w-lg mx-auto">
         <h2 class="text-2xl font-bold mb-2">Build your taste profile</h2>
-        <p class="text-txt-muted">Tap items you've watched, read, or listened to, then rate them. The more you add, the better your recommendations.</p>
+        <p class="text-txt-muted">Aim for <span class="font-semibold text-txt">5 items in each category</span> — 5 movies, 5 shows, 5 books, 5 podcasts you've enjoyed. That's enough for NextUp to start finding cross-medium patterns in your taste.</p>
     </div>
 
-    <!-- Progress bar -->
-    <div class="max-w-md mx-auto">
-        <div class="flex items-center justify-between text-xs text-txt-muted mb-1">
-            <span id="progress-count">0 rated</span>
-            <span>Tap to select, then rate</span>
+    <!-- Per-type progress -->
+    <div class="max-w-md mx-auto grid grid-cols-4 gap-3 text-center">
+        <div>
+            <p class="text-[10px] text-txt-muted uppercase tracking-wide mb-1">Movies</p>
+            <p id="progress-movie" class="text-sm font-semibold text-txt-muted">0 / 5</p>
+            <div class="h-1 bg-border-light dark:bg-border-dark rounded-full overflow-hidden mt-1"><div id="progress-bar-movie" class="h-full bg-sage rounded-full transition-all" style="width: 0%"></div></div>
         </div>
-        <div class="h-1.5 bg-border-light dark:bg-border-dark rounded-full overflow-hidden">
-            <div id="progress-bar" class="h-full bg-sage rounded-full transition-all" style="width: 0%"></div>
+        <div>
+            <p class="text-[10px] text-txt-muted uppercase tracking-wide mb-1">TV</p>
+            <p id="progress-tv" class="text-sm font-semibold text-txt-muted">0 / 5</p>
+            <div class="h-1 bg-border-light dark:bg-border-dark rounded-full overflow-hidden mt-1"><div id="progress-bar-tv" class="h-full bg-sage rounded-full transition-all" style="width: 0%"></div></div>
+        </div>
+        <div>
+            <p class="text-[10px] text-txt-muted uppercase tracking-wide mb-1">Books</p>
+            <p id="progress-book" class="text-sm font-semibold text-txt-muted">0 / 5</p>
+            <div class="h-1 bg-border-light dark:bg-border-dark rounded-full overflow-hidden mt-1"><div id="progress-bar-book" class="h-full bg-sage rounded-full transition-all" style="width: 0%"></div></div>
+        </div>
+        <div>
+            <p class="text-[10px] text-txt-muted uppercase tracking-wide mb-1">Podcasts</p>
+            <p id="progress-podcast" class="text-sm font-semibold text-txt-muted">0 / 5</p>
+            <div class="h-1 bg-border-light dark:bg-border-dark rounded-full overflow-hidden mt-1"><div id="progress-bar-podcast" class="h-full bg-sage rounded-full transition-all" style="width: 0%"></div></div>
         </div>
     </div>
 
@@ -113,10 +126,24 @@
 {% block scripts %}
 <script>
 let ratedCount = 0;
+let ratedByType = { movie: 0, tv: 0, book: 0, podcast: 0 };
+const GOAL_PER_TYPE = 5;
 
 function updateProgress() {
-    document.getElementById('progress-count').textContent = `${ratedCount} rated`;
-    document.getElementById('progress-bar').style.width = `${Math.min(100, (ratedCount / 10) * 100)}%`;
+    for (const mt of ['movie', 'tv', 'book', 'podcast']) {
+        const n = ratedByType[mt];
+        const el = document.getElementById(`progress-${mt}`);
+        if (el) {
+            el.textContent = `${n} / ${GOAL_PER_TYPE}`;
+            if (n >= GOAL_PER_TYPE) el.classList.add('text-sage');
+            else el.classList.remove('text-sage');
+        }
+        const bar = document.getElementById(`progress-bar-${mt}`);
+        if (bar) bar.style.width = `${Math.min(100, (n / GOAL_PER_TYPE) * 100)}%`;
+    }
+    // Show the "done" section once the user has rated at least a few
+    // items (so they can move on early if they want), but emphasize
+    // hitting 5-per-type for the best experience.
     if (ratedCount >= 3) {
         document.getElementById('done-section').classList.remove('hidden');
     }
@@ -195,6 +222,9 @@ async function quizRate(btn, rating) {
         card.querySelector('.overlay').style.opacity = '1';
 
         ratedCount++;
+        if (data.media_type && ratedByType.hasOwnProperty(data.media_type)) {
+            ratedByType[data.media_type]++;
+        }
         updateProgress();
     } catch {}
 }

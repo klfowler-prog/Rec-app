@@ -18,6 +18,38 @@
 {% block content %}
 <div class="space-y-10">
 
+    {% if is_new_user %}
+    <!-- New-user welcome modal — shown once per browser, dismissible. -->
+    <div id="welcome-modal" class="fixed inset-0 bg-black/60 z-50 hidden items-center justify-center p-4" onclick="if(event.target===this)dismissWelcome()">
+        <div class="bg-surface-light dark:bg-surface-dark rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-border-light dark:border-border-dark">
+            <div class="gradient-navy rounded-t-2xl p-6 text-white relative">
+                <button onclick="dismissWelcome()" class="absolute top-4 right-4 text-white/60 hover:text-white transition-base" aria-label="Close">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+                <p class="text-[11px] text-white/60 uppercase tracking-widest mb-2 font-semibold" id="welcome-step-label">Step 1 of 4</p>
+                <h2 id="welcome-title" class="text-2xl font-bold mb-2"></h2>
+                <p id="welcome-body" class="text-sm text-white/85 leading-relaxed"></p>
+            </div>
+            <div class="p-6 space-y-4">
+                <div id="welcome-detail" class="text-sm text-txt leading-relaxed"></div>
+                <div class="flex items-center justify-between gap-3 pt-2">
+                    <button onclick="dismissWelcome()" class="text-xs text-txt-muted hover:text-txt transition-base">Skip intro</button>
+                    <div class="flex items-center gap-2">
+                        <button id="welcome-back-btn" onclick="welcomeStep(-1)" class="hidden px-4 py-2 text-sm text-txt-muted hover:text-txt transition-base">Back</button>
+                        <button id="welcome-next-btn" onclick="welcomeStep(1)" class="px-5 py-2 bg-sage hover:bg-sage-dark text-white text-sm font-medium rounded-lg transition-base">Next</button>
+                    </div>
+                </div>
+                <div class="flex items-center justify-center gap-1.5 pt-2">
+                    <span class="welcome-dot w-1.5 h-1.5 rounded-full bg-sage"></span>
+                    <span class="welcome-dot w-1.5 h-1.5 rounded-full bg-border-light dark:bg-border-dark"></span>
+                    <span class="welcome-dot w-1.5 h-1.5 rounded-full bg-border-light dark:bg-border-dark"></span>
+                    <span class="welcome-dot w-1.5 h-1.5 rounded-full bg-border-light dark:bg-border-dark"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Greeting + Taste Essence -->
     <div class="gradient-navy rounded-2xl p-8 text-white relative overflow-hidden">
         <div class="relative z-10">
@@ -649,6 +681,118 @@ async function loadInsights() {
 
 // Load everything in parallel
 Promise.all([loadTopPicks(), loadSuggestions(), loadEssence(), loadInsights()]);
+
+// -----------------------------------------------------------------
+// New-user welcome modal. Shows once per browser for users who have
+// fewer than 5 items in their profile. Dismissing it writes a flag
+// to localStorage so they don't see it again.
+// -----------------------------------------------------------------
+const WELCOME_STEPS = [
+    {
+        title: "Welcome to NextUp",
+        body: "Most apps silo your taste — one for books, another for movies, a third for podcasts. NextUp lets them all talk to each other, so a show you loved can surface a book you'll love too.",
+        detail: `
+            <ul class="space-y-2 text-txt-muted">
+                <li class="flex gap-2"><span class="text-sage">✓</span>Track everything you watch, read, and listen to — in one place.</li>
+                <li class="flex gap-2"><span class="text-sage">✓</span>Get recommendations that cross media types, not just within them.</li>
+                <li class="flex gap-2"><span class="text-sage">✓</span>See patterns in your taste that even you haven't noticed.</li>
+            </ul>`,
+    },
+    {
+        title: "Rate freely, discover sharply",
+        body: "The more you rate, the better NextUp gets at finding your next thing. Even a quick 7/10 tells the AI a lot about your taste.",
+        detail: `
+            <p class="mb-3">Key places to know:</p>
+            <ul class="space-y-2 text-txt-muted">
+                <li class="flex gap-2"><span class="text-sage font-bold">Home</span>— your daily hub: picked for you, tonight's hero, patterns in your taste.</li>
+                <li class="flex gap-2"><span class="text-sage font-bold">My Library</span>— per-type pages with what's new, your queue, and your history.</li>
+                <li class="flex gap-2"><span class="text-sage font-bold">Get Recs</span>— chat with the AI when you want something specific.</li>
+                <li class="flex gap-2"><span class="text-sage font-bold">Taste DNA</span>— a deeper read on who you are as a consumer of media.</li>
+            </ul>`,
+    },
+    {
+        title: "Cross-medium is the point",
+        body: "NextUp is opinionated about connecting different forms of media. Your top book shouldn't just unlock more books — it should unlock a podcast with the same patient, idea-driven mood, or a documentary that picks up the same theme.",
+        detail: `
+            <div class="bg-sage/5 border border-sage/20 rounded-lg p-4 text-sm italic text-txt-muted">
+                "You loved <span class="font-semibold text-txt">Lady Bird</span> (film) — this memoir, <span class="font-semibold text-txt">Educated</span>, has the same aching specificity of a young woman claiming her own voice."
+            </div>
+            <p class="text-txt-muted mt-3 text-xs">Every recommendation cites a real item from your profile and a concrete thematic link.</p>`,
+    },
+    {
+        title: "Let's build your taste",
+        body: "The fastest way to get great recommendations: seed your profile with five things you love in each category — 5 movies, 5 shows, 5 books, 5 podcasts.",
+        detail: `
+            <p class="mb-3 text-txt-muted">With 20 rated items the AI has enough signal to find cross-medium threads and start predicting what you'll like. Quick Start has a curated grid to tap through — takes about 3 minutes.</p>
+            <a href="/quick-start" class="block w-full px-5 py-3 bg-sage hover:bg-sage-dark text-white text-sm font-medium rounded-lg transition-base text-center">Start with Quick Start &rarr;</a>
+            <p class="text-xs text-txt-muted text-center mt-3">Or <a href="/add" class="text-sage hover:underline">add items manually</a> / <a href="/search" class="text-sage hover:underline">search directly</a></p>`,
+    },
+];
+let welcomeIdx = 0;
+
+function renderWelcome() {
+    const step = WELCOME_STEPS[welcomeIdx];
+    document.getElementById('welcome-step-label').textContent = `Step ${welcomeIdx + 1} of ${WELCOME_STEPS.length}`;
+    document.getElementById('welcome-title').textContent = step.title;
+    document.getElementById('welcome-body').textContent = step.body;
+    document.getElementById('welcome-detail').innerHTML = step.detail;
+    // Update progress dots
+    document.querySelectorAll('.welcome-dot').forEach((d, i) => {
+        if (i <= welcomeIdx) {
+            d.classList.add('bg-sage');
+            d.classList.remove('bg-border-light', 'dark:bg-border-dark');
+        } else {
+            d.classList.remove('bg-sage');
+            d.classList.add('bg-border-light', 'dark:bg-border-dark');
+        }
+    });
+    // Show/hide back button
+    const backBtn = document.getElementById('welcome-back-btn');
+    if (welcomeIdx === 0) backBtn.classList.add('hidden'); else backBtn.classList.remove('hidden');
+    // Next button label
+    const nextBtn = document.getElementById('welcome-next-btn');
+    if (welcomeIdx === WELCOME_STEPS.length - 1) {
+        nextBtn.textContent = "Got it";
+    } else {
+        nextBtn.textContent = "Next";
+    }
+}
+
+function welcomeStep(delta) {
+    const newIdx = welcomeIdx + delta;
+    // "Got it" on the last step dismisses the modal.
+    if (newIdx >= WELCOME_STEPS.length) {
+        dismissWelcome();
+        return;
+    }
+    welcomeIdx = Math.max(0, newIdx);
+    renderWelcome();
+}
+
+function dismissWelcome() {
+    const modal = document.getElementById('welcome-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+    try { localStorage.setItem('nextup_welcomed', '1'); } catch {}
+}
+
+// Show the modal on load if this is a new user AND they haven't been
+// welcomed yet. The Jinja `is_new_user` flag gates whether the modal
+// HTML was rendered at all, so if we got here the server thinks the
+// user is new.
+(function initWelcome() {
+    const modal = document.getElementById('welcome-modal');
+    if (!modal) return;  // Not rendered = not a new user
+    let welcomed = false;
+    try { welcomed = localStorage.getItem('nextup_welcomed') === '1'; } catch {}
+    if (welcomed) return;
+    welcomeIdx = 0;
+    renderWelcome();
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+})();
 
 async function getTonight(availableTime) {
     // Highlight the active chip

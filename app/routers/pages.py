@@ -114,6 +114,7 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
             "type_order": type_order,
             "needs_predictions": needs_predictions,
             "total": total,
+            "is_new_user": total < 5,
             "total_consumed": len(consumed),
             "total_consuming": len(consuming),
             "total_queue": len(want_to_consume),
