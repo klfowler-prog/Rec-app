@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+{% block title %}Together{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div>
+        <h2 class="text-2xl font-semibold mb-1">Together</h2>
+        <p class="text-txt-muted">Compare your taste with family or friends to find shared interests and pick things to enjoy together.</p>
+    </div>
+
+    <!-- User picker -->
+    <div id="picker-section" class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-5">
+        <p class="text-sm font-medium mb-3">Compare with:</p>
+        <div id="user-picker" class="flex flex-wrap gap-2">
+            <div class="text-sm text-txt-muted">Loading users...</div>
+        </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="compare-loading" class="hidden text-center py-12">
+        <div class="inline-block w-6 h-6 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
+        <p class="text-sm text-txt-muted mt-3">Analyzing your shared taste...</p>
+    </div>
+
+    <!-- Results -->
+    <div id="compare-content" class="hidden space-y-6"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/card_actions.js"></script>
+<script>
+async function loadUsers() {
+    const picker = document.getElementById('user-picker');
+    try {
+        const resp = await fetch('/api/together/users');
+        const users = await resp.json();
+        if (!users || users.length === 0) {
+            picker.innerHTML = '<p class="text-sm text-txt-muted">No other users yet. Invite family to sign in.</p>';
+            return;
+        }
+        picker.innerHTML = users.map(u => {
+            const avatar = u.picture
+                ? `<img src="${u.picture}" alt="" class="w-6 h-6 rounded-full">`
+                : `<div class="w-6 h-6 rounded-full bg-sage/20 flex items-center justify-center text-[10px] font-bold text-sage">${escapeHtml(u.name[0])}</div>`;
+            return `
+                <button onclick="compareWith(${u.id}, event)" class="user-pick-btn flex items-center gap-2 px-3 py-2 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-xl text-sm hover:border-sage hover:text-sage transition-base">
+                    ${avatar}
+                    ${escapeHtml(u.name)}
+                </button>
+            `;
+        }).join('');
+    } catch {}
+}
+
+async function compareWith(otherUserId, evt) {
+    document.querySelectorAll('.user-pick-btn').forEach(b => b.classList.remove('border-sage', 'text-sage', 'bg-sage/10'));
+    if (evt) evt.currentTarget.classList.add('border-sage', 'text-sage', 'bg-sage/10');
+
+    document.getElementById('compare-loading').classList.remove('hidden');
+    document.getElementById('compare-content').classList.add('hidden');
+    document.getElementById('compare-content').innerHTML = '';
+
+    try {
+        const resp = await fetch(`/api/together/compare?other_user_id=${otherUserId}`);
+        const data = await resp.json();
+
+        const content = document.getElementById('compare-content');
+        document.getElementById('compare-loading').classList.add('hidden');
+
+        const myName = data.my_name || 'You';
+        const themName = data.other_user.name;
+
+        let html = '';
+
+        // Watch together pick
+        if (data.watch_together) {
+            const w = data.watch_together;
+            const aspect = w.media_type === 'podcast' ? 'aspect-square' : 'aspect-[2/3]';
+            const link = w.external_id ? `/media/${w.media_type}/${w.external_id}?source=${w.source}` : '#';
+            const image = w.image_url
+                ? `<a href="${link}"><img src="${w.image_url}" alt="" class="w-40 md:w-48 ${aspect} object-cover rounded-xl shadow-lg"></a>`
+                : `<div class="w-40 md:w-48 ${aspect} bg-sage/10 rounded-xl flex items-center justify-center"><span class="text-sage text-4xl">${escapeHtml(w.title[0])}</span></div>`;
+
+            html += `
+                <div class="gradient-navy rounded-2xl p-6 md:p-8 text-white">
+                    <p class="text-xs uppercase tracking-widest text-white/50 mb-3">Watch together tonight</p>
+                    <div class="flex flex-col md:flex-row gap-6 items-start">
+                        <div class="flex-shrink-0 mx-auto md:mx-0">${image}</div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 mb-2 flex-wrap">
+                                <span class="px-2 py-0.5 bg-white/20 text-xs font-semibold rounded-full capitalize">${w.media_type}</span>
+                                ${w.year ? `<span class="text-sm text-white/60">${w.year}</span>` : ''}
+                            </div>
+                            <h3 class="text-2xl font-bold mb-3">${escapeHtml(w.title)}</h3>
+                            <div class="flex gap-4 mb-3">
+                                <div class="text-center">
+                                    <p class="text-xs text-white/50 mb-0.5">${escapeHtml(myName)}</p>
+                                    <p class="text-xl font-bold">${w.predicted_rating_me || '—'}<span class="text-sm text-white/50">/10</span></p>
+                                </div>
+                                <div class="text-center">
+                                    <p class="text-xs text-white/50 mb-0.5">${escapeHtml(themName)}</p>
+                                    <p class="text-xl font-bold">${w.predicted_rating_them || '—'}<span class="text-sm text-white/50">/10</span></p>
+                                </div>
+                            </div>
+                            <p class="text-sm text-white/80 leading-relaxed">${escapeHtml(w.reason || '')}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Shared genres
+        if (data.shared_genres && data.shared_genres.length > 0) {
+            html += `
+                <div>
+                    <p class="text-xs text-txt-muted uppercase tracking-wide mb-2">Shared genres</p>
+                    <div class="flex flex-wrap gap-2">
+                        ${data.shared_genres.map(g => `<span class="px-3 py-1 bg-sage/10 text-sage text-xs rounded-full">${escapeHtml(g)}</span>`).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Candidates
+        if (data.candidates && data.candidates.length > 0) {
+            html += `
+                <div>
+                    <h3 class="text-lg font-semibold mb-1">Try these together</h3>
+                    <p class="text-sm text-txt-muted mb-4">AI-predicted ratings for each of you. Sorted so the highest-for-both come first.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        ${data.candidates.map(c => candidateCard(c, myName, themName)).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Shared loved items
+        if (data.shared_loved && data.shared_loved.length > 0) {
+            html += `
+                <div>
+                    <h3 class="text-lg font-semibold mb-1">You both love</h3>
+                    <p class="text-sm text-txt-muted mb-4">Items you've both rated 7 or higher.</p>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        ${data.shared_loved.map(item => sharedLovedCard(item, myName, themName)).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        if (!html) {
+            html = '<p class="text-sm text-txt-muted text-center py-8">Not enough shared data yet — both of you need a few rated items.</p>';
+        }
+
+        content.innerHTML = html;
+        content.classList.remove('hidden');
+    } catch (e) {
+        document.getElementById('compare-loading').classList.add('hidden');
+        document.getElementById('compare-content').innerHTML = '<p class="text-sm text-coral text-center py-8">Comparison failed. Please try again.</p>';
+        document.getElementById('compare-content').classList.remove('hidden');
+    }
+}
+
+function candidateCard(c, myName, themName) {
+    const typeBadgeColors = {
+        movie: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
+        tv: 'bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400',
+        book: 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
+        podcast: 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400',
+    };
+    const badge = typeBadgeColors[c.media_type] || typeBadgeColors.movie;
+    const link = c.external_id ? `/media/${c.media_type}/${c.external_id}?source=${c.source}` : '#';
+    const image = c.image_url
+        ? `<img src="${c.image_url}" alt="" class="w-20 h-28 object-cover rounded flex-shrink-0">`
+        : `<div class="w-20 h-28 bg-sage/10 rounded flex-shrink-0 flex items-center justify-center"><span class="text-sage text-xl">${escapeHtml((c.title || '?')[0])}</span></div>`;
+
+    const myRating = c.predicted_rating_me;
+    const themRating = c.predicted_rating_them;
+    const ratingColor = r => !r ? 'text-txt-muted' : r >= 8 ? 'text-emerald-500' : r >= 6 ? 'text-yellow-600' : r >= 4 ? 'text-amber-500' : 'text-coral';
+
+    const actions = typeof buildActionBar === 'function'
+        ? `<div class="quick-add-area mt-2">${buildActionBar(c, 'sm')}</div>`
+        : '';
+
+    return `
+        <div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl p-4 flex gap-3" data-rec-card>
+            <a href="${link}" class="flex-shrink-0">${image}</a>
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-1.5 mb-1">
+                    <span class="px-1.5 py-0.5 ${badge} text-[9px] font-semibold rounded capitalize">${c.media_type}</span>
+                    ${c.year ? `<span class="text-[10px] text-txt-muted">${c.year}</span>` : ''}
+                </div>
+                <a href="${link}" class="text-sm font-semibold block truncate hover:text-sage transition-base">${escapeHtml(c.title)}</a>
+                <div class="flex gap-3 text-[10px] mt-1">
+                    <span><span class="text-txt-muted">${escapeHtml(myName)}:</span> <strong class="${ratingColor(myRating)}">${myRating || '—'}</strong></span>
+                    <span><span class="text-txt-muted">${escapeHtml(themName)}:</span> <strong class="${ratingColor(themRating)}">${themRating || '—'}</strong></span>
+                </div>
+                ${c.reason ? `<p class="text-[10px] text-txt-muted leading-snug line-clamp-2 mt-1">${escapeHtml(c.reason)}</p>` : ''}
+                ${actions}
+            </div>
+        </div>
+    `;
+}
+
+function sharedLovedCard(item, myName, themName) {
+    const aspect = item.media_type === 'podcast' ? 'aspect-square' : 'aspect-[2/3]';
+    const link = item.external_id ? `/media/${item.media_type}/${item.external_id}?source=${item.source}` : '#';
+    const image = item.image_url
+        ? `<img src="${item.image_url}" alt="" class="w-full ${aspect} object-cover">`
+        : `<div class="w-full ${aspect} bg-sage/10 flex items-center justify-center"><span class="text-sage text-2xl">${escapeHtml((item.title || '?')[0])}</span></div>`;
+    const ratingColor = r => r >= 8 ? 'text-emerald-500' : r >= 6 ? 'text-yellow-600' : 'text-amber-500';
+
+    return `
+        <a href="${link}" class="block group">
+            <div class="bg-surface-light dark:bg-surface-dark rounded-lg border border-border-light dark:border-border-dark overflow-hidden transition-base card-hover">
+                ${image}
+                <div class="p-2.5">
+                    <p class="text-xs font-medium truncate mb-1">${escapeHtml(item.title)}</p>
+                    <div class="flex justify-between text-[10px]">
+                        <span class="${ratingColor(item.my_rating)}">${myName.split(' ')[0]}: ${item.my_rating}</span>
+                        <span class="${ratingColor(item.their_rating)}">${themName.split(' ')[0]}: ${item.their_rating}</span>
+                    </div>
+                </div>
+            </div>
+        </a>
+    `;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+loadUsers();
+</script>
+{% endblock %}

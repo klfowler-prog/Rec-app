@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Threads{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-start justify-between">
+        <div>
+            <h2 class="text-2xl font-semibold mb-1">Threads</h2>
+            <p class="text-txt-muted">Cross-medium collections that connect your books, movies, TV, and podcasts by theme.</p>
+        </div>
+        <button onclick="generateCollections()" id="generate-btn" class="px-5 py-2.5 bg-sage text-white rounded-lg text-sm font-medium transition-base hover:bg-sage-dark flex items-center gap-2 flex-shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            Generate threads
+        </button>
+    </div>
+
+    <div id="generate-status" class="hidden text-sm text-txt-muted"></div>
+
+    <div id="collections-list" class="space-y-4">
+        <div class="text-center py-12">
+            <div class="inline-block w-6 h-6 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
+            <p class="text-sm text-txt-muted mt-3">Loading your threads...</p>
+        </div>
+    </div>
+
+    <div id="collections-empty" class="hidden text-center py-16">
+        <div class="w-16 h-16 bg-sage/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+        </div>
+        <h3 class="text-lg font-medium mb-2">No threads yet</h3>
+        <p class="text-txt-muted mb-6 max-w-md mx-auto">Click "Generate threads" to have AI create cross-medium collections from your taste profile — themes like "slow burn" or "atmospheric dread" that span all media types.</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadCollections() {
+    const listEl = document.getElementById('collections-list');
+    const emptyEl = document.getElementById('collections-empty');
+    try {
+        const resp = await fetch('/api/collections/');
+        const collections = await resp.json();
+
+        if (!collections || collections.length === 0) {
+            listEl.innerHTML = '';
+            emptyEl.classList.remove('hidden');
+            return;
+        }
+
+        emptyEl.classList.add('hidden');
+        listEl.innerHTML = collections.map(c => `
+            <a href="/collections/${c.id}" class="block bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-5 transition-base hover:border-sage/40">
+                <div class="flex items-start justify-between mb-2">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1">
+                            ${c.theme ? `<span class="px-2 py-0.5 bg-sage/10 text-sage text-[10px] font-semibold rounded-full uppercase tracking-wide">${escapeHtml(c.theme)}</span>` : ''}
+                            ${c.is_ai_generated ? `<span class="px-2 py-0.5 bg-coral/10 text-coral text-[10px] font-semibold rounded-full uppercase tracking-wide">AI</span>` : ''}
+                        </div>
+                        <h3 class="text-lg font-semibold mb-1">${escapeHtml(c.title)}</h3>
+                        ${c.description ? `<p class="text-sm text-txt-muted leading-relaxed">${escapeHtml(c.description)}</p>` : ''}
+                    </div>
+                </div>
+                <div class="flex items-center justify-between mt-3 pt-3 border-t border-border-light dark:border-border-dark">
+                    <span class="text-xs text-txt-muted">${c.item_count} item${c.item_count === 1 ? '' : 's'}</span>
+                    <span class="text-xs text-sage">View thread →</span>
+                </div>
+            </a>
+        `).join('');
+    } catch (e) {
+        listEl.innerHTML = `<p class="text-sm text-txt-muted text-center py-8">Could not load collections.</p>`;
+    }
+}
+
+async function generateCollections() {
+    const btn = document.getElementById('generate-btn');
+    const status = document.getElementById('generate-status');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin inline-block"></span> Generating...';
+    status.classList.remove('hidden');
+    status.textContent = 'AI is analyzing your taste and creating cross-medium threads. This may take a minute...';
+
+    try {
+        const resp = await fetch('/api/collections/generate', { method: 'POST' });
+        if (!resp.ok) {
+            const err = await resp.json();
+            throw new Error(err.detail || 'Failed');
+        }
+        const data = await resp.json();
+        status.textContent = `Created ${data.created} new thread${data.created === 1 ? '' : 's'}!`;
+        await loadCollections();
+    } catch (e) {
+        status.textContent = `Error: ${e.message}`;
+    }
+    btn.disabled = false;
+    btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg> Generate threads';
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+loadCollections();
+</script>
+{% endblock %}

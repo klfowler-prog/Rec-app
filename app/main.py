@@ -36,10 +36,12 @@ async def login_required_handler(request: Request, exc: _LoginRequired):
 static_dir = Path(__file__).resolve().parent.parent / "static"
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
-from app.routers import auth, media, pages, profile, recommend
+from app.routers import auth, collections, media, pages, profile, recommend, together
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(pages.router)
 app.include_router(media.router, prefix="/api/media", tags=["media"])
 app.include_router(profile.router, prefix="/api/profile", tags=["profile"])
 app.include_router(recommend.router, prefix="/api/recommend", tags=["recommend"])
+app.include_router(collections.router, prefix="/api/collections", tags=["collections"])
+app.include_router(together.router, prefix="/api/together", tags=["together"])

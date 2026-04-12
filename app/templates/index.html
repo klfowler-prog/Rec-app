@@ -104,6 +104,27 @@
 
     <div class="section-divider"></div>
 
+    <!-- Tonight hero -->
+    <div>
+        <h2 class="text-xl font-bold mb-1 flex items-center gap-2">
+            <span class="w-8 h-8 rounded-lg gradient-navy flex items-center justify-center">
+                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+            </span>
+            What's tonight?
+        </h2>
+        <p class="text-sm text-txt-muted mb-3">Pick how much time you have and get one perfect cross-medium recommendation.</p>
+        <div id="tonight-chips" class="flex flex-wrap gap-2 mb-4">
+            <button onclick="getTonight('30 min')" class="tonight-chip px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm hover:border-sage hover:text-sage transition-base">30 min</button>
+            <button onclick="getTonight('1 hour')" class="tonight-chip px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm hover:border-sage hover:text-sage transition-base">1 hour</button>
+            <button onclick="getTonight('2 hours')" class="tonight-chip px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm hover:border-sage hover:text-sage transition-base">2 hours</button>
+            <button onclick="getTonight('evening')" class="tonight-chip px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm hover:border-sage hover:text-sage transition-base">Whole evening</button>
+            <button onclick="getTonight('weekend')" class="tonight-chip px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm hover:border-sage hover:text-sage transition-base">Weekend</button>
+        </div>
+        <div id="tonight-result" class="hidden"></div>
+    </div>
+
+    <div class="section-divider"></div>
+
     <!-- Top 3 Picks -->
     <div>
         <h2 class="text-xl font-bold mb-1 flex items-center gap-2">
@@ -604,6 +625,87 @@ async function loadInsights() {
 
 // Load everything in parallel
 Promise.all([loadTopPicks(), loadSuggestions(), loadEssence(), loadInsights()]);
+
+async function getTonight(availableTime) {
+    // Highlight the active chip
+    document.querySelectorAll('.tonight-chip').forEach(c => c.classList.remove('border-sage', 'bg-sage/10', 'text-sage'));
+    event.currentTarget.classList.add('border-sage', 'bg-sage/10', 'text-sage');
+
+    const result = document.getElementById('tonight-result');
+    result.classList.remove('hidden');
+    result.innerHTML = `
+        <div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-2xl p-8 text-center">
+            <div class="inline-block w-6 h-6 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
+            <p class="text-sm text-txt-muted mt-3">Finding your perfect pick for ${availableTime}...</p>
+        </div>
+    `;
+
+    try {
+        const resp = await fetch('/api/media/tonight', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ available_time: availableTime }),
+        });
+        const pick = await resp.json();
+
+        if (!pick || !pick.title) {
+            result.innerHTML = `<p class="text-sm text-txt-muted text-center py-6">Couldn't find a pick right now. Try another time window.</p>`;
+            return;
+        }
+
+        const typeBadge = {
+            movie: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
+            tv: 'bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400',
+            book: 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
+            podcast: 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400',
+        }[pick.media_type] || '';
+
+        const aspect = pick.media_type === 'podcast' ? 'aspect-square' : 'aspect-[2/3]';
+        const link = pick.external_id ? `/media/${pick.media_type}/${pick.external_id}?source=${pick.source}` : '#';
+        const image = pick.image_url
+            ? `<a href="${link}"><img src="${pick.image_url}" alt="" class="w-40 md:w-48 ${aspect} object-cover rounded-xl shadow-lg"></a>`
+            : `<div class="w-40 md:w-48 ${aspect} bg-sage/10 rounded-xl flex items-center justify-center"><span class="text-sage text-4xl font-bold">${escapeHtml(pick.title[0] || '?')}</span></div>`;
+
+        const saveData = (typeof escapeAttr === 'function' ? escapeAttr : (s => s.replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')))(JSON.stringify({
+            external_id: pick.external_id || '', source: pick.source || '', title: pick.title,
+            media_type: pick.media_type, image_url: pick.image_url || null, year: pick.year || null,
+            creator: pick.creator || null,
+            genres: pick.genres && Array.isArray(pick.genres) ? pick.genres.join(', ') : null,
+            description: pick.description || null, status: 'want_to_consume',
+        }));
+
+        result.innerHTML = `
+            <div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-2xl p-6 md:p-8 shadow-sm" data-rec-card>
+                <div class="flex flex-col md:flex-row gap-6 items-start">
+                    <div class="flex-shrink-0 mx-auto md:mx-0">${image}</div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-2 flex-wrap">
+                            <span class="px-2 py-0.5 ${typeBadge} text-xs font-semibold rounded-full capitalize">${pick.media_type}</span>
+                            ${pick.year ? `<span class="text-sm text-txt-muted">${pick.year}</span>` : ''}
+                            ${pick.runtime_note ? `<span class="text-xs text-txt-muted">· ${escapeHtml(pick.runtime_note)}</span>` : ''}
+                        </div>
+                        <h3 class="text-2xl font-bold mb-1"><a href="${link}" class="hover:text-sage transition-base">${escapeHtml(pick.title)}</a></h3>
+                        ${pick.creator ? `<p class="text-sm text-txt-muted mb-3">${escapeHtml(pick.creator)}</p>` : ''}
+                        <p class="text-sm leading-relaxed mb-4">${escapeHtml(pick.reason || '')}</p>
+                        <div class="flex flex-wrap gap-2 quick-add-area">
+                            <button onclick="saveForLater(this, ${saveData})" class="px-4 py-2 bg-sage text-white hover:bg-sage-dark rounded-lg text-sm font-medium transition-base flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+                                Save for later
+                            </button>
+                            <a href="${link}" class="px-4 py-2 border border-border-light dark:border-border-dark rounded-lg text-sm text-txt-muted hover:text-txt transition-base">View details</a>
+                            <button onclick="getTonight('${availableTime}')" class="px-4 py-2 text-sm text-txt-muted hover:text-sage transition-base flex items-center gap-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h4.586M20 20v-5h-4.586M4.929 9A8 8 0 0119.07 9M19.071 15A8 8 0 014.93 15"/></svg>
+                                Try another
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    } catch {
+        result.innerHTML = `<p class="text-sm text-txt-muted text-center py-6">Something went wrong. Please try again.</p>`;
+    }
+}
 
 {% if needs_predictions %}
 // Auto-generate predicted ratings for queue items that don't have them yet

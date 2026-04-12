@@ -354,6 +354,154 @@ Return ONLY valid JSON, no markdown:
         return {"themes": [], "moods": [], "tones": [], "summary": "", "recent_shift": ""}
 
 
+class TonightRequest(BaseModel):
+    available_time: str  # e.g. "30 min", "1 hour", "2 hours", "evening", "weekend"
+    mood: str | None = None
+
+
+@router.post("/tonight")
+async def tonight_pick(
+    req: TonightRequest,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Get one context-aware hero pick based on available time and mood."""
+    import json
+    from datetime import datetime, timedelta
+
+    from app import cache
+    from app.config import settings
+    from app.models import DismissedItem, MediaEntry
+    from app.services.unified_search import unified_search
+
+    cache_key = f"tonight:{user.id}:{req.available_time}:{req.mood or ''}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    if not settings.gemini_api_key:
+        return None
+
+    entries = db.query(MediaEntry).filter(MediaEntry.user_id == user.id).all()
+    existing_titles = {e.title.lower() for e in entries}
+    dismissed = {d.title.lower() for d in db.query(DismissedItem).filter(DismissedItem.user_id == user.id).all()}
+    existing_titles = existing_titles | dismissed
+
+    # Build cross-medium taste summary
+    by_type: dict[str, list] = {"movie": [], "tv": [], "book": [], "podcast": []}
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    recent_items = []
+    for e in entries:
+        if e.rating and e.rating >= 7:
+            by_type.setdefault(e.media_type, []).append(e)
+        if e.rated_at and e.rated_at >= thirty_days_ago and e.rating:
+            recent_items.append(e)
+
+    for mt in by_type:
+        by_type[mt].sort(key=lambda x: x.rating or 0, reverse=True)
+
+    taste_sections = []
+    labels = {"movie": "MOVIES", "tv": "TV SHOWS", "book": "BOOKS", "podcast": "PODCASTS"}
+    for mt, label in labels.items():
+        items = by_type.get(mt, [])[:6]
+        if items:
+            lines = [f"  - {e.title} — {e.rating}/10" for e in items]
+            taste_sections.append(f"{label}:\n" + "\n".join(lines))
+
+    taste_summary = "\n\n".join(taste_sections) if taste_sections else "No rated items yet."
+
+    recent_text = ""
+    if recent_items:
+        recent_items.sort(key=lambda e: e.rated_at, reverse=True)
+        recent_lines = [f"  - {e.title} ({e.media_type}, {e.rating}/10)" for e in recent_items[:6]]
+        recent_text = f"\n\nRECENTLY RATED (last 30 days):\n" + "\n".join(recent_lines)
+
+    avoid_list = list(existing_titles)[:40]
+    avoid_str = ", ".join(avoid_list) if avoid_list else "none"
+
+    # Time-based guidance for the AI
+    time_guidance = {
+        "30 min": "a short podcast episode, a short film, or a TV episode under 30 minutes — NOT a book or movie",
+        "1 hour": "a TV episode, a podcast episode, or a short film — NOT a full-length movie or book",
+        "2 hours": "a movie (ideally around 90-120 minutes) OR a few TV episodes — NOT a long book",
+        "evening": "a movie OR 2-3 TV episodes OR a few chapters of a book — any medium works",
+        "weekend": "a full movie, a TV season to binge, or a book to start — go bold",
+    }
+    time_hint = time_guidance.get(req.available_time, "any medium is fine")
+
+    try:
+        from app.services.gemini import generate
+
+        mood_line = f"\nCURRENT MOOD: {req.mood}" if req.mood else ""
+        prompt = f"""You are NextUp, a cross-medium taste expert. Pick ONE perfect thing for this person to consume right now based on their taste, available time, and mood.
+
+USER'S TASTE PROFILE:
+{taste_summary}
+{recent_text}
+
+CONTEXT:
+- Available time: {req.available_time}
+- Time-appropriate media: {time_hint}{mood_line}
+
+CRITICAL: The reason MUST cite at least ONE specific item from a DIFFERENT media type in their profile — that's the cross-medium signature of NextUp.
+
+Do NOT recommend any of these titles (already in their library or dismissed): {avoid_str}
+
+Return ONLY valid JSON, no markdown:
+{{
+  "title": "the one perfect pick",
+  "media_type": "movie|tv|book|podcast",
+  "year": 2020,
+  "runtime_note": "e.g. '1h 55m' for movies, '~10 hour read' for books, '45 min episode' for TV, '~60 min' for podcast",
+  "reason": "2-3 sentences explaining why this is PERFECT right now — citing specific items from their profile in a DIFFERENT media type"
+}}"""
+
+        text = (await generate(prompt)).strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+            text = text.rsplit("```", 1)[0]
+        pick = json.loads(text)
+
+        # Enrich with poster
+        matches = await unified_search(pick.get("title", ""), pick.get("media_type"))
+        matches = _rank_by_title_match(pick.get("title", ""), matches)
+        if matches:
+            best = matches[0]
+            result = {
+                "title": best.title,
+                "media_type": best.media_type,
+                "year": best.year,
+                "image_url": best.image_url,
+                "external_id": best.external_id,
+                "source": best.source,
+                "creator": best.creator,
+                "genres": best.genres,
+                "description": best.description,
+                "runtime_note": pick.get("runtime_note", ""),
+                "reason": pick.get("reason", ""),
+            }
+        else:
+            result = {
+                "title": pick.get("title", ""),
+                "media_type": pick.get("media_type", "movie"),
+                "year": pick.get("year"),
+                "image_url": None,
+                "external_id": "",
+                "source": "",
+                "creator": None,
+                "genres": [],
+                "description": None,
+                "runtime_note": pick.get("runtime_note", ""),
+                "reason": pick.get("reason", ""),
+            }
+
+        cache.set(cache_key, result, ttl_seconds=3600)  # 1 hour
+        return result
+    except Exception as e:
+        log.error("tonight_pick failed: %s", str(e))
+        return None
+
+
 @router.get("/top-picks")
 async def top_picks(user: User = Depends(require_user), db: Session = Depends(get_db)):
     """Get 4 personalized top recommendations with poster images. Cached per user."""

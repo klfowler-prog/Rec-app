@@ -141,6 +141,24 @@ async def taste_dna_page(request: Request, user: User = Depends(require_user)):
     return templates.TemplateResponse("taste_dna.html", {"request": request, "user": user})
 
 
+@router.get("/collections")
+async def collections_page(request: Request, user: User = Depends(require_user)):
+    return templates.TemplateResponse("collections.html", {"request": request, "user": user})
+
+
+@router.get("/collections/{collection_id}")
+async def collection_detail_page(request: Request, collection_id: int, user: User = Depends(require_user)):
+    return templates.TemplateResponse(
+        "collection_detail.html",
+        {"request": request, "user": user, "collection_id": collection_id},
+    )
+
+
+@router.get("/together")
+async def together_page(request: Request, user: User = Depends(require_user)):
+    return templates.TemplateResponse("together.html", {"request": request, "user": user})
+
+
 @router.get("/recommend")
 async def recommend_page(request: Request, user: User = Depends(require_user)):
     return templates.TemplateResponse("recommend.html", {"request": request, "user": user})

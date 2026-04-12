@@ -84,3 +84,33 @@ class DismissedItem(Base):
     __table_args__ = (
         UniqueConstraint("user_id", "title", "media_type", name="uq_user_dismissed_title_type"),
     )
+
+
+class Collection(Base):
+    __tablename__ = "collections"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    theme: Mapped[str | None] = mapped_column(String, nullable=True)  # short tag like "slow burn"
+    is_ai_generated: Mapped[bool] = mapped_column(nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+
+
+class CollectionItem(Base):
+    __tablename__ = "collection_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    collection_id: Mapped[int] = mapped_column(Integer, ForeignKey("collections.id"), nullable=False, index=True)
+    # We store items as plain search result data so they don't have to be in the user's profile
+    external_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    source: Mapped[str | None] = mapped_column(String, nullable=True)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    media_type: Mapped[str] = mapped_column(String, nullable=False)
+    image_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    creator: Mapped[str | None] = mapped_column(String, nullable=True)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)

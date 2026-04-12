@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Thread{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <a href="/collections" class="inline-flex items-center gap-1 text-sm text-txt-muted hover:text-sage transition-base">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        All threads
+    </a>
+
+    <div id="collection-loading" class="text-center py-12">
+        <div class="inline-block w-6 h-6 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
+        <p class="text-sm text-txt-muted mt-3">Loading thread...</p>
+    </div>
+
+    <div id="collection-content" class="hidden space-y-6"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/card_actions.js"></script>
+<script>
+const COLLECTION_ID = {{ collection_id }};
+
+async function loadCollection() {
+    try {
+        const resp = await fetch(`/api/collections/${COLLECTION_ID}`);
+        if (!resp.ok) throw new Error('Not found');
+        const data = await resp.json();
+
+        const c = data.collection;
+        const items = data.items || [];
+
+        const html = `
+            <div class="gradient-navy rounded-2xl p-6 md:p-8 text-white">
+                <div class="flex items-center gap-2 mb-2">
+                    ${c.theme ? `<span class="px-2 py-0.5 bg-white/20 text-[10px] font-semibold rounded-full uppercase tracking-wide">${escapeHtml(c.theme)}</span>` : ''}
+                    ${c.is_ai_generated ? `<span class="px-2 py-0.5 bg-coral/30 text-[10px] font-semibold rounded-full uppercase tracking-wide">AI curated</span>` : ''}
+                </div>
+                <h2 class="text-2xl md:text-3xl font-bold mb-2">${escapeHtml(c.title)}</h2>
+                ${c.description ? `<p class="text-base text-white/80 leading-relaxed">${escapeHtml(c.description)}</p>` : ''}
+                <p class="text-xs text-white/50 mt-4">${c.item_count} items</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                ${items.map(item => threadItemCard(item)).join('')}
+            </div>
+
+            <div class="pt-4 border-t border-border-light dark:border-border-dark">
+                <button onclick="deleteCollection()" class="text-xs text-txt-muted hover:text-coral transition-base">Delete thread</button>
+            </div>
+        `;
+
+        document.getElementById('collection-loading').classList.add('hidden');
+        const contentEl = document.getElementById('collection-content');
+        contentEl.innerHTML = html;
+        contentEl.classList.remove('hidden');
+    } catch (e) {
+        document.getElementById('collection-loading').innerHTML = '<p class="text-sm text-txt-muted">Could not load this thread.</p>';
+    }
+}
+
+function threadItemCard(item) {
+    const typeBadgeColors = {
+        movie: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
+        tv: 'bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400',
+        book: 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
+        podcast: 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400',
+    };
+    const badgeClass = typeBadgeColors[item.media_type] || typeBadgeColors.movie;
+    const safeTitle = item.title || 'Untitled';
+    const link = item.external_id ? `/media/${item.media_type}/${item.external_id}?source=${item.source}` : '#';
+    const image = item.image_url
+        ? `<img src="${item.image_url}" alt="" class="w-20 h-28 object-cover rounded flex-shrink-0">`
+        : `<div class="w-20 h-28 bg-sage/10 rounded flex-shrink-0 flex items-center justify-center"><span class="text-sage text-xl">${escapeHtml(safeTitle[0] || '?')}</span></div>`;
+
+    const actions = typeof buildActionBar === 'function'
+        ? `<div class="quick-add-area mt-2">${buildActionBar(item, 'sm')}</div>`
+        : '';
+
+    return `
+        <div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl p-4 flex gap-3" data-rec-card>
+            <a href="${link}" class="flex-shrink-0">${image}</a>
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-1.5 mb-1">
+                    <span class="px-1.5 py-0.5 ${badgeClass} text-[9px] font-semibold rounded capitalize">${item.media_type}</span>
+                    ${item.year ? `<span class="text-[10px] text-txt-muted">${item.year}</span>` : ''}
+                </div>
+                <a href="${link}" class="text-sm font-semibold block truncate hover:text-sage transition-base">${escapeHtml(safeTitle)}</a>
+                ${item.creator ? `<p class="text-[10px] text-txt-muted truncate">${escapeHtml(item.creator)}</p>` : ''}
+                ${item.reason ? `<p class="text-xs text-txt-muted leading-snug line-clamp-3 mt-1">${escapeHtml(item.reason)}</p>` : ''}
+                ${actions}
+            </div>
+        </div>
+    `;
+}
+
+async function deleteCollection() {
+    if (!confirm('Delete this thread? This cannot be undone.')) return;
+    await fetch(`/api/collections/${COLLECTION_ID}`, { method: 'DELETE' });
+    window.location.href = '/collections';
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+loadCollection();
+</script>
+{% endblock %}
