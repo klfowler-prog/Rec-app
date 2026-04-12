@@ -578,9 +578,11 @@ async function loadEssence() {
         const data = await resp.json();
         if (data.summary && data.themes && data.themes.length) {
             document.getElementById('essence-summary').textContent = data.summary;
-            document.getElementById('essence-themes').innerHTML = data.themes.slice(0, 5).map(t =>
-                `<span class="px-2.5 py-1 bg-white/15 text-white text-xs rounded-full">${escapeHtml(t)}</span>`
-            ).join('');
+            document.getElementById('essence-themes').innerHTML = data.themes.slice(0, 5).map(t => {
+                // themes can be objects ({name, description, examples}) or strings
+                const label = typeof t === 'string' ? t : (t.name || '');
+                return `<span class="px-2.5 py-1 bg-white/15 text-white text-xs rounded-full">${escapeHtml(label)}</span>`;
+            }).join('');
             document.getElementById('essence-wrap').classList.remove('hidden');
         }
     } catch {}

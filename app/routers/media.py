@@ -292,11 +292,11 @@ async def taste_dna(user: User = Depends(require_user), db: Session = Depends(ge
         return cached
 
     if not settings.gemini_api_key:
-        return {"themes": [], "moods": [], "tones": [], "summary": ""}
+        return {"themes": [], "summary": "", "by_medium": {}, "signature_items": [], "avoided": "", "recent_shift": ""}
 
     entries = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None)).all()
     if len(entries) < 3:
-        return {"themes": [], "moods": [], "tones": [], "summary": "Add and rate a few items to see your taste DNA."}
+        return {"themes": [], "summary": "Rate at least a few items to see your taste DNA.", "by_medium": {}, "signature_items": [], "avoided": "", "recent_shift": ""}
 
     # Group by type, top rated
     by_type: dict[str, list] = {"movie": [], "tv": [], "book": [], "podcast": []}
@@ -310,6 +310,10 @@ async def taste_dna(user: User = Depends(require_user), db: Session = Depends(ge
     thirty_days_ago = datetime.utcnow() - timedelta(days=30)
     recent = [e for e in entries if e.rated_at and e.rated_at >= thirty_days_ago]
     recent.sort(key=lambda e: e.rated_at or datetime.min, reverse=True)
+
+    # Low-rated and dismissed items — what they avoid
+    low_rated = sorted([e for e in entries if e.rating and e.rating <= 4], key=lambda e: e.rating or 0)[:10]
+    dismissed = db.query(DismissedItem.title, DismissedItem.media_type).filter(DismissedItem.user_id == user.id).all()
 
     lines = []
     label_map = {"movie": "MOVIES", "tv": "TV SHOWS", "book": "BOOKS", "podcast": "PODCASTS"}
@@ -325,21 +329,39 @@ async def taste_dna(user: User = Depends(require_user), db: Session = Depends(ge
         recent_lines = [f"  - {e.title} ({e.media_type}, {e.rating}/10)" for e in recent[:8]]
         recent_summary = f"\n\nRECENT MOOD (last 30 days):\n" + "\n".join(recent_lines)
 
+    avoided_summary = ""
+    if low_rated or dismissed:
+        avoided_lines = [f"  - {e.title} ({e.media_type}) — rated {e.rating}/10" for e in low_rated[:6]]
+        avoided_lines += [f"  - {row[0]} ({row[1]}) — dismissed" for row in list(dismissed)[:6]]
+        if avoided_lines:
+            avoided_summary = f"\n\nITEMS THEY LOW-RATED OR DISMISSED:\n" + "\n".join(avoided_lines)
+
     try:
         from app.services.gemini import generate
 
-        prompt = f"""You are a taste analyst. Analyze this person's cross-medium taste profile and identify what makes them unique as a media consumer. Look for patterns across all media types — themes, tones, narrative structures — not just genres.
+        prompt = f"""You are a taste analyst writing a personalized taste profile for this user. Be insightful and specific — not generic. Reference actual items from their profile.
 
 {profile_summary}
 {recent_summary}
+{avoided_summary}
 
-Return ONLY valid JSON, no markdown:
+Return ONLY valid JSON, no markdown. Each theme MUST include 2-3 example items from their actual profile that exemplify it:
+
 {{
-  "themes": ["5-7 specific themes they gravitate to — e.g. 'morally complex anti-heroes', 'slow-burn character studies', 'unreliable narrators'"],
-  "moods": ["4-6 emotional moods — e.g. 'melancholic', 'darkly comic', 'hopeful', 'atmospheric dread'"],
-  "tones": ["3-5 narrative tones — e.g. 'literary', 'propulsive', 'meditative', 'maximalist'"],
-  "summary": "One sharp paragraph (3-4 sentences) that captures who this person is as a media consumer. Reference specific items across DIFFERENT media types to show cross-medium patterns. Be specific and insightful, not generic.",
-  "recent_shift": "One sentence about any mood shift in their recent engagement, or empty string if nothing stands out"
+  "summary": "A 4-5 sentence essay capturing who this person is as a media consumer. Write in second person ('You gravitate to...'). Be specific, reference items across different media types, show cross-medium patterns. No generic platitudes.",
+  "themes": [
+    {{"name": "specific theme like 'morally complex anti-heroes'", "description": "one-sentence explanation", "examples": ["exact item title from profile", "another exact item title", "a third if available"]}},
+    ... 4-5 themes total
+  ],
+  "by_medium": {{
+    "movie": "One sentence: what their movie taste reveals about them specifically (reference 1-2 movie titles from their profile). Empty string if no movies.",
+    "tv": "One sentence about their TV taste with example titles. Empty string if no TV.",
+    "book": "One sentence about their book taste with example titles. Empty string if no books.",
+    "podcast": "One sentence about their podcast taste with example titles. Empty string if no podcasts."
+  }},
+  "signature_items": ["3-5 exact item titles from their profile that best define them — items you'd point to and say 'this person'"],
+  "avoided": "One sentence describing what they actively don't engage with, based on low-rated and dismissed items. Empty string if nothing stands out.",
+  "recent_shift": "One sentence about any mood/theme shift in their last 30 days, or empty string."
 }}"""
 
         text = (await generate(prompt)).strip()
@@ -351,7 +373,7 @@ Return ONLY valid JSON, no markdown:
         return result
     except Exception as e:
         log.error("taste_dna failed: %s", str(e))
-        return {"themes": [], "moods": [], "tones": [], "summary": "", "recent_shift": ""}
+        return {"themes": [], "summary": "", "by_medium": {}, "signature_items": [], "avoided": "", "recent_shift": ""}
 
 
 class TonightRequest(BaseModel):
@@ -858,7 +880,7 @@ async def related_items(
     try:
         from app.services.gemini import generate
 
-        prompt = f"""You are a cross-medium taste expert. Given this media item, suggest 2 items from EACH OTHER media type that share the same essence — theme, tone, narrative style — not just genre.
+        prompt = f"""You are a cross-medium taste expert. Given this media item, suggest 2 items from EACH OTHER media type that share the same essence — theme, tone, character type, emotional register, or narrative structure.
 
 CURRENT ITEM: {item.title} ({media_type}, {item.year or '?'})
 Genres: {item_genres}
@@ -869,15 +891,24 @@ User's taste profile (for personalization):
 
 TASK: Recommend 2 items each from: {', '.join(other_labels)}.
 
-Also identify if this item has a direct adaptation in another medium (book→movie, movie→book, TV→book, etc.). If yes, include it in the "adaptation" field.
+STRICT RULES:
+1. Recommendations MUST be narrative/creative works: fiction, literary nonfiction, memoir, narrative drama, narrative films, narrative TV, narrative/storytelling podcasts. DO NOT recommend:
+   - Self-help, how-to, textbooks, SAT prep, study guides, reference material
+   - Cookbooks (unless it's a memoir about food)
+   - Generic instructional content
+2. The thematic/tonal connection MUST be real and specific. Reference a CONCRETE element from the current item:
+   - Example (GOOD): "Both *Lady Bird* and *Normal People* capture the raw, aching self-consciousness of young people trying to become themselves, told with quiet empathy and specific detail."
+   - Example (BAD): "Both are about young people."
+3. If you can't find a legitimately strong thematic match, pick fewer items rather than reaching.
+4. NEVER recommend something just because the title contains a similar word (e.g. don't recommend an SAT prep book because *Lady Bird* is set in high school).
 
-Each reason should explain the thematic/tonal connection, not just "also good".
+ADAPTATION: If the current item has a direct adaptation in another medium (book→movie, movie→book, TV→book, etc.), include it in the "adaptation" field.
 
 Return ONLY valid JSON, no markdown:
 {{
   "adaptation": {{"title": "...", "media_type": "movie|tv|book", "year": 2020, "note": "one sentence about the adaptation"}} OR null if no direct adaptation,
   "related": {{
-    {', '.join([f'"{t}": [{{"title": "...", "year": 2020, "reason": "specific thematic/tonal connection"}}]' for t in other_types])}
+    {', '.join([f'"{t}": [{{"title": "...", "year": 2020, "reason": "specific thematic/tonal connection citing a concrete element from the current item"}}]' for t in other_types])}
   }}
 }}"""
 
