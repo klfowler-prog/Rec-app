@@ -348,6 +348,69 @@ def list_dismissed(user: User = Depends(require_user), db: Session = Depends(get
     return db.query(DismissedItem).filter(DismissedItem.user_id == user.id).order_by(DismissedItem.created_at.desc()).all()
 
 
+@router.post("/backfill-posters")
+async def backfill_posters(user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """Re-search external APIs for profile entries that are missing an
+    image_url, and update them in place. Used to clean up items that
+    were imported before the poster-matching improvements landed."""
+    from app.services.itunes import search as search_podcasts
+    from app.services.open_library import search as search_books
+    from app.services.tmdb import search as search_tmdb
+
+    missing = (
+        db.query(MediaEntry)
+        .filter(MediaEntry.user_id == user.id, MediaEntry.image_url.is_(None))
+        .all()
+    )
+    if not missing:
+        return {"checked": 0, "updated": 0}
+
+    async def find_cover(entry: MediaEntry) -> str | None:
+        try:
+            if entry.media_type == "book":
+                query = f"{entry.title} {entry.creator}" if entry.creator else entry.title
+                matches = await search_books(query)
+            elif entry.media_type in ("movie", "tv"):
+                matches = await search_tmdb(entry.title, entry.media_type)
+            elif entry.media_type == "podcast":
+                matches = await search_podcasts(entry.title)
+            else:
+                return None
+        except Exception:
+            return None
+
+        if not matches:
+            return None
+
+        title_lower = entry.title.lower().strip()
+        # Prefer an exact/startswith title match that also has an image.
+        for m in matches:
+            if not m.image_url:
+                continue
+            mt = m.title.lower().strip()
+            if mt == title_lower or mt.startswith(title_lower) or title_lower.startswith(mt):
+                return m.image_url
+        # Fall back to the first result with an image.
+        for m in matches:
+            if m.image_url:
+                return m.image_url
+        return None
+
+    updated = 0
+    # Process in batches to avoid hammering the APIs.
+    batch_size = 8
+    for i in range(0, len(missing), batch_size):
+        batch = missing[i : i + batch_size]
+        covers = await asyncio.gather(*[find_cover(e) for e in batch])
+        for entry, cover in zip(batch, covers):
+            if cover:
+                entry.image_url = cover
+                updated += 1
+        db.commit()
+
+    return {"checked": len(missing), "updated": updated}
+
+
 @router.post("/import/goodreads")
 async def import_goodreads(file: UploadFile = File(...), user: User = Depends(require_user), db: Session = Depends(get_db)):
     from app.services.open_library import search as search_books

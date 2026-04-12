@@ -230,6 +230,30 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+async function backfillPosters(btn) {
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<svg class="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="3" stroke-dasharray="60" stroke-dashoffset="20"/></svg> Searching...';
+    try {
+        const resp = await fetch('/api/profile/backfill-posters', { method: 'POST' });
+        if (!resp.ok) {
+            btn.innerHTML = original;
+            btn.disabled = false;
+            return;
+        }
+        const data = await resp.json();
+        if (data.checked === 0) {
+            btn.innerHTML = '✓ No missing posters';
+        } else {
+            btn.innerHTML = `✓ Found ${data.updated}/${data.checked}`;
+        }
+        setTimeout(() => loadProfile(), 600);
+    } catch {
+        btn.innerHTML = original;
+        btn.disabled = false;
+    }
+}
+
 async function loadTopTen() {
     try {
         const resp = await fetch('/api/profile/top?limit=10');
