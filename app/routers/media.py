@@ -82,23 +82,39 @@ def _rank_by_title_match(query: str, results: list[MediaResult]) -> list[MediaRe
 
 def _normalize_title(t: str) -> str:
     """Normalize a title for comparison so that minor variations — case,
-    punctuation, subtitle after a colon, leading articles — are treated
-    as the same item. Used by recommendation endpoints to check whether
-    an AI-suggested title is already in the user's library."""
+    smart quotes, em-dashes, parenthetical subtitles, leading articles,
+    unicode form — all collapse to the same key. Used by recommendation
+    endpoints to check whether an AI-suggested or API-returned title
+    is already in the user's library or dismissed list."""
     if not t:
         return ""
     import re
-    s = t.lower().strip()
-    # Drop subtitle (everything after the first colon) so
+    import unicodedata
+
+    # NFKD folds compatibility forms and decomposes accents. Strip the
+    # combining marks so "café" matches "cafe" and NFC matches NFD.
+    s = unicodedata.normalize("NFKD", t)
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    s = s.lower().strip()
+
+    # Drop parenthetical subtitles like "Hackquire (A Startup Story)"
+    s = re.sub(r"\([^)]*\)", " ", s)
+    s = re.sub(r"\[[^\]]*\]", " ", s)
+
+    # Drop subtitle after a colon OR em/en dash so
     # "The Body Keeps the Score: Brain, Mind, and Body" matches
-    # "The Body Keeps the Score".
-    if ":" in s:
-        s = s.split(":", 1)[0].strip()
+    # "The Body Keeps the Score" and "Name — Subtitle" matches "Name".
+    for sep in (":", " — ", " – ", " - "):
+        if sep in s:
+            s = s.split(sep, 1)[0].strip()
+            break
+
     # Drop leading articles
     for article in ("the ", "a ", "an "):
         if s.startswith(article):
             s = s[len(article):]
             break
+
     # Strip punctuation and collapse whitespace
     s = re.sub(r"[^\w\s]", " ", s)
     s = re.sub(r"\s+", " ", s).strip()
@@ -1088,9 +1104,17 @@ async def new_releases(
                 ("Popular on streaming", pop_items),
             ]
         elif media_type == "book":
-            from app.services.open_library import get_recent_books
-            books = await get_recent_books(limit=30)
-            sections = [("Recently published", books)]
+            # Prefer NYT bestsellers — curated weekly, much cleaner than
+            # Open Library's sort=rating which surfaces spam. Fall back
+            # to Open Library only if NYT_API_KEY is missing or fails.
+            from app.services.nyt_books import get_bestsellers
+            nyt_sections = await get_bestsellers(limit_per_list=15)
+            if nyt_sections:
+                sections = nyt_sections
+            else:
+                from app.services.open_library import get_recent_books
+                books = await get_recent_books(limit=30)
+                sections = [("Recently published", books)]
         elif media_type == "podcast":
             from app.services.itunes import get_top_podcasts
             podcasts = await get_top_podcasts(limit=30)
@@ -1099,13 +1123,32 @@ async def new_releases(
         log.error("new_releases fetch failed for %s: %s", media_type, str(e))
         return {"sections": [], "updated_at": None}
 
-    # Strip out anything the user already has
+    # Strip out anything the user already has OR has dismissed
     known_normalized, _ = _build_known_titles(db, user.id)
+    log.info(
+        "new_releases filter [%s/user=%d]: %d known titles, %d raw items pre-filter",
+        media_type, user.id, len(known_normalized),
+        sum(len(items) for _, items in sections),
+    )
     filtered_sections: list[tuple[str, list]] = []
+    dropped_count = 0
     for label, items in sections:
-        kept = [it for it in items if not _is_known(it.title, known_normalized)]
+        kept = []
+        for it in items:
+            if _is_known(it.title, known_normalized):
+                log.info(
+                    "new_releases [%s/user=%d]: dropping '%s' (normalized='%s') — already known",
+                    media_type, user.id, it.title, _normalize_title(it.title),
+                )
+                dropped_count += 1
+                continue
+            kept.append(it)
         if kept:
             filtered_sections.append((label, kept))
+    log.info(
+        "new_releases filter [%s/user=%d]: dropped %d items, %d sections remain",
+        media_type, user.id, dropped_count, len(filtered_sections),
+    )
 
     if not filtered_sections:
         from datetime import datetime as _dt
@@ -1114,12 +1157,17 @@ async def new_releases(
         return result
 
     # 2) Ask Gemini to predict how much this user would like each item.
-    # One call per section, batched with asyncio.gather.
-    predicted_map: dict[str, float] = {}
+    predicted_map: dict[str, float | None] = {}
     if settings.gemini_api_key:
         try:
-            # Build a minimal taste summary — just the user's highest-rated
-            # items so the AI has something to calibrate against.
+            from app.models import DismissedItem
+
+            # Pull three distinct signals about the user's taste:
+            #   (a) Top-rated items — what they love
+            #   (b) Low-rated items (<=5/10) — what they actively dislike
+            #   (c) Dismissed items — what they looked at and explicitly rejected
+            # Gemini sees all three so it can score harshly when a
+            # candidate resembles a dislike or a dismissal.
             top_rated = (
                 db.query(MediaEntry)
                 .filter(MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None))
@@ -1127,11 +1175,34 @@ async def new_releases(
                 .limit(20)
                 .all()
             )
+            low_rated = (
+                db.query(MediaEntry)
+                .filter(MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None), MediaEntry.rating <= 5)
+                .order_by(MediaEntry.rating.asc())
+                .limit(15)
+                .all()
+            )
+            dismissed = (
+                db.query(DismissedItem.title, DismissedItem.media_type)
+                .filter(DismissedItem.user_id == user.id)
+                .limit(20)
+                .all()
+            )
+
             taste_lines = [
                 f"- {e.title} ({e.media_type}, {e.rating}/10) [{e.genres or ''}]"
                 for e in top_rated
             ]
             taste_summary = "\n".join(taste_lines) if taste_lines else "no profile yet"
+
+            dislike_lines = [
+                f"- {e.title} ({e.media_type}, {e.rating}/10) [{e.genres or ''}]"
+                for e in low_rated
+            ]
+            dislikes_summary = "\n".join(dislike_lines) if dislike_lines else "none recorded"
+
+            dismissed_lines = [f"- {title} ({mt})" for title, mt in dismissed]
+            dismissed_summary = "\n".join(dismissed_lines) if dismissed_lines else "none recorded"
 
             all_items_flat = []
             for _, items in filtered_sections:
@@ -1144,27 +1215,33 @@ async def new_releases(
 
             from app.services.gemini import generate
 
-            prompt = f"""Given this user's taste profile, predict how much they would enjoy each of the items below on a 1-10 scale.
+            prompt = f"""You are predicting how much this specific user would enjoy each of the candidate items below, on a 1-10 scale, OR returning null for items you cannot confidently score.
 
-USER'S TOP-RATED ITEMS:
+THE USER'S TASTE SIGNALS — READ ALL THREE:
+
+LOVED (top-rated items they scored 7+):
 {taste_summary}
+
+ACTIVELY DISLIKED (rated 5 or below — this is what they DON'T want):
+{dislikes_summary}
+
+EXPLICITLY REJECTED (dismissed from recommendations — they saw these and said no):
+{dismissed_summary}
 
 SCORING RULES:
-- Compare each candidate item's genre, tone, subject matter, and audience register against what the user actually rates highly.
-- Be HARSH on genre and tonal mismatches. If the user's top items are literary dramas and a candidate is a superhero blockbuster, that's a 3 — not a 6. If their top items are warm comedies and a candidate is bleak horror, that's a 2-4.
-- Reward real fits generously. If a candidate's genre, tone, and subject matter all line up with the user's taste, score it 8-9. Only score 10 for items that perfectly match the user's highest-rated work.
-- A score of 7 is the threshold for "worth surfacing". Items scoring below 7 will not be shown to the user — so do NOT inflate scores out of politeness. It's better to score something a 4 and have it hidden than to score it a 7 and waste the user's attention.
-- Ignore popularity. A prestigious blockbuster the user clearly wouldn't enjoy still gets a low score.
-
-USER'S TOP-RATED ITEMS:
-{taste_summary}
+1. The 7 threshold: any score below 7 is HIDDEN from the user. So ~70% of what you see should score below 7, because most things in the wild aren't a fit for any specific person's taste. Only the genuine fits surface.
+2. Weight the negative signals heavily. If a candidate resembles anything in DISLIKED or REJECTED — same genre, same tone, same subject matter, same audience — score it 2-5 even if it's popular or prestigious. The user has told us directly that stuff in those categories isn't for them.
+3. When the candidate is a strong match to LOVED items — same genre, tone, and subject matter — score it 8-9. Only score 10 for a near-perfect match to one of their very top items.
+4. When you don't have enough information to score confidently (genres are missing, you don't recognize the title, the description is too thin), RETURN null for that title. It's better to admit uncertainty than to guess — guessed scores clutter the user's feed with garbage.
+5. Ignore popularity, critical acclaim, and cultural importance. A #1 bestseller the user clearly wouldn't enjoy still gets a low score or null.
+6. Do not inflate scores out of politeness. A rating of 4 that hides something the user wouldn't enjoy is better than a 7 that wastes their attention.
 
 ITEMS TO SCORE:
 {json.dumps(items_json, indent=2)}
 
-Return ONLY a JSON object mapping each exact title to a predicted rating (1-10, one decimal place). No markdown, no preamble.
+Return ONLY a JSON object mapping each exact candidate title to either a number 1-10 (one decimal place) or null. No markdown, no preamble, no explanations.
 
-{{"Title 1": 8.5, "Title 2": 3.0, ...}}"""
+{{"Title 1": 8.5, "Title 2": 3.0, "Title 3": null, ...}}"""
 
             text = (await generate(prompt)).strip()
             if text.startswith("```"):
@@ -1175,8 +1252,19 @@ Return ONLY a JSON object mapping each exact title to a predicted rating (1-10, 
             if first_brace >= 0 and last_brace > first_brace:
                 text = text[first_brace : last_brace + 1]
             parsed = json.loads(text)
-            # Normalize keys to lowercase for robust matching
-            predicted_map = {str(k).lower(): float(v) for k, v in parsed.items() if v is not None}
+            # Keep nulls as None so the final filter knows to drop the
+            # item rather than defaulting it to 0. Keys lowercased for
+            # robust matching against MediaResult.title.lower().
+            predicted_map = {}
+            for k, v in parsed.items():
+                key = str(k).lower()
+                if v is None:
+                    predicted_map[key] = None
+                else:
+                    try:
+                        predicted_map[key] = float(v)
+                    except (TypeError, ValueError):
+                        predicted_map[key] = None
         except Exception as e:
             log.error("new_releases prediction failed: %s", str(e))
 
@@ -1200,12 +1288,15 @@ Return ONLY a JSON object mapping each exact title to a predicted rating (1-10, 
     serialized_sections = []
     for label, items in filtered_sections:
         rows = [_serialize(it) for it in items]
-        # Drop anything the AI scored below the threshold. We only surface
-        # items the user is likely to actually enjoy — a list full of 5s
-        # is worse than a short list of 8s.
-        rows = [r for r in rows if (r["predicted_rating"] or 0) >= MIN_SCORE]
+        # Drop nulls (AI couldn't confidently score) and anything below
+        # the 7 threshold. Better a short list of 8s than a long list
+        # of 5s, and better nothing than a guess.
+        rows = [
+            r for r in rows
+            if r["predicted_rating"] is not None and r["predicted_rating"] >= MIN_SCORE
+        ]
         # Sort so the highest predicted scores float to the top
-        rows.sort(key=lambda r: (r["predicted_rating"] or 0), reverse=True)
+        rows.sort(key=lambda r: r["predicted_rating"], reverse=True)
         # Cap at 5 per section
         rows = rows[:5]
         if rows:
