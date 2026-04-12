@@ -1413,7 +1413,7 @@ async def related_items(
     try:
         from app.services.gemini import generate
 
-        prompt = f"""You are a cross-medium taste expert. Given this media item, suggest 2 items from EACH OTHER media type that share a real, specific connection — theme, tone, subject matter, emotional register, ideas, or storytelling approach.
+        prompt = f"""You are a cross-medium taste expert. Given this media item, suggest 2 items from EACH OTHER media type that share a real, specific connection — theme, tone, subject matter, emotional register, ideas, or storytelling approach — AND are appropriate for the same audience and tonal register.
 
 CURRENT ITEM: {item.title} ({media_type}, {item.year or '?'})
 Genres: {item_genres}
@@ -1430,22 +1430,30 @@ WHAT COUNTS AS A MEDIA ITEM (all valid):
 - Idea books / popular nonfiction: *Sapiens*, *Atomic Habits*, *The Body Keeps the Score*
 - Documentaries: *My Octopus Teacher*, *The Vow*, nature docs, true crime docs
 - News, science, interview, and explanatory podcasts: *Radiolab*, *The Daily*, *Hidden Brain*
-- Self-help and philosophy books are fine IF they match thematically
+- Self-help and philosophy books are fine IF they match thematically AND tonally
 
-WHAT TO AVOID: Pure reference/instructional material with no thematic voice — SAT prep, dictionaries, textbooks, software manuals, cookbooks without narrative. Don't recommend these unless the current item is also reference material.
+WHAT TO AVOID: Pure reference/instructional material with no thematic voice — SAT prep, dictionaries, textbooks, software manuals, cookbooks without narrative.
 
-CONNECTION RULES — this is the most important part:
+AUDIENCE AND TONE — THIS IS A HARD CONSTRAINT:
+Before you suggest anything, classify the current item along two axes:
+  (a) Audience: family/kids, general-audience, or adult.
+  (b) Tonal register: light/comic, warm/hopeful, contemplative, melancholy, grim/dark, intense/horror.
+
+EVERY recommendation MUST match on BOTH axes. Do not cross these lines.
+- If the current item is a family/kids movie (e.g. Genres include "Family" or "Animation", or the description is about children), NEVER recommend R-rated, adult, or grim/dark material — even if you can find a "theme" connection. Recommend other family-appropriate items OR warm contemplative material about the same ideas.
+- If the current item is adult and dark, don't recommend kids material or frothy comedy.
+- A sad movie gets meditative or hopeful-sad recommendations, not zany comedy or horror.
+- A comedy gets other warm or witty material, not grim literary fiction.
+
+CONNECTION RULES:
 1. The connection MUST be real and specific. Reference a CONCRETE element from the current item.
-2. Cross-medium connections can span fiction and nonfiction BOTH WAYS:
-   - A memoir about self-discovery can connect to a coming-of-age film
-   - A documentary about loneliness can connect to a literary novel about isolation
-   - A science podcast about the brain can connect to a thriller novel about memory
-   - A nature doc can connect to a contemplative book about attention
-3. GOOD example: "*Lady Bird* captures the raw self-consciousness of becoming yourself; Tara Westover's memoir *Educated* has that same aching specificity of a young woman learning to claim her own identity."
-4. BAD example: "Both are about young women." — surface-level, no real connection.
-5. BAD example: "This SAT prep book is for high schoolers." — keyword match, not thematic.
-6. If you can't find a strong match for a type, return fewer items rather than reaching.
-7. NEVER recommend based on shared setting, shared demographic, or shared keyword alone.
+2. Cross-medium connections can span fiction and nonfiction BOTH WAYS, but audience/tone still governs.
+3. GOOD example: "*Lady Bird* captures the raw self-consciousness of becoming yourself; Tara Westover's memoir *Educated* has that same aching specificity of a young woman claiming her own identity." (Both general-audience, both warm/melancholy.)
+4. GOOD example: "*Inside Out* (family animation about childhood emotions) pairs with the picture book *The Color Monster* — both give kids concrete metaphors for feelings they can't yet name." (Both family.)
+5. BAD example: "*Inside Out* → *Fleabag*. Both explore raw emotional honesty." — WRONG. Inside Out is a family film; Fleabag is adult tragicomedy with sex and grief. Audience/tone mismatch. This is the kind of suggestion to never make.
+6. BAD example: "Both are about young women." — surface-level, no real connection.
+7. BAD example: Recommending a thriller because the current item has a "mystery" tag — keyword match, not thematic.
+8. If you can't find a strong match that also respects audience/tone, return fewer items rather than reaching.
 
 ADAPTATION: If the current item has a direct adaptation in another medium, include it.
 
@@ -1453,7 +1461,7 @@ Return ONLY valid JSON, no markdown:
 {{
   "adaptation": {{"title": "...", "media_type": "movie|tv|book", "year": 2020, "note": "one sentence about the adaptation"}} OR null if no direct adaptation,
   "related": {{
-    {', '.join([f'"{t}": [{{"title": "...", "year": 2020, "reason": "specific thematic/idea connection citing a concrete element from the current item"}}]' for t in other_types])}
+    {', '.join([f'"{t}": [{{"title": "...", "year": 2020, "reason": "specific thematic/idea connection citing a concrete element from the current item AND confirming audience/tone match"}}]' for t in other_types])}
   }}
 }}"""
 
