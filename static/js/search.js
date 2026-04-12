@@ -12,10 +12,14 @@ let profileMap = {};  // key: title.toLowerCase() -> entry
 async function loadProfileMap() {
     try {
         const resp = await fetch('/api/profile/');
+        if (!resp.ok) return;
         const entries = await resp.json();
+        if (!Array.isArray(entries)) return;
         profileMap = {};
         for (const e of entries) {
-            profileMap[e.title.toLowerCase()] = e;
+            if (e && e.title) {
+                profileMap[e.title.toLowerCase()] = e;
+            }
         }
     } catch {}
 }

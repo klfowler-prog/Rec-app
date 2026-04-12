@@ -629,7 +629,16 @@ Promise.all([loadTopPicks(), loadSuggestions(), loadEssence(), loadInsights()]);
 async function getTonight(availableTime) {
     // Highlight the active chip
     document.querySelectorAll('.tonight-chip').forEach(c => c.classList.remove('border-sage', 'bg-sage/10', 'text-sage'));
-    event.currentTarget.classList.add('border-sage', 'bg-sage/10', 'text-sage');
+    if (typeof event !== 'undefined' && event && event.currentTarget) {
+        event.currentTarget.classList.add('border-sage', 'bg-sage/10', 'text-sage');
+    } else {
+        // Programmatic call (e.g. from "Try another" button) — highlight the matching chip
+        document.querySelectorAll('.tonight-chip').forEach(c => {
+            if (c.textContent.trim().toLowerCase().includes(availableTime.toLowerCase())) {
+                c.classList.add('border-sage', 'bg-sage/10', 'text-sage');
+            }
+        });
+    }
 
     const result = document.getElementById('tonight-result');
     result.classList.remove('hidden');
@@ -646,10 +655,16 @@ async function getTonight(availableTime) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ available_time: availableTime }),
         });
+        if (!resp.ok) {
+            result.innerHTML = `<p class="text-sm text-txt-muted text-center py-6">Couldn't find a pick right now. Try another time window.</p>`;
+            document.querySelectorAll('.tonight-chip').forEach(c => c.classList.remove('border-sage', 'bg-sage/10', 'text-sage'));
+            return;
+        }
         const pick = await resp.json();
 
         if (!pick || !pick.title) {
             result.innerHTML = `<p class="text-sm text-txt-muted text-center py-6">Couldn't find a pick right now. Try another time window.</p>`;
+            document.querySelectorAll('.tonight-chip').forEach(c => c.classList.remove('border-sage', 'bg-sage/10', 'text-sage'));
             return;
         }
 
@@ -704,6 +719,7 @@ async function getTonight(availableTime) {
         `;
     } catch {
         result.innerHTML = `<p class="text-sm text-txt-muted text-center py-6">Something went wrong. Please try again.</p>`;
+        document.querySelectorAll('.tonight-chip').forEach(c => c.classList.remove('border-sage', 'bg-sage/10', 'text-sage'));
     }
 }
 

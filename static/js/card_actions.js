@@ -55,11 +55,20 @@ function showRatingDots(container, entryId) {
 
 async function rateItem(btn, entryId, rating) {
     if (!entryId) return;
-    await fetch(`/api/profile/${entryId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rating }),
-    });
+    try {
+        const resp = await fetch(`/api/profile/${entryId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rating }),
+        });
+        if (!resp.ok) {
+            btn.disabled = false;
+            return;
+        }
+    } catch {
+        btn.disabled = false;
+        return;
+    }
     const container = btn.parentElement;
     const ratingColor = rating <= 3 ? 'text-coral' : rating <= 5 ? 'text-amber-500' : rating <= 7 ? 'text-yellow-600' : 'text-emerald-500';
     container.innerHTML = `<span class="text-xs font-semibold ${ratingColor}">${rating}/10 ✓</span>`;
@@ -83,9 +92,14 @@ async function saveForLater(btn, data) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
         });
-        if (resp.ok || resp.status === 409) {
+        if (resp.ok) {
             const container = btn.closest('.quick-add-area');
-            container.innerHTML = '<span class="text-xs font-medium text-sage">✓ Saved to queue</span>';
+            if (container) container.innerHTML = '<span class="text-xs font-medium text-sage">✓ Saved to queue</span>';
+        } else if (resp.status === 409) {
+            const container = btn.closest('.quick-add-area');
+            if (container) container.innerHTML = '<span class="text-xs font-medium text-sage">✓ In profile</span>';
+        } else {
+            btn.disabled = false;
         }
     } catch {
         btn.disabled = false;
@@ -95,11 +109,15 @@ async function saveForLater(btn, data) {
 async function dismissItem(btn, data) {
     btn.disabled = true;
     try {
-        await fetch('/api/profile/dismiss', {
+        const resp = await fetch('/api/profile/dismiss', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
         });
+        if (!resp.ok) {
+            btn.disabled = false;
+            return;
+        }
         const card = btn.closest('[data-rec-card]') || btn.closest('.swim-lane-item') || btn.closest('.rounded-lg');
         if (card) {
             card.style.transition = 'opacity 0.4s, transform 0.4s';

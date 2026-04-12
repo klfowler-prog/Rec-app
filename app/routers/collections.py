@@ -42,21 +42,35 @@ class CollectionItemResponse(BaseModel):
 
 @router.get("/", response_model=list[CollectionResponse])
 def list_collections(user: User = Depends(require_user), db: Session = Depends(get_db)):
+    from sqlalchemy import func
+
     collections = (
         db.query(Collection)
         .filter(Collection.user_id == user.id)
         .order_by(Collection.created_at.desc())
         .all()
     )
-    result = []
-    for c in collections:
-        item_count = db.query(CollectionItem).filter(CollectionItem.collection_id == c.id).count()
-        result.append(CollectionResponse(
+    if not collections:
+        return []
+
+    # Batch fetch item counts in one query
+    coll_ids = [c.id for c in collections]
+    count_rows = (
+        db.query(CollectionItem.collection_id, func.count(CollectionItem.id))
+        .filter(CollectionItem.collection_id.in_(coll_ids))
+        .group_by(CollectionItem.collection_id)
+        .all()
+    )
+    count_map = {row[0]: row[1] for row in count_rows}
+
+    return [
+        CollectionResponse(
             id=c.id, title=c.title, description=c.description,
             theme=c.theme, is_ai_generated=c.is_ai_generated,
-            item_count=item_count,
-        ))
-    return result
+            item_count=count_map.get(c.id, 0),
+        )
+        for c in collections
+    ]
 
 
 @router.get("/{collection_id}")

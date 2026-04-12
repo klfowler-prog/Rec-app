@@ -374,13 +374,16 @@ async def tonight_pick(
     from app.models import DismissedItem, MediaEntry
     from app.services.unified_search import unified_search
 
-    cache_key = f"tonight:{user.id}:{req.available_time}:{req.mood or ''}"
+    import hashlib
+    mood_hash = hashlib.md5((req.mood or "").encode()).hexdigest()[:8]
+    time_slug = req.available_time.replace(" ", "_")
+    cache_key = f"tonight:{user.id}:{time_slug}:{mood_hash}"
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
 
     if not settings.gemini_api_key:
-        return None
+        raise HTTPException(status_code=503, detail="AI features not configured")
 
     entries = db.query(MediaEntry).filter(MediaEntry.user_id == user.id).all()
     existing_titles = {e.title.lower() for e in entries}
@@ -497,9 +500,14 @@ Return ONLY valid JSON, no markdown:
 
         cache.set(cache_key, result, ttl_seconds=3600)  # 1 hour
         return result
+    except json.JSONDecodeError as e:
+        log.error("tonight_pick JSON parse failed: %s", str(e))
+        raise HTTPException(status_code=500, detail="AI response format invalid, please try again")
+    except HTTPException:
+        raise
     except Exception as e:
         log.error("tonight_pick failed: %s", str(e))
-        return None
+        raise HTTPException(status_code=500, detail="Could not generate tonight pick")
 
 
 @router.get("/top-picks")

@@ -1,24 +1,38 @@
 // Post-rating discovery panel — shows cross-medium next-steps after rating an item
 // Called from card_actions.js rateItem() and profile.js inlineRate()
 
+// Ensure escapeHtml is available (define early in case other scripts haven't loaded)
+if (typeof escapeHtml === 'undefined') {
+    window.escapeHtml = function (text) {
+        const div = document.createElement('div');
+        div.textContent = (text === null || text === undefined) ? '' : String(text);
+        return div.innerHTML;
+    };
+}
+
 let postRatingTimeout = null;
 
 async function showPostRatingPanel(entryId) {
     if (!entryId) return;
 
-    // Get the entry details to know what to fetch related items for
     try {
         const resp = await fetch('/api/profile/');
+        if (!resp.ok) return;
         const entries = await resp.json();
+        if (!Array.isArray(entries)) return;
         const entry = entries.find(e => e.id === entryId);
         if (!entry) return;
 
+        // Can't fetch related items without an external_id
+        if (!entry.external_id || !entry.source) return;
+
         // Fetch related items
-        const relResp = await fetch(`/api/media/related/${entry.media_type}/${entry.external_id}?source=${entry.source}`);
+        const relResp = await fetch(`/api/media/related/${entry.media_type}/${encodeURIComponent(entry.external_id)}?source=${encodeURIComponent(entry.source)}`);
+        if (!relResp.ok) return;
         const relData = await relResp.json();
         const related = relData.related || {};
 
-        // Flatten into a single array
+        // Flatten into a single array (one per media type)
         const items = [];
         for (const [type, list] of Object.entries(related)) {
             for (const item of (list || []).slice(0, 1)) {
@@ -31,6 +45,7 @@ async function showPostRatingPanel(entryId) {
         // Render the panel
         const panel = document.getElementById('post-rating-panel');
         const content = document.getElementById('post-rating-content');
+        if (!panel || !content) return;
 
         content.innerHTML = `
             <p class="text-xs text-txt-muted mb-2">Because you just rated <strong class="text-txt dark:text-txt-light">${escapeHtml(entry.title)}</strong>:</p>
@@ -58,12 +73,13 @@ function postRatingCard(item) {
     };
     const badgeClass = typeBadgeColors[item.media_type] || typeBadgeColors.movie;
     const safeTitle = item.title || 'Untitled';
-    const link = item.external_id ? `/media/${item.media_type}/${item.external_id}?source=${item.source}` : '#';
+    const link = item.external_id ? `/media/${item.media_type}/${encodeURIComponent(item.external_id)}?source=${encodeURIComponent(item.source || '')}` : '#';
     const image = item.image_url
         ? `<img src="${item.image_url}" alt="" class="w-12 h-16 object-cover rounded flex-shrink-0">`
         : `<div class="w-12 h-16 bg-sage/10 rounded flex-shrink-0 flex items-center justify-center"><span class="text-sage text-sm">${escapeHtml(safeTitle[0] || '?')}</span></div>`;
 
-    const saveData = (typeof escapeAttr === 'function' ? escapeAttr : (s => s.replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')))(JSON.stringify({
+    const escapeAttrFn = typeof escapeAttr === 'function' ? escapeAttr : (s => s.replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
+    const saveData = escapeAttrFn(JSON.stringify({
         external_id: item.external_id || '', source: item.source || '', title: item.title,
         media_type: item.media_type, image_url: item.image_url || null, year: item.year || null,
         creator: item.creator || null, genres: null, description: null, status: 'want_to_consume',
@@ -96,13 +112,4 @@ function closePostRatingPanel() {
     panel.style.transform = 'translateY(120%)';
     setTimeout(() => panel.classList.add('hidden'), 350);
     clearTimeout(postRatingTimeout);
-}
-
-// Plain escapeHtml helper (may already exist in other scripts)
-if (typeof escapeHtml === 'undefined') {
-    window.escapeHtml = function (text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    };
 }
