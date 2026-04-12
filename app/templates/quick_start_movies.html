@@ -1,0 +1,378 @@
+{% extends "base.html" %}
+{% block title %}Movie Taste Quiz{% endblock %}
+
+{% block head %}
+<style>
+    .response-btn {
+        transition: all 150ms ease;
+    }
+    .response-btn:hover {
+        transform: translateY(-2px);
+    }
+    .response-btn.picked {
+        transform: scale(0.98);
+        box-shadow: inset 0 2px 6px rgba(0,0,0,0.1);
+    }
+    .axis-bar {
+        transition: width 500ms ease;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+    <!-- Header -->
+    <div>
+        <a href="/quick-start" class="text-xs text-txt-muted hover:text-sage transition-base inline-flex items-center gap-1 mb-2">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            Quick Start
+        </a>
+        <h2 class="text-2xl font-semibold mb-1">Movie taste quiz</h2>
+        <p class="text-txt-muted text-sm">20 films, one at a time. We'll learn how you engage with film — pace, tone, ambiguity, humor — and use it to sharpen your recommendations.</p>
+    </div>
+
+    <!-- Progress -->
+    <div>
+        <div class="flex items-center justify-between text-xs text-txt-muted mb-1.5">
+            <span id="progress-label">Question 1 of 20</span>
+            <span id="answered-label">0 rated</span>
+        </div>
+        <div class="h-1.5 bg-border-light dark:bg-border-dark rounded-full overflow-hidden">
+            <div id="progress-bar" class="h-full bg-sage rounded-full transition-all" style="width: 0%"></div>
+        </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="quiz-loading" class="text-center py-20">
+        <div class="inline-block w-6 h-6 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
+        <p class="text-sm text-txt-muted mt-3">Loading films...</p>
+    </div>
+
+    <!-- Film card -->
+    <div id="film-card" class="hidden">
+        <div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-2xl p-5 md:p-6">
+            <div class="flex gap-5 items-start">
+                <div class="w-28 md:w-36 flex-shrink-0">
+                    <div class="poster-frame rounded-lg shadow-md">
+                        <img id="film-poster" src="" alt="" class="poster-cover" />
+                        <div id="film-poster-fallback" class="poster-fallback bg-sage/10 hidden">
+                            <span id="film-poster-initial" class="text-sage text-3xl"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-[11px] text-txt-muted uppercase tracking-widest font-semibold mb-1" id="film-number"></p>
+                    <h3 id="film-title" class="text-xl md:text-2xl font-bold leading-tight"></h3>
+                    <p id="film-year" class="text-sm text-txt-muted mt-0.5"></p>
+                    <p id="film-description" class="text-xs text-txt-muted mt-3 leading-relaxed line-clamp-4"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Response buttons -->
+        <div id="response-buttons" class="grid grid-cols-5 gap-2 mt-5">
+            <!-- Populated by JS -->
+        </div>
+
+        <!-- Back button -->
+        <div class="flex items-center justify-between mt-5">
+            <button id="back-btn" onclick="prevQuestion()" class="text-xs text-txt-muted hover:text-txt transition-base inline-flex items-center gap-1 disabled:opacity-30" disabled>
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                Back
+            </button>
+            <button id="finish-early-btn" onclick="finishQuiz()" class="text-xs text-txt-muted hover:text-sage transition-base hidden">
+                Show my taste profile &rarr;
+            </button>
+        </div>
+    </div>
+
+    <!-- Result screen -->
+    <div id="result-screen" class="hidden space-y-6">
+        <div class="gradient-navy rounded-2xl p-8 text-white" style="background: linear-gradient(135deg, #2B3A4E 0%, #1E2A3A 100%);">
+            <p class="text-[11px] text-white/60 uppercase tracking-widest font-semibold mb-2">Your film taste leans</p>
+            <h2 id="result-primary-name" class="text-3xl font-bold mb-3"></h2>
+            <p id="result-primary-desc" class="text-base text-white/90 leading-relaxed"></p>
+
+            <div id="result-secondary-wrap" class="hidden mt-6 pt-5 border-t border-white/15">
+                <p class="text-[11px] text-white/60 uppercase tracking-widest font-semibold mb-2">With a side of</p>
+                <h3 id="result-secondary-name" class="text-xl font-bold mb-2"></h3>
+                <p id="result-secondary-desc" class="text-sm text-white/80 leading-relaxed"></p>
+            </div>
+        </div>
+
+        <!-- Axis bars -->
+        <div class="bg-surface-light dark:bg-surface-dark rounded-2xl border border-border-light dark:border-border-dark p-5">
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-txt-muted mb-4">Where you landed on each axis</h3>
+            <div id="axis-bars" class="space-y-3"></div>
+        </div>
+
+        <div class="flex items-center justify-center gap-3 pt-2">
+            <a href="/" class="px-5 py-2.5 bg-sage hover:bg-sage-dark text-white text-sm font-medium rounded-lg transition-base">Go to home &rarr;</a>
+            <a href="/quick-start" class="px-5 py-2.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark text-sm text-txt-muted hover:text-txt transition-base rounded-lg">Back to Quick Start</a>
+        </div>
+    </div>
+
+    <!-- Not enough data state -->
+    <div id="not-enough" class="hidden text-center py-12">
+        <p class="text-sm text-txt-muted">You've only rated <span id="answered-short">0</span> films so far. Answer at least 11 (loved / liked / fine / didn't click) to see your taste direction.</p>
+        <button onclick="resumeQuiz()" class="mt-4 px-5 py-2.5 bg-sage hover:bg-sage-dark text-white text-sm font-medium rounded-lg transition-base">Keep going</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Quiz state — responses map order -> {value, saved}
+let QUIZ = null;
+let currentIdx = 0;
+const responses = {};  // order -> {value, savedEntryId}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = (text === null || text === undefined) ? '' : String(text);
+    return div.innerHTML;
+}
+
+async function loadQuiz() {
+    try {
+        const resp = await fetch('/api/media/taste-quiz/movies');
+        if (!resp.ok) throw new Error('fetch failed');
+        QUIZ = await resp.json();
+        document.getElementById('quiz-loading').classList.add('hidden');
+        document.getElementById('film-card').classList.remove('hidden');
+        renderResponseButtons();
+        renderCurrent();
+    } catch {
+        document.getElementById('quiz-loading').innerHTML = '<p class="text-sm text-txt-muted">Couldn\'t load the quiz. Try again in a moment.</p>';
+    }
+}
+
+function renderResponseButtons() {
+    const wrap = document.getElementById('response-buttons');
+    wrap.innerHTML = QUIZ.options.map(opt => {
+        const value = opt.value === null ? 'null' : opt.value;
+        // Color-code the 5 tiers
+        const color =
+            opt.value === 2  ? 'hover:bg-emerald-500 hover:border-emerald-500' :
+            opt.value === 1  ? 'hover:bg-sage hover:border-sage' :
+            opt.value === 0  ? 'hover:bg-amber-400 hover:border-amber-400' :
+            opt.value === -1 ? 'hover:bg-coral hover:border-coral' :
+                               'hover:bg-txt-muted hover:border-txt-muted';
+        return `
+            <button type="button" data-value="${value}" onclick="pickResponse('${value}')"
+                    class="response-btn flex flex-col items-center gap-1 px-2 py-3 bg-surface-light dark:bg-surface-dark border-2 border-border-light dark:border-border-dark rounded-xl hover:text-white ${color} transition-base group">
+                <span class="text-2xl md:text-3xl">${opt.emoji}</span>
+                <span class="text-[10px] md:text-xs font-semibold leading-tight text-center">${escapeHtml(opt.label)}</span>
+            </button>
+        `;
+    }).join('');
+}
+
+function renderCurrent() {
+    const film = QUIZ.items[currentIdx];
+    if (!film) return;
+
+    // Progress
+    const total = QUIZ.items.length;
+    const answered = Object.values(responses).filter(r => r !== undefined).length;
+    document.getElementById('progress-label').textContent = `Question ${currentIdx + 1} of ${total}`;
+    document.getElementById('answered-label').textContent = `${answered} rated`;
+    document.getElementById('progress-bar').style.width = `${((currentIdx + 1) / total) * 100}%`;
+
+    // Film card
+    document.getElementById('film-number').textContent = `Film ${film.order}`;
+    document.getElementById('film-title').textContent = film.title;
+    document.getElementById('film-year').textContent = film.year ? `${film.year}${film.creator ? ' · ' + film.creator : ''}` : '';
+    document.getElementById('film-description').textContent = film.description || '';
+
+    const poster = document.getElementById('film-poster');
+    const fallback = document.getElementById('film-poster-fallback');
+    if (film.image_url) {
+        poster.src = film.image_url;
+        poster.classList.remove('hidden');
+        fallback.classList.add('hidden');
+    } else {
+        poster.classList.add('hidden');
+        fallback.classList.remove('hidden');
+        document.getElementById('film-poster-initial').textContent = (film.title || '?')[0];
+    }
+
+    // Back button enable state
+    document.getElementById('back-btn').disabled = currentIdx === 0;
+
+    // Show "finish early" link once >= 11 real answers
+    const realAnswered = Object.values(responses).filter(v => v !== null && v !== undefined).length;
+    document.getElementById('finish-early-btn').classList.toggle('hidden', realAnswered < QUIZ.min_answered);
+
+    // Highlight the currently-picked button for this film if any
+    const picked = responses[film.order];
+    document.querySelectorAll('[data-value]').forEach(btn => {
+        const v = btn.dataset.value;
+        const current = picked === null ? 'null' : (picked !== undefined ? String(picked) : null);
+        if (v === current) {
+            btn.classList.add('picked', 'ring-2', 'ring-sage');
+        } else {
+            btn.classList.remove('picked', 'ring-2', 'ring-sage');
+        }
+    });
+}
+
+async function pickResponse(valueStr) {
+    const film = QUIZ.items[currentIdx];
+    if (!film) return;
+    const value = valueStr === 'null' ? null : parseInt(valueStr, 10);
+    responses[film.order] = value;
+
+    // Save to profile inline if non-null — matches how the rest of
+    // the app saves ratings. null = haven't seen, skip the save.
+    if (value !== null) {
+        saveFilmRating(film, value);
+    }
+
+    // Auto-advance to the next question
+    setTimeout(() => {
+        if (currentIdx < QUIZ.items.length - 1) {
+            currentIdx++;
+            renderCurrent();
+        } else {
+            finishQuiz();
+        }
+    }, 180);
+    renderCurrent();
+}
+
+const RATING_MAP = { 2: 9, 1: 7, 0: 5, '-1': 3 };
+async function saveFilmRating(film, value) {
+    const rating = RATING_MAP[value];
+    if (!rating) return;
+    const payload = {
+        external_id: film.external_id || '',
+        source: film.source || '',
+        title: film.title,
+        media_type: 'movie',
+        image_url: film.image_url || null,
+        year: film.year,
+        creator: film.creator || null,
+        genres: (film.genres && film.genres.length) ? film.genres.join(', ') : null,
+        description: film.description || null,
+        status: 'consumed',
+        rating,
+    };
+    try {
+        const resp = await fetch('/api/profile/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        if (resp.status === 409) {
+            // Already exists — update the rating via PUT
+            const check = await fetch(`/api/profile/check/${encodeURIComponent(film.source || '_')}/${encodeURIComponent(film.external_id || '_')}`);
+            const data = await check.json();
+            if (data.entry) {
+                await fetch(`/api/profile/${data.entry.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rating }),
+                });
+            }
+        }
+    } catch {}
+}
+
+function prevQuestion() {
+    if (currentIdx === 0) return;
+    currentIdx--;
+    renderCurrent();
+}
+
+function resumeQuiz() {
+    document.getElementById('not-enough').classList.add('hidden');
+    document.getElementById('film-card').classList.remove('hidden');
+    // Jump to the first unanswered film
+    for (let i = 0; i < QUIZ.items.length; i++) {
+        if (responses[QUIZ.items[i].order] === undefined) {
+            currentIdx = i;
+            break;
+        }
+    }
+    renderCurrent();
+}
+
+async function finishQuiz() {
+    const payload = {
+        responses: QUIZ.items.map(f => ({
+            order: f.order,
+            value: responses[f.order] === undefined ? null : responses[f.order],
+        })),
+    };
+
+    // Hide the film card, show loading
+    document.getElementById('film-card').classList.add('hidden');
+    document.getElementById('quiz-loading').classList.remove('hidden');
+    document.getElementById('quiz-loading').innerHTML = '<div class="inline-block w-6 h-6 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div><p class="text-sm text-txt-muted mt-3">Reading your taste...</p>';
+
+    try {
+        const resp = await fetch('/api/media/taste-quiz/movies/score', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        const data = await resp.json();
+        document.getElementById('quiz-loading').classList.add('hidden');
+
+        if (!data.has_enough_data) {
+            document.getElementById('answered-short').textContent = data.answered_count || 0;
+            document.getElementById('not-enough').classList.remove('hidden');
+            return;
+        }
+
+        renderResult(data);
+    } catch {
+        document.getElementById('quiz-loading').innerHTML = '<p class="text-sm text-txt-muted">Something went wrong. Try again.</p>';
+    }
+}
+
+function renderResult(data) {
+    document.getElementById('result-screen').classList.remove('hidden');
+
+    const profiles = data.profiles || [];
+    if (profiles[0]) {
+        document.getElementById('result-primary-name').textContent = profiles[0].name;
+        document.getElementById('result-primary-desc').textContent = profiles[0].description;
+    }
+    if (profiles[1]) {
+        document.getElementById('result-secondary-wrap').classList.remove('hidden');
+        document.getElementById('result-secondary-name').textContent = profiles[1].name;
+        document.getElementById('result-secondary-desc').textContent = profiles[1].description;
+    }
+
+    // Axis bars
+    const axisBars = document.getElementById('axis-bars');
+    const scores = data.axis_scores || {};
+    // Find max absolute value to normalize
+    const maxAbs = Math.max(1, ...Object.values(scores).map(Math.abs));
+    axisBars.innerHTML = QUIZ.axes.map(axis => {
+        const score = scores[axis.key] || 0;
+        const pct = Math.round((Math.abs(score) / maxAbs) * 50);  // 50% because we split center
+        const positive = score >= 0;
+        const barColor = positive ? 'bg-sage' : 'bg-coral';
+        return `
+            <div>
+                <div class="flex items-center justify-between text-xs mb-1">
+                    <span class="font-medium">${escapeHtml(axis.label)}</span>
+                    <span class="text-txt-muted">${score > 0 ? '+' : ''}${score.toFixed(1)}</span>
+                </div>
+                <div class="relative h-2 bg-border-light dark:bg-border-dark rounded-full overflow-hidden">
+                    <div class="absolute top-0 bottom-0 left-1/2 w-px bg-border-light dark:bg-border-dark"></div>
+                    <div class="axis-bar absolute top-0 bottom-0 ${barColor} rounded-full"
+                         style="${positive ? 'left: 50%; width: ' + pct + '%;' : 'right: 50%; width: ' + pct + '%;'}"></div>
+                </div>
+                <p class="text-[10px] text-txt-muted mt-0.5">${escapeHtml(axis.description)}</p>
+            </div>
+        `;
+    }).join('');
+}
+
+loadQuiz();
+</script>
+{% endblock %}

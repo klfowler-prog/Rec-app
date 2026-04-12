@@ -1,550 +1,82 @@
 {% extends "base.html" %}
 {% block title %}Quick Start{% endblock %}
 
-{% block head %}
-<style>
-    .quiz-card { position: relative; cursor: pointer; }
-    .quiz-card.selected { ring: 2px; }
-    .quiz-card .overlay {
-        position: absolute; inset: 0; background: rgba(0,0,0,0.6);
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
-        opacity: 0; transition: opacity 0.2s;
-    }
-    .quiz-card.selected .overlay { opacity: 1; }
-    .quiz-card:hover .overlay { opacity: 0.8; }
-    .quiz-card.selected:hover .overlay { opacity: 1; }
-    .quiz-card.rated .check { display: flex; }
-    .taste-card { transition: all 150ms ease; }
-    .taste-card:hover { transform: translateY(-2px); }
-    .taste-card[disabled] { cursor: not-allowed; }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="space-y-10">
-    <div class="text-center max-w-lg mx-auto">
-        <h2 class="text-2xl font-bold mb-2">Build your taste profile</h2>
-        <p class="text-txt-muted">Start with a quick this-or-that test, then rate five things you love in each category. Takes about 3 minutes.</p>
+<div class="max-w-2xl mx-auto space-y-8">
+    <div class="text-center">
+        <h2 class="text-2xl font-semibold mb-2">Build your taste profile</h2>
+        <p class="text-txt-muted">Pick a medium and walk through a short taste quiz. Each one teaches the app how you engage with that form — and sharpens your recommendations across the whole library.</p>
     </div>
 
-    <!-- This-or-that taste test — probes real taste dimensions -->
-    <section id="taste-test-section" class="bg-surface-light dark:bg-surface-dark rounded-2xl border border-border-light dark:border-border-dark p-5 md:p-6">
-        <div class="flex items-center justify-between mb-3 gap-3 flex-wrap">
-            <div>
-                <h3 class="text-base font-semibold flex items-center gap-2">
-                    <span class="w-6 h-6 rounded gradient-coral flex items-center justify-center">
-                        <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h8m-8 5h8m-5 5h5M4 7h0M4 12h0M4 17h0"/></svg>
-                    </span>
-                    This or that
-                </h3>
-                <p class="text-xs text-txt-muted">Each row probes a taste dimension. Tap anything you've actually seen or read, then rate it.</p>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <!-- Movies (live) -->
+        <a href="/quick-start/movies" class="group block bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-2xl p-5 transition-base hover:border-sage hover:shadow-md">
+            <div class="flex items-start gap-3 mb-3">
+                <span class="w-10 h-10 rounded-lg gradient-blue flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/></svg>
+                </span>
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-base font-semibold">Movies</h3>
+                    <p class="text-xs text-txt-muted">20 films, ~4 minutes</p>
+                </div>
+                <span class="text-[10px] font-semibold uppercase tracking-wide text-sage bg-sage/10 px-2 py-0.5 rounded-full">Ready</span>
             </div>
-            <p id="taste-test-progress" class="text-xs text-txt-muted">0 rated</p>
-        </div>
-        <div id="taste-test-loading" class="py-8 text-center">
-            <div class="inline-block w-5 h-5 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
-        </div>
-        <div id="taste-test-content" class="hidden space-y-6 mt-2"></div>
-    </section>
-
-    <!-- Divider + curated grid intro -->
-    <div class="text-center max-w-lg mx-auto pt-2">
-        <h3 class="text-lg font-semibold mb-1">Now rate 5 in each category</h3>
-        <p class="text-txt-muted text-sm">Tap items you've watched, read, or listened to, then rate them. Aim for <span class="font-semibold text-txt">5 per category</span>.</p>
-    </div>
-
-    <!-- Per-type progress -->
-    <div class="max-w-md mx-auto grid grid-cols-4 gap-3 text-center">
-        <div>
-            <p class="text-[10px] text-txt-muted uppercase tracking-wide mb-1">Movies</p>
-            <p id="progress-movie" class="text-sm font-semibold text-txt-muted">0 / 5</p>
-            <div class="h-1 bg-border-light dark:bg-border-dark rounded-full overflow-hidden mt-1"><div id="progress-bar-movie" class="h-full bg-sage rounded-full transition-all" style="width: 0%"></div></div>
-        </div>
-        <div>
-            <p class="text-[10px] text-txt-muted uppercase tracking-wide mb-1">TV</p>
-            <p id="progress-tv" class="text-sm font-semibold text-txt-muted">0 / 5</p>
-            <div class="h-1 bg-border-light dark:bg-border-dark rounded-full overflow-hidden mt-1"><div id="progress-bar-tv" class="h-full bg-sage rounded-full transition-all" style="width: 0%"></div></div>
-        </div>
-        <div>
-            <p class="text-[10px] text-txt-muted uppercase tracking-wide mb-1">Books</p>
-            <p id="progress-book" class="text-sm font-semibold text-txt-muted">0 / 5</p>
-            <div class="h-1 bg-border-light dark:bg-border-dark rounded-full overflow-hidden mt-1"><div id="progress-bar-book" class="h-full bg-sage rounded-full transition-all" style="width: 0%"></div></div>
-        </div>
-        <div>
-            <p class="text-[10px] text-txt-muted uppercase tracking-wide mb-1">Podcasts</p>
-            <p id="progress-podcast" class="text-sm font-semibold text-txt-muted">0 / 5</p>
-            <div class="h-1 bg-border-light dark:bg-border-dark rounded-full overflow-hidden mt-1"><div id="progress-bar-podcast" class="h-full bg-sage rounded-full transition-all" style="width: 0%"></div></div>
-        </div>
-    </div>
-
-    <!-- Loading -->
-    <div id="quiz-loading" class="text-center py-12">
-        <div class="inline-block w-6 h-6 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
-        <p class="text-sm text-txt-muted mt-3">Loading popular items...</p>
-    </div>
-
-    <!-- Quiz sections -->
-    <div id="quiz-content" class="hidden space-y-8">
-        <div>
-            <h3 class="text-sm font-semibold uppercase tracking-wide text-txt-muted mb-3 flex items-center gap-2">
-                <span class="w-6 h-6 rounded gradient-blue flex items-center justify-center"><svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/></svg></span>
-                Movies
-            </h3>
-            <div id="quiz-movies" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3"></div>
-            <div class="mt-3">
-                <textarea id="extra-movies" rows="2" placeholder="Tell us some of your favorite movies, one per line..." class="w-full px-3 py-2 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-sage/40 resize-none"></textarea>
-            </div>
-        </div>
-        <div>
-            <h3 class="text-sm font-semibold uppercase tracking-wide text-txt-muted mb-3 flex items-center gap-2">
-                <span class="w-6 h-6 rounded gradient-purple flex items-center justify-center"><svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></span>
-                TV Shows
-            </h3>
-            <div id="quiz-tv" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3"></div>
-            <div class="mt-3">
-                <textarea id="extra-tv" rows="2" placeholder="Tell us some of your favorite TV shows, one per line..." class="w-full px-3 py-2 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-sage/40 resize-none"></textarea>
-            </div>
-        </div>
-        <div>
-            <h3 class="text-sm font-semibold uppercase tracking-wide text-txt-muted mb-3 flex items-center gap-2">
-                <span class="w-6 h-6 rounded gradient-amber flex items-center justify-center"><svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg></span>
-                Books
-            </h3>
-            <div id="quiz-books" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3"></div>
-            <div class="mt-3">
-                <textarea id="extra-books" rows="2" placeholder="Tell us some of your favorite books, one per line..." class="w-full px-3 py-2 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-sage/40 resize-none"></textarea>
-            </div>
-        </div>
-        <div>
-            <h3 class="text-sm font-semibold uppercase tracking-wide text-txt-muted mb-3 flex items-center gap-2">
-                <span class="w-6 h-6 rounded bg-green-500 flex items-center justify-center"><svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg></span>
-                Podcasts
-            </h3>
-            <div id="quiz-podcasts" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3"></div>
-            <div class="mt-3">
-                <textarea id="extra-podcasts" rows="2" placeholder="Tell us some of your favorite podcasts, one per line..." class="w-full px-3 py-2 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-sage/40 resize-none"></textarea>
-            </div>
-        </div>
-    </div>
-
-    <!-- Didn't like section (optional) -->
-    <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-coral/20 p-6">
-        <h3 class="text-sm font-semibold mb-1 flex items-center gap-2">
-            <span class="w-6 h-6 rounded bg-coral/20 flex items-center justify-center">
-                <svg class="w-3 h-3 text-coral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2"/></svg>
+            <p class="text-sm text-txt-muted leading-relaxed mb-3">Rate 20 films from Groundhog Day to 2001. We'll score you on pace, darkness, ambiguity, humor, and more — then show you which way your taste leans.</p>
+            <span class="text-sm font-medium text-sage inline-flex items-center gap-1 group-hover:gap-2 transition-all">
+                Start quiz
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
             </span>
-            Not for me <span class="text-xs text-txt-muted font-normal ml-1">(optional)</span>
-        </h3>
-        <p class="text-xs text-txt-muted mb-3">Anything you've watched, read, or listened to that just wasn't your thing? This helps us avoid recommending similar stuff.</p>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <textarea id="dislike-movies-tv" rows="2" placeholder="Movies or TV shows you didn't enjoy..." class="w-full px-3 py-2 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-coral/40 resize-none"></textarea>
-            <textarea id="dislike-books-podcasts" rows="2" placeholder="Books or podcasts you didn't enjoy..." class="w-full px-3 py-2 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-coral/40 resize-none"></textarea>
+        </a>
+
+        <!-- TV (coming soon) -->
+        <div class="block bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-2xl p-5 opacity-60">
+            <div class="flex items-start gap-3 mb-3">
+                <span class="w-10 h-10 rounded-lg gradient-purple flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                </span>
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-base font-semibold">TV Shows</h3>
+                    <p class="text-xs text-txt-muted">Coming soon</p>
+                </div>
+                <span class="text-[10px] font-semibold uppercase tracking-wide text-txt-muted bg-bg-light dark:bg-bg-dark px-2 py-0.5 rounded-full">Drafting</span>
+            </div>
+            <p class="text-sm text-txt-muted leading-relaxed">A similar quiz is in the works for TV. For now, you can still add shows directly from Search or Add Media.</p>
+        </div>
+
+        <!-- Books (coming soon) -->
+        <div class="block bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-2xl p-5 opacity-60">
+            <div class="flex items-start gap-3 mb-3">
+                <span class="w-10 h-10 rounded-lg gradient-amber flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                </span>
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-base font-semibold">Books</h3>
+                    <p class="text-xs text-txt-muted">Coming soon</p>
+                </div>
+                <span class="text-[10px] font-semibold uppercase tracking-wide text-txt-muted bg-bg-light dark:bg-bg-dark px-2 py-0.5 rounded-full">Drafting</span>
+            </div>
+            <p class="text-sm text-txt-muted leading-relaxed">Book quiz in progress. You can import a Goodreads CSV or add books from Search in the meantime.</p>
+        </div>
+
+        <!-- Podcasts (coming soon) -->
+        <div class="block bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-2xl p-5 opacity-60">
+            <div class="flex items-start gap-3 mb-3">
+                <span class="w-10 h-10 rounded-lg bg-green-500 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
+                </span>
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-base font-semibold">Podcasts</h3>
+                    <p class="text-xs text-txt-muted">Coming soon</p>
+                </div>
+                <span class="text-[10px] font-semibold uppercase tracking-wide text-txt-muted bg-bg-light dark:bg-bg-dark px-2 py-0.5 rounded-full">Drafting</span>
+            </div>
+            <p class="text-sm text-txt-muted leading-relaxed">Podcast quiz coming next. Add shows directly from Search in the meantime.</p>
         </div>
     </div>
 
-    <!-- Done button -->
-    <div id="done-section" class="text-center py-4">
-        <button onclick="finishQuiz()" id="finish-btn" class="px-8 py-3 bg-sage text-white rounded-xl text-sm font-semibold transition-base hover:bg-sage-dark inline-flex items-center gap-2">
-            Save &amp; see my recommendations &rarr;
-        </button>
-        <p id="saving-status" class="hidden text-sm text-txt-muted mt-2"></p>
+    <!-- Skip option -->
+    <div class="text-center pt-2">
+        <p class="text-xs text-txt-muted">Rather add items manually? <a href="/add" class="text-sage hover:underline">Go to Add Media</a> · <a href="/search" class="text-sage hover:underline">Search</a></p>
     </div>
 </div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-let ratedCount = 0;
-let ratedByType = { movie: 0, tv: 0, book: 0, podcast: 0 };
-const GOAL_PER_TYPE = 5;
-
-function updateProgress() {
-    for (const mt of ['movie', 'tv', 'book', 'podcast']) {
-        const n = ratedByType[mt];
-        const el = document.getElementById(`progress-${mt}`);
-        if (el) {
-            el.textContent = `${n} / ${GOAL_PER_TYPE}`;
-            if (n >= GOAL_PER_TYPE) el.classList.add('text-sage');
-            else el.classList.remove('text-sage');
-        }
-        const bar = document.getElementById(`progress-bar-${mt}`);
-        if (bar) bar.style.width = `${Math.min(100, (n / GOAL_PER_TYPE) * 100)}%`;
-    }
-    // Show the "done" section once the user has rated at least a few
-    // items (so they can move on early if they want), but emphasize
-    // hitting 5-per-type for the best experience.
-    if (ratedCount >= 3) {
-        document.getElementById('done-section').classList.remove('hidden');
-    }
-}
-
-function quizCard(item) {
-    const fit = item.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
-    const image = item.image_url
-        ? `<div class="poster-frame rounded-lg"><img src="${item.image_url}" alt="" class="${fit}"></div>`
-        : `<div class="poster-frame rounded-lg"><div class="poster-fallback bg-sage/10"><span class="text-sage text-lg">${escapeHtml((item.title||'?')[0])}</span></div></div>`;
-    const dataAttr = escapeAttr(JSON.stringify({
-        external_id: item.external_id, source: item.source, title: item.title,
-        media_type: item.media_type, image_url: item.image_url, year: item.year,
-        creator: item.creator || null, genres: item.genres ? item.genres.join(', ') : null,
-        description: item.description || null, status: 'consumed',
-    }));
-
-    return `
-        <div class="quiz-card rounded-lg overflow-hidden" data-item='${dataAttr}'>
-            ${image}
-            <div class="overlay rounded-lg">
-                <div class="flex flex-col items-center gap-2">
-                    <p class="text-white text-xs font-medium px-2 text-center">${escapeHtml(item.title)}</p>
-                    <div class="flex gap-1">
-                        <button onclick="quizRate(this, 2)" class="w-7 h-7 rounded-full bg-white/20 hover:bg-coral text-white text-[10px] font-bold transition-base">2</button>
-                        <button onclick="quizRate(this, 4)" class="w-7 h-7 rounded-full bg-white/20 hover:bg-amber-400 text-white text-[10px] font-bold transition-base">4</button>
-                        <button onclick="quizRate(this, 6)" class="w-7 h-7 rounded-full bg-white/20 hover:bg-yellow-500 text-white text-[10px] font-bold transition-base">6</button>
-                        <button onclick="quizRate(this, 8)" class="w-7 h-7 rounded-full bg-white/20 hover:bg-emerald-400 text-white text-[10px] font-bold transition-base">8</button>
-                        <button onclick="quizRate(this, 10)" class="w-7 h-7 rounded-full bg-white/20 hover:bg-emerald-500 text-white text-[10px] font-bold transition-base">10</button>
-                    </div>
-                    <p class="text-white/50 text-[9px]">tap to rate</p>
-                </div>
-            </div>
-            <div class="check hidden absolute top-1 right-1 w-6 h-6 bg-emerald-500 rounded-full items-center justify-center">
-                <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-            </div>
-        </div>
-    `;
-}
-
-async function quizRate(btn, rating) {
-    const card = btn.closest('.quiz-card');
-    if (card.classList.contains('rated')) return;
-
-    const data = JSON.parse(card.dataset.item);
-    data.rating = rating;
-
-    try {
-        const resp = await fetch('/api/profile/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
-        });
-
-        if (resp.ok) {
-            const entry = await resp.json();
-            // Update rating if needed
-            if (rating) {
-                await fetch(`/api/profile/${entry.id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ rating }),
-                });
-            }
-        }
-
-        card.classList.add('rated', 'selected');
-        card.querySelector('.overlay').innerHTML = `
-            <div class="flex flex-col items-center gap-1">
-                <div class="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center">
-                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                </div>
-                <span class="text-white text-xs font-bold">${rating}/10</span>
-            </div>
-        `;
-        card.querySelector('.overlay').style.opacity = '1';
-
-        ratedCount++;
-        if (data.media_type && ratedByType.hasOwnProperty(data.media_type)) {
-            ratedByType[data.media_type]++;
-        }
-        updateProgress();
-    } catch {}
-}
-
-async function loadQuiz() {
-    try {
-        const resp = await fetch('/api/media/quiz-items');
-        const data = await resp.json();
-
-        document.getElementById('quiz-movies').innerHTML = (data.movie || []).map(quizCard).join('');
-        document.getElementById('quiz-tv').innerHTML = (data.tv || []).map(quizCard).join('');
-        document.getElementById('quiz-books').innerHTML = (data.book || []).map(quizCard).join('');
-        document.getElementById('quiz-podcasts').innerHTML = (data.podcast || []).map(quizCard).join('');
-
-        document.getElementById('quiz-loading').classList.add('hidden');
-        document.getElementById('quiz-content').classList.remove('hidden');
-    } catch {
-        document.getElementById('quiz-loading').innerHTML = '<p class="text-txt-muted">Failed to load items. Please try again.</p>';
-    }
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-function escapeAttr(str) {
-    return str.replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-async function finishQuiz() {
-    const btn = document.getElementById('finish-btn');
-    const status = document.getElementById('saving-status');
-
-    // Gather favorites (rated 10)
-    const extras = [
-        { id: 'extra-movies', type: 'movie' },
-        { id: 'extra-tv', type: 'tv' },
-        { id: 'extra-books', type: 'book' },
-        { id: 'extra-podcasts', type: 'podcast' },
-    ];
-
-    const items = [];   // { title, media_type, rating }
-    for (const { id, type } of extras) {
-        const text = document.getElementById(id).value.trim();
-        if (!text) continue;
-        const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-        for (const title of lines) {
-            items.push({ title, media_type: type, rating: 10 });
-        }
-    }
-
-    // Gather dislikes (rated 1) — use AI classification for type
-    const dislikeFields = [
-        { id: 'dislike-movies-tv', types: ['movie', 'tv'] },
-        { id: 'dislike-books-podcasts', types: ['book', 'podcast'] },
-    ];
-    for (const { id, types } of dislikeFields) {
-        const text = document.getElementById(id).value.trim();
-        if (!text) continue;
-        const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-        for (const title of lines) {
-            // Default to first type in the group
-            items.push({ title, media_type: types[0], rating: 1 });
-        }
-    }
-
-    if (items.length === 0) {
-        window.location.href = '/';
-        return;
-    }
-
-    btn.disabled = true;
-    btn.innerHTML = 'Saving...';
-    status.classList.remove('hidden');
-    status.textContent = `Searching for ${items.length} titles...`;
-
-    // Build a rating lookup by title
-    const ratingByTitle = {};
-    for (const item of items) {
-        ratingByTitle[item.title.toLowerCase()] = item.rating;
-    }
-
-    try {
-        // Use bulk search to find each item
-        const searchResp = await fetch('/api/media/bulk-search', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ items }),
-        });
-        const matches = await searchResp.json();
-
-        let added = 0;
-        for (const [title, results] of Object.entries(matches)) {
-            if (!results || results.length === 0) continue;
-            const best = results[0];
-            const rating = ratingByTitle[title.toLowerCase()] || 10;
-            try {
-                const resp = await fetch('/api/profile/', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        external_id: best.external_id,
-                        source: best.source,
-                        title: best.title,
-                        media_type: best.media_type,
-                        image_url: best.image_url,
-                        year: best.year,
-                        creator: best.creator || null,
-                        genres: best.genres ? best.genres.join(', ') : null,
-                        description: best.description || null,
-                        status: 'consumed',
-                        rating: rating,
-                    }),
-                });
-                if (resp.ok) added++;
-            } catch {}
-        }
-
-        status.textContent = `Added ${added} items!`;
-        setTimeout(() => { window.location.href = '/'; }, 1000);
-    } catch {
-        status.textContent = 'Error saving. Redirecting...';
-        setTimeout(() => { window.location.href = '/'; }, 1500);
-    }
-}
-
-loadQuiz();
-
-// -----------------------------------------------------------------
-// This-or-that taste test. Each axis has two labeled sides, each
-// side has 3 items. User taps items they've actually consumed and
-// rates them — no forced choice on things they haven't seen. Items
-// rated here flow into the profile as real "consumed + rating"
-// entries and count toward the per-type progress goal.
-// -----------------------------------------------------------------
-let taste_test_rated_count = 0;
-
-async function loadTasteTest() {
-    try {
-        const resp = await fetch('/api/media/taste-test');
-        if (!resp.ok) throw new Error('fetch failed');
-        const data = await resp.json();
-        const axes = data.axes || [];
-        document.getElementById('taste-test-loading').classList.add('hidden');
-        if (axes.length === 0) {
-            document.getElementById('taste-test-section').classList.add('hidden');
-            return;
-        }
-        renderTasteTest(axes);
-    } catch {
-        document.getElementById('taste-test-loading').classList.add('hidden');
-        document.getElementById('taste-test-section').classList.add('hidden');
-    }
-}
-
-function tasteCard(item) {
-    const mt = item.media_type;
-    const fit = mt === 'podcast' ? 'poster-contain' : 'poster-cover';
-    const image = item.image_url
-        ? `<div class="poster-frame rounded-lg"><img src="${item.image_url}" alt="" class="${fit}"></div>`
-        : `<div class="poster-frame rounded-lg"><div class="poster-fallback bg-sage/10"><span class="text-sage text-xl">${escapeHtml((item.title || '?')[0])}</span></div></div>`;
-    // Encode the full item data as a JSON blob on the card so the click
-    // handler can re-use it to POST a profile entry.
-    const dataAttr = escapeAttr(JSON.stringify({
-        external_id: item.external_id || '',
-        source: item.source || '',
-        title: item.title,
-        media_type: mt,
-        image_url: item.image_url || null,
-        year: item.year || null,
-        creator: item.creator || null,
-        genres: (item.genres && item.genres.length) ? item.genres.join(', ') : null,
-        description: item.description || null,
-        status: 'consumed',
-    }));
-    return `
-        <div class="taste-card-wrap relative">
-            <button type="button"
-                    onclick="tasteSelect(this, ${dataAttr})"
-                    data-taste-card
-                    class="taste-card w-full text-left p-1.5 rounded-xl border-2 border-border-light dark:border-border-dark hover:border-sage transition-base focus:outline-none focus:border-sage">
-                ${image}
-                <div class="mt-1.5 px-0.5">
-                    <p class="text-[11px] font-semibold leading-tight line-clamp-2">${escapeHtml(item.title)}</p>
-                </div>
-            </button>
-            <div class="taste-rating-row hidden mt-1.5 flex items-center gap-0.5 justify-center flex-wrap"></div>
-        </div>
-    `;
-}
-
-function renderTasteTest(axes) {
-    const content = document.getElementById('taste-test-content');
-    content.innerHTML = axes.map(axis => `
-        <div class="taste-axis">
-            <p class="text-[11px] text-txt-muted uppercase tracking-widest mb-3 text-center font-semibold">${escapeHtml(axis.axis)}</p>
-            <div class="grid grid-cols-2 gap-4 items-start">
-                <div>
-                    <p class="text-[10px] text-txt-muted uppercase tracking-wide mb-2 text-center font-medium">${escapeHtml(axis.left.label)}</p>
-                    <div class="grid grid-cols-3 gap-2">
-                        ${axis.left.items.map(tasteCard).join('')}
-                    </div>
-                </div>
-                <div>
-                    <p class="text-[10px] text-txt-muted uppercase tracking-wide mb-2 text-center font-medium">${escapeHtml(axis.right.label)}</p>
-                    <div class="grid grid-cols-3 gap-2">
-                        ${axis.right.items.map(tasteCard).join('')}
-                    </div>
-                </div>
-            </div>
-        </div>
-    `).join('');
-    content.classList.remove('hidden');
-}
-
-function updateTasteProgress() {
-    document.getElementById('taste-test-progress').textContent =
-        taste_test_rated_count === 0 ? '0 rated' : `${taste_test_rated_count} rated`;
-}
-
-// Tap a card to select it. We POST to /api/profile/ to create the
-// entry (so we have an ID to update), mark the card as selected, and
-// reveal a 1-10 rating row directly underneath. Tapping a rating PUTs
-// to update the entry's rating.
-async function tasteSelect(btn, itemData) {
-    const wrap = btn.closest('.taste-card-wrap');
-    if (btn.dataset.entryId) {
-        // Already created — just toggle the rating row back into view.
-        wrap.querySelector('.taste-rating-row').classList.remove('hidden');
-        return;
-    }
-    btn.classList.add('border-sage', 'bg-sage/5');
-    try {
-        const resp = await fetch('/api/profile/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(itemData),
-        });
-        let entryId = null;
-        if (resp.ok) {
-            const created = await resp.json();
-            entryId = created.id;
-        } else if (resp.status === 409) {
-            // Already in profile — look it up so we can still rate it
-            try {
-                const check = await fetch(`/api/profile/check/${encodeURIComponent(itemData.source || '_')}/${encodeURIComponent(itemData.external_id || '_')}`);
-                const d = await check.json();
-                entryId = d.entry ? d.entry.id : null;
-            } catch {}
-        }
-        if (!entryId) {
-            btn.classList.remove('border-sage', 'bg-sage/5');
-            return;
-        }
-        btn.dataset.entryId = entryId;
-        btn.dataset.mediaType = itemData.media_type;
-        // Reveal the rating row
-        const row = wrap.querySelector('.taste-rating-row');
-        row.classList.remove('hidden');
-        row.innerHTML = Array.from({length: 10}, (_, i) => i + 1).map(n => {
-            const color = n <= 3 ? 'hover:bg-coral' : n <= 5 ? 'hover:bg-amber-400' : n <= 7 ? 'hover:bg-yellow-500' : 'hover:bg-emerald-500';
-            return `<button type="button" onclick="tasteRate(this,${entryId},${n},'${itemData.media_type}')" class="w-4 h-4 rounded-full bg-border-light dark:bg-border-dark ${color} transition-base text-[7px] font-bold text-transparent hover:text-white" title="${n}/10">${n}</button>`;
-        }).join('');
-    } catch {
-        btn.classList.remove('border-sage', 'bg-sage/5');
-    }
-}
-
-async function tasteRate(btn, entryId, rating, mediaType) {
-    try {
-        const resp = await fetch(`/api/profile/${entryId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ rating }),
-        });
-        if (!resp.ok) return;
-    } catch { return; }
-    const row = btn.parentElement;
-    const ratingColor = rating <= 3 ? 'text-coral' : rating <= 5 ? 'text-amber-500' : rating <= 7 ? 'text-yellow-600' : 'text-emerald-500';
-    row.innerHTML = `<span class="text-[11px] font-semibold ${ratingColor}">${rating}/10 ✓</span>`;
-    taste_test_rated_count++;
-    ratedCount++;
-    if (mediaType && ratedByType.hasOwnProperty(mediaType)) {
-        ratedByType[mediaType]++;
-    }
-    updateProgress();
-    updateTasteProgress();
-}
-
-loadTasteTest();
-</script>
 {% endblock %}

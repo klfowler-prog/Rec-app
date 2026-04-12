@@ -430,6 +430,101 @@ def _filter_quiz_items_for_user(base: dict, db: Session, user_id: int) -> dict:
     }
 
 
+@router.get("/taste-quiz/movies")
+async def taste_quiz_movies_items():
+    """Return the 20 films for the movie taste quiz, enriched with
+    TMDB poster + metadata. Fixed order (accessible → challenging),
+    shared across all users, cached 7 days."""
+    import asyncio
+
+    from app import cache
+    from app.services.movie_taste_quiz import FILMS, RESPONSE_OPTIONS, AXES
+    from app.services.tmdb import search as tmdb_search
+
+    cached = cache.get("movie_taste_quiz_items")
+    if cached is not None:
+        return cached
+
+    async def enrich(film: dict) -> dict:
+        try:
+            results = await tmdb_search(film["title"], "movie")
+        except Exception:
+            results = []
+        best = None
+        if results:
+            # Prefer an exact year match since film titles collide
+            for r in results[:10]:
+                if r.year == film["year"]:
+                    best = r
+                    break
+            if not best:
+                # Fall back to the first result with a poster
+                for r in results[:10]:
+                    if r.image_url:
+                        best = r
+                        break
+            if not best:
+                best = results[0]
+        return {
+            "order": film["order"],
+            "title": film["title"],
+            "year": film["year"],
+            "weights": film["weights"],
+            "media_type": "movie",
+            "image_url": best.image_url if best else None,
+            "external_id": best.external_id if best else "",
+            "source": best.source if best else "",
+            "creator": best.creator if best else None,
+            "description": best.description if best else None,
+            "genres": best.genres if best else [],
+        }
+
+    enriched = await asyncio.gather(*[enrich(f) for f in FILMS])
+    # Preserve the canonical order, don't sort by anything else
+    enriched_sorted = sorted(enriched, key=lambda f: f["order"])
+    result = {
+        "items": enriched_sorted,
+        "options": RESPONSE_OPTIONS,
+        "axes": AXES,
+        "min_answered": 11,
+        "total_questions": len(FILMS),
+    }
+    cache.set("movie_taste_quiz_items", result, ttl_seconds=86400 * 7)
+    return result
+
+
+class QuizResponseItem(BaseModel):
+    order: int
+    value: int | None
+
+
+class QuizSubmission(BaseModel):
+    responses: list[QuizResponseItem]
+
+
+@router.post("/taste-quiz/movies/score")
+async def score_movie_quiz(
+    submission: QuizSubmission,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Score the user's quiz responses. Returns axis breakdown and
+    the top 2 profile matches (direction hints, not pigeonhole labels).
+    Does NOT persist the film ratings — that's handled inline by the
+    frontend as the user taps responses so the save flow matches the
+    rest of the app."""
+    from app.services.movie_taste_quiz import score_responses
+
+    result = score_responses([r.model_dump() for r in submission.responses])
+    log.info(
+        "movie_taste_quiz [user=%d]: %d answered, top=%s",
+        user.id,
+        result.get("answered_count", 0),
+        result["profiles"][0]["id"] if result.get("profiles") else "none",
+    )
+    return result
+
+
 @router.get("/taste-test")
 async def taste_test():
     """Return contrasting taste-axis pools. Each axis has two LABELED

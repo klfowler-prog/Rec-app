@@ -1,0 +1,196 @@
+"""Movie taste quiz — static data + scoring logic.
+
+20-question quiz that scores the user on 8 taste axes and surfaces a
+direction-blend (top 2 profile matches) rather than pinning them to a
+single label. The axis scores themselves are the real signal; profile
+labels are shorthand for the user-facing description and for feeding
+into recommendation prompts as a hint.
+
+Films are presented in a deliberate accessible → challenging order.
+Do NOT randomize. Films with a null response are excluded from
+scoring entirely.
+"""
+
+import math
+
+# 8 axes with short keys + human labels used in the UI.
+AXES: list[dict] = [
+    {"key": "pace",         "label": "Pace Tolerance",     "description": "Comfort with slow, contemplative films"},
+    {"key": "darkness",     "label": "Darkness Tolerance", "description": "Engages nihilistic or punishing material"},
+    {"key": "ambiguity",    "label": "Ambiguity Comfort",  "description": "Prefers open endings, unresolved questions"},
+    {"key": "emotional",    "label": "Emotional Register", "description": "Drawn to character and emotional truth"},
+    {"key": "irony",        "label": "Irony Index",        "description": "Deadpan, meta, detached humor"},
+    {"key": "comedy",       "label": "Comedy Register",    "description": "Absurdist or formally inventive comedy"},
+    {"key": "genre",        "label": "Genre Openness",     "description": "Uses genre as a tool, not a filter"},
+    {"key": "film_history", "label": "Film History",       "description": "Engages cinema as a tradition"},
+]
+
+AXIS_KEYS: list[str] = [a["key"] for a in AXES]
+
+# Response options — value is what gets multiplied against the film's
+# axis weight when scoring. null means "haven't seen" and is excluded
+# from the math entirely (not treated as 0).
+RESPONSE_OPTIONS: list[dict] = [
+    {"value": 2,    "emoji": "❤️",   "label": "Loved it",       "description": "A real favorite"},
+    {"value": 1,    "emoji": "👍",   "label": "Liked it",       "description": "Enjoyed it"},
+    {"value": 0,    "emoji": "😐",   "label": "It's fine",      "description": "Neutral"},
+    {"value": -1,   "emoji": "👎",   "label": "Didn't click",   "description": "Not for me"},
+    {"value": None, "emoji": "🚫",   "label": "Haven't seen it","description": "Skip"},
+]
+
+# Map quiz response values to a 1-10 rating we can persist in the
+# user's profile so the existing recommendation pipeline sees the
+# signal too.
+RATING_MAP: dict[int, int] = {2: 9, 1: 7, 0: 5, -1: 3}
+
+
+# 20 films in presentation order. `weights` are the axis deltas
+# applied when the user rates this film (multiplied by the response
+# value). Accessible → challenging ordering is intentional.
+FILMS: list[dict] = [
+    {"order": 1,  "title": "Groundhog Day",                          "year": 1993,
+     "weights": {"comedy": 1, "emotional": 1}},
+    {"order": 2,  "title": "Pulp Fiction",                           "year": 1994,
+     "weights": {"ambiguity": 1, "irony": 1, "darkness": 1, "genre": 1}},
+    {"order": 3,  "title": "La La Land",                             "year": 2016,
+     "weights": {"irony": -2, "darkness": -1}},
+    {"order": 4,  "title": "The Dark Knight",                        "year": 2008,
+     "weights": {"genre": 1, "darkness": 1, "irony": -1}},
+    {"order": 5,  "title": "Get Out",                                "year": 2017,
+     "weights": {"genre": 2, "darkness": 1, "emotional": 1}},
+    {"order": 6,  "title": "Arrival",                                "year": 2016,
+     "weights": {"emotional": 1, "genre": 1, "pace": 1, "ambiguity": 1}},
+    {"order": 7,  "title": "Eternal Sunshine of the Spotless Mind",  "year": 2004,
+     "weights": {"emotional": 2, "ambiguity": 1, "genre": 1}},
+    {"order": 8,  "title": "Airplane!",                              "year": 1980,
+     "weights": {"comedy": 2, "irony": 1, "emotional": -2}},
+    {"order": 9,  "title": "Parasite",                               "year": 2019,
+     "weights": {"genre": 2, "ambiguity": 1, "darkness": 1}},
+    {"order": 10, "title": "Mad Max: Fury Road",                     "year": 2015,
+     "weights": {"pace": -2, "ambiguity": -1}},
+    {"order": 11, "title": "The Shining",                            "year": 1980,
+     "weights": {"darkness": 1, "ambiguity": 1, "film_history": 1, "genre": 1}},
+    {"order": 12, "title": "Annie Hall",                             "year": 1977,
+     "weights": {"comedy": 2, "irony": 1, "emotional": 1, "film_history": 1}},
+    {"order": 13, "title": "No Country for Old Men",                 "year": 2007,
+     "weights": {"ambiguity": 2, "darkness": 2}},
+    {"order": 14, "title": "Marriage Story",                         "year": 2019,
+     "weights": {"emotional": 2, "irony": -1}},
+    {"order": 15, "title": "Raising Arizona",                        "year": 1987,
+     "weights": {"comedy": 1, "irony": 1, "emotional": 1, "film_history": 1}},
+    {"order": 16, "title": "The Big Lebowski",                       "year": 1998,
+     "weights": {"irony": 2, "ambiguity": 1, "comedy": 1}},
+    {"order": 17, "title": "Chinatown",                              "year": 1974,
+     "weights": {"darkness": 2, "ambiguity": 2, "film_history": 2}},
+    {"order": 18, "title": "There Will Be Blood",                    "year": 2007,
+     "weights": {"pace": 2, "darkness": 1, "emotional": -1}},
+    {"order": 19, "title": "Apocalypse Now",                         "year": 1979,
+     "weights": {"film_history": 2, "pace": 2, "darkness": 2}},
+    {"order": 20, "title": "2001: A Space Odyssey",                  "year": 1968,
+     "weights": {"pace": 2, "ambiguity": 2, "film_history": 1}},
+]
+
+
+# Profile definitions. Each profile has a signature vector that
+# cosine-compares against the user's axis scores. Values are rough
+# direction signals: 1.0 = high on this axis is defining, -1.0 =
+# low is defining, 0 = not part of the profile.
+PROFILES: list[dict] = [
+    {
+        "id": "patient_formalist",
+        "name": "The Patient Formalist",
+        "vector": {"pace": 1.0, "ambiguity": 1.0, "film_history": 1.0},
+        "description": "You watch film as art. You're comfortable with slow, unresolved, visually driven work that asks you to sit with it.",
+    },
+    {
+        "id": "genre_adventurer",
+        "name": "The Genre Adventurer",
+        "vector": {"genre": 1.0, "darkness": 1.0, "ambiguity": 1.0},
+        "description": "You don't filter by genre. You're drawn to films that use horror, sci-fi, or thriller conventions to say something unexpected about the world.",
+    },
+    {
+        "id": "emotional_realist",
+        "name": "The Emotional Realist",
+        "vector": {"emotional": 1.0, "irony": -1.0, "pace": 0.3},
+        "description": "You need a story to feel true. You're drawn to performance, character, and emotional honesty — and suspicious of work that keeps its feelings at arm's length.",
+    },
+    {
+        "id": "chaos_enjoyer",
+        "name": "The Chaos Enjoyer",
+        "vector": {"ambiguity": 1.0, "irony": 1.0, "darkness": 1.0},
+        "description": "You find discomfort interesting. You're drawn to films that withhold resolution, subvert expectation, or leave you uncertain about what you just watched.",
+    },
+    {
+        "id": "crowd_pleaser",
+        "name": "The Crowd Pleaser",
+        "vector": {"emotional": 1.0, "pace": -1.0, "irony": -1.0},
+        "description": "You have a strong instinct for story and entertainment. You're not interested in being challenged for its own sake — and you're usually right about what's actually good.",
+    },
+    {
+        "id": "dry_wit",
+        "name": "The Dry Wit",
+        "vector": {"irony": 1.0, "comedy": 1.0, "emotional": -1.0},
+        "description": "Earnestness is suspicious. You're drawn to deadpan, absurdist, or formally self-aware comedy that doesn't take itself too seriously.",
+    },
+]
+
+
+def score_responses(responses: list[dict]) -> dict:
+    """Score a list of {order, value} responses against the film
+    weights. Null values are excluded. Returns axis_scores, top
+    profile matches (with similarity), and a count of real answers.
+
+    We return the TOP 2 profiles instead of a single winner so the
+    UI can present the result as a blend — "you lean Patient
+    Formalist with a side of Chaos Enjoyer" — rather than a forced
+    pigeonhole."""
+    film_by_order = {f["order"]: f for f in FILMS}
+
+    # Compute raw axis deltas from non-null responses
+    axis_scores: dict[str, float] = {k: 0.0 for k in AXIS_KEYS}
+    real_count = 0
+    for r in responses:
+        value = r.get("value")
+        if value is None:
+            continue
+        film = film_by_order.get(r.get("order"))
+        if not film:
+            continue
+        real_count += 1
+        for axis, weight in film["weights"].items():
+            if axis in axis_scores:
+                axis_scores[axis] += weight * value
+
+    if real_count < 11:
+        return {
+            "answered_count": real_count,
+            "axis_scores": axis_scores,
+            "profiles": [],
+            "has_enough_data": False,
+        }
+
+    # Cosine-similarity match against each profile
+    user_vec = [axis_scores[k] for k in AXIS_KEYS]
+    norm_u = math.sqrt(sum(v * v for v in user_vec))
+    ranked: list[dict] = []
+    for profile in PROFILES:
+        profile_vec = [profile["vector"].get(k, 0.0) for k in AXIS_KEYS]
+        norm_p = math.sqrt(sum(v * v for v in profile_vec))
+        if norm_u == 0 or norm_p == 0:
+            continue
+        dot = sum(a * b for a, b in zip(user_vec, profile_vec))
+        similarity = dot / (norm_u * norm_p)
+        ranked.append({
+            "id": profile["id"],
+            "name": profile["name"],
+            "description": profile["description"],
+            "similarity": round(similarity, 3),
+        })
+    ranked.sort(key=lambda p: p["similarity"], reverse=True)
+
+    return {
+        "answered_count": real_count,
+        "axis_scores": axis_scores,
+        "profiles": ranked[:2],  # top 2 — direction hint, not a pigeonhole
+        "has_enough_data": True,
+    }

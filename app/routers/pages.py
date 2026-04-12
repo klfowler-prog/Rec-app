@@ -216,6 +216,11 @@ async def quick_start_page(request: Request, user: User = Depends(require_user))
     return templates.TemplateResponse("quick_start.html", {"request": request, "user": user})
 
 
+@router.get("/quick-start/movies")
+async def quick_start_movies_page(request: Request, user: User = Depends(require_user)):
+    return templates.TemplateResponse("quick_start_movies.html", {"request": request, "user": user})
+
+
 @router.get("/media/{media_type}/{external_id}")
 async def media_detail_page(request: Request, media_type: str, external_id: str, user: User = Depends(require_user)):
     return templates.TemplateResponse(
