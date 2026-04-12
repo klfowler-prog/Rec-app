@@ -153,6 +153,16 @@ async def goodreads_import_page(request: Request, user: User = Depends(require_u
     return templates.TemplateResponse("goodreads_import.html", {"request": request, "user": user})
 
 
+@router.get("/import/netflix")
+async def netflix_import_page(request: Request, user: User = Depends(require_user)):
+    return templates.TemplateResponse("netflix_import.html", {"request": request, "user": user})
+
+
+@router.get("/import/plex")
+async def plex_import_page(request: Request, user: User = Depends(require_user)):
+    return templates.TemplateResponse("plex_import.html", {"request": request, "user": user})
+
+
 @router.get("/quick-start")
 async def quick_start_page(request: Request, user: User = Depends(require_user)):
     return templates.TemplateResponse("quick_start.html", {"request": request, "user": user})

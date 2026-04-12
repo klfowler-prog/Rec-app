@@ -3,6 +3,7 @@ import csv
 import io
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from pydantic import BaseModel as PydanticBaseModel
 from sqlalchemy.orm import Session
 
 from app.auth import require_user
@@ -359,3 +360,247 @@ async def import_goodreads(file: UploadFile = File(...), user: User = Depends(re
     skipped = sum(1 for r in results if r["status"] == "skipped")
 
     return {"total": len(rows), "added": added, "skipped": skipped, "results": results}
+
+
+@router.post("/import/netflix")
+async def import_netflix(file: UploadFile = File(...), user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """Import viewing history from Netflix CSV export."""
+    from app.services.tmdb import search as tmdb_search
+
+    content = await file.read()
+    text = content.decode("utf-8-sig")
+    reader = csv.DictReader(io.StringIO(text))
+
+    rows = []
+    for row in reader:
+        title = row.get("Title", "").strip()
+        if not title:
+            continue
+        # Netflix format: "Show Name: Season X: Episode Name" — extract the show/movie name
+        clean_title = title.split(":")[0].strip()
+        date = row.get("Date", "").strip()
+        rows.append({"title": clean_title, "date": date})
+
+    # Deduplicate — Netflix lists every episode, we just want unique show/movie names
+    seen = set()
+    unique_rows = []
+    for row in rows:
+        key = row["title"].lower()
+        if key not in seen:
+            seen.add(key)
+            unique_rows.append(row)
+
+    # Skip items already in profile
+    existing_titles = {
+        e.title.lower()
+        for e in db.query(MediaEntry).filter(MediaEntry.user_id == user.id).all()
+    }
+
+    new_rows = []
+    skipped_results = []
+    for row_data in unique_rows:
+        if row_data["title"].lower() in existing_titles:
+            skipped_results.append({"title": row_data["title"], "status": "skipped", "reason": "already in profile"})
+        else:
+            new_rows.append(row_data)
+
+    # Search TMDB for each title to get posters and metadata — in parallel batches
+    async def search_tmdb(row_data):
+        title = row_data["title"]
+        try:
+            # Search multi (movies + TV)
+            matches = await tmdb_search(title, None)
+            if matches:
+                best = matches[0]
+                return {
+                    "image_url": best.image_url, "external_id": best.external_id,
+                    "source": best.source, "media_type": best.media_type,
+                    "genres": ", ".join(best.genres) if best.genres else None,
+                    "description": best.description, "year": best.year,
+                    "creator": best.creator,
+                }
+        except Exception:
+            pass
+        return {
+            "image_url": None, "external_id": title.lower().replace(" ", "-")[:50],
+            "source": "tmdb", "media_type": "movie",
+            "genres": None, "description": None, "year": None, "creator": None,
+        }
+
+    enriched = []
+    for i in range(0, len(new_rows), 5):
+        batch = new_rows[i : i + 5]
+        batch_results = await asyncio.gather(*[search_tmdb(r) for r in batch])
+        enriched.extend(zip(batch, batch_results))
+
+    added_results = []
+    for row_data, tmdb_data in enriched:
+        entry = MediaEntry(
+            user_id=user.id,
+            external_id=tmdb_data["external_id"],
+            source=tmdb_data["source"],
+            title=row_data["title"],
+            media_type=tmdb_data["media_type"],
+            image_url=tmdb_data["image_url"],
+            year=tmdb_data["year"],
+            creator=tmdb_data["creator"],
+            genres=tmdb_data["genres"],
+            description=tmdb_data["description"],
+            status="consumed",
+        )
+        try:
+            db.add(entry)
+            db.commit()
+            added_results.append({"title": row_data["title"], "status": "added",
+                                  "image_url": tmdb_data["image_url"], "media_type": tmdb_data["media_type"]})
+        except Exception:
+            db.rollback()
+            added_results.append({"title": row_data["title"], "status": "skipped", "reason": "duplicate"})
+
+    results = added_results + skipped_results
+    added = sum(1 for r in results if r["status"] == "added")
+    skipped = sum(1 for r in results if r["status"] == "skipped")
+
+    return {"total": len(unique_rows), "added": added, "skipped": skipped, "results": results}
+
+
+class PlexImportRequest(PydanticBaseModel):
+    server_url: str
+    token: str
+
+
+@router.post("/import/plex")
+async def import_plex(req: PlexImportRequest, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """Import watch history from a Plex server via API."""
+    import httpx
+
+    from app.services.tmdb import search as tmdb_search
+
+    server_url = req.server_url.rstrip("/")
+    headers = {"X-Plex-Token": req.token, "Accept": "application/json"}
+
+    # Get all library sections
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            sections_resp = await client.get(f"{server_url}/library/sections", headers=headers)
+            sections_resp.raise_for_status()
+            sections = sections_resp.json()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not connect to Plex server: {str(e)}")
+
+    # Collect watched items from movie and show libraries
+    watched_items = []
+    for section in sections.get("MediaContainer", {}).get("Directory", []):
+        section_type = section.get("type")
+        section_key = section.get("key")
+        if section_type not in ("movie", "show"):
+            continue
+
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                # Get all items, filter to watched
+                items_resp = await client.get(
+                    f"{server_url}/library/sections/{section_key}/all",
+                    headers=headers,
+                    params={"unwatched": "0"},
+                )
+                items_resp.raise_for_status()
+                data = items_resp.json()
+
+            for item in data.get("MediaContainer", {}).get("Metadata", []):
+                if not item.get("viewCount", 0):
+                    continue
+                title = item.get("title", "").strip()
+                if not title:
+                    continue
+                year = item.get("year")
+                media_type = "movie" if section_type == "movie" else "tv"
+                rating = None
+                if item.get("userRating"):
+                    # Plex uses 1-10 scale
+                    rating = round(float(item["userRating"]), 1)
+
+                watched_items.append({
+                    "title": title, "year": year,
+                    "media_type": media_type, "rating": rating,
+                })
+        except Exception:
+            continue
+
+    # Deduplicate
+    seen = set()
+    unique_items = []
+    for item in watched_items:
+        key = item["title"].lower()
+        if key not in seen:
+            seen.add(key)
+            unique_items.append(item)
+
+    # Skip items already in profile
+    existing_titles = {
+        e.title.lower()
+        for e in db.query(MediaEntry).filter(MediaEntry.user_id == user.id).all()
+    }
+
+    new_items = []
+    skipped_results = []
+    for item in unique_items:
+        if item["title"].lower() in existing_titles:
+            skipped_results.append({"title": item["title"], "status": "skipped", "reason": "already in profile"})
+        else:
+            new_items.append(item)
+
+    # Search TMDB for posters in parallel
+    async def search_tmdb(item):
+        try:
+            matches = await tmdb_search(item["title"], item["media_type"])
+            if matches:
+                best = matches[0]
+                return {
+                    "image_url": best.image_url, "external_id": best.external_id,
+                    "genres": ", ".join(best.genres) if best.genres else None,
+                    "description": best.description,
+                }
+        except Exception:
+            pass
+        return {
+            "image_url": None,
+            "external_id": item["title"].lower().replace(" ", "-")[:50],
+            "genres": None, "description": None,
+        }
+
+    enriched = []
+    for i in range(0, len(new_items), 5):
+        batch = new_items[i : i + 5]
+        batch_results = await asyncio.gather(*[search_tmdb(it) for it in batch])
+        enriched.extend(zip(batch, batch_results))
+
+    added_results = []
+    for item, tmdb_data in enriched:
+        entry = MediaEntry(
+            user_id=user.id,
+            external_id=tmdb_data["external_id"],
+            source="tmdb",
+            title=item["title"],
+            media_type=item["media_type"],
+            image_url=tmdb_data["image_url"],
+            year=item["year"],
+            genres=tmdb_data["genres"],
+            description=tmdb_data["description"],
+            status="consumed",
+            rating=item["rating"],
+        )
+        try:
+            db.add(entry)
+            db.commit()
+            added_results.append({"title": item["title"], "status": "added",
+                                  "image_url": tmdb_data["image_url"], "rating": item["rating"]})
+        except Exception:
+            db.rollback()
+            added_results.append({"title": item["title"], "status": "skipped", "reason": "duplicate"})
+
+    results = added_results + skipped_results
+    added = sum(1 for r in results if r["status"] == "added")
+    skipped = sum(1 for r in results if r["status"] == "skipped")
+
+    return {"total": len(unique_items), "added": added, "skipped": skipped, "results": results}

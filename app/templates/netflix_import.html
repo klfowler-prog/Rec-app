@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}Import from Netflix{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div>
+        <h2 class="text-2xl font-semibold mb-1">Import from Netflix</h2>
+        <p class="text-txt-muted">Upload your Netflix viewing history to import what you've watched.</p>
+    </div>
+
+    <div class="bg-sage/5 border border-sage/20 rounded-xl p-5">
+        <h3 class="text-sm font-semibold mb-2 text-sage-dark dark:text-sage-light">How to export from Netflix</h3>
+        <ol class="text-sm text-txt-muted space-y-1.5 list-decimal list-inside">
+            <li>Go to <strong>netflix.com/account</strong> and sign in</li>
+            <li>Scroll to <strong>Profile & Parental Controls</strong> and click your profile</li>
+            <li>Click <strong>Viewing activity</strong></li>
+            <li>Scroll to the bottom and click <strong>Download all</strong></li>
+            <li>Upload the CSV file here</li>
+        </ol>
+    </div>
+
+    <!-- Upload -->
+    <div id="step-upload">
+        <div class="bg-surface-light dark:bg-surface-dark rounded-xl border-2 border-dashed border-border-light dark:border-border-dark p-10 text-center hover:border-sage/40 transition-base">
+            <input type="file" id="csv-file" accept=".csv" class="hidden">
+            <div class="w-14 h-14 gradient-coral rounded-xl flex items-center justify-center mx-auto mb-4">
+                <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+            </div>
+            <p class="text-sm font-medium mb-1">Drop your Netflix CSV here</p>
+            <p class="text-xs text-txt-muted mb-4">or click to browse</p>
+            <button id="upload-btn" class="px-5 py-2.5 bg-sage text-white rounded-lg text-sm font-medium transition-base hover:bg-sage-dark">Choose file</button>
+            <p id="file-name" class="text-xs text-sage mt-3 hidden"></p>
+        </div>
+
+        <div id="preview-section" class="hidden mt-5">
+            <div class="flex items-center justify-between mb-3">
+                <p class="text-sm font-medium"><span id="item-count">0</span> unique titles found</p>
+                <button id="import-btn" class="px-6 py-2.5 bg-sage text-white rounded-lg text-sm font-medium transition-base hover:bg-sage-dark">Import all</button>
+            </div>
+            <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden max-h-80 overflow-y-auto">
+                <div id="preview-list" class="divide-y divide-border-light dark:divide-border-dark"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Importing -->
+    <div id="step-importing" class="hidden text-center py-12">
+        <div class="inline-block w-6 h-6 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
+        <p class="text-sm text-txt-muted mt-3">Importing and finding posters...</p>
+    </div>
+
+    <!-- Done -->
+    <div id="step-done" class="hidden space-y-5">
+        <div class="gradient-coral rounded-xl p-6 text-white text-center">
+            <p class="text-3xl font-bold" id="done-added">0</p>
+            <p class="text-sm text-white/70 mt-1">titles imported</p>
+            <p class="text-xs text-white/50 mt-0.5"><span id="done-skipped">0</span> skipped</p>
+        </div>
+        <div class="flex gap-3 justify-center">
+            <a href="/profile" class="px-5 py-2.5 bg-sage text-white rounded-lg text-sm font-medium">View profile</a>
+            <a href="/" class="px-5 py-2.5 border border-border-light dark:border-border-dark rounded-lg text-sm text-txt-muted">Home</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const csvFile = document.getElementById('csv-file');
+document.getElementById('upload-btn').addEventListener('click', () => csvFile.click());
+document.querySelector('.border-dashed').addEventListener('click', (e) => {
+    if (e.target.id !== 'upload-btn') csvFile.click();
+});
+
+csvFile.addEventListener('change', () => {
+    if (csvFile.files[0]) parseCSV(csvFile.files[0]);
+});
+
+let uniqueTitles = [];
+
+function parseCSV(file) {
+    document.getElementById('file-name').textContent = file.name;
+    document.getElementById('file-name').classList.remove('hidden');
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const lines = e.target.result.split('\n');
+        const seen = new Set();
+        uniqueTitles = [];
+
+        for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue;
+            // Netflix CSV: "Title","Date"
+            const match = lines[i].match(/"([^"]+)"/);
+            if (!match) continue;
+            const fullTitle = match[1];
+            const cleanTitle = fullTitle.split(':')[0].trim();
+            if (cleanTitle && !seen.has(cleanTitle.toLowerCase())) {
+                seen.add(cleanTitle.toLowerCase());
+                uniqueTitles.push(cleanTitle);
+            }
+        }
+
+        document.getElementById('item-count').textContent = uniqueTitles.length;
+        document.getElementById('preview-list').innerHTML = uniqueTitles.slice(0, 50).map(t =>
+            `<div class="px-4 py-2 text-sm">${escapeHtml(t)}</div>`
+        ).join('') + (uniqueTitles.length > 50 ? `<div class="px-4 py-2 text-xs text-txt-muted text-center">...and ${uniqueTitles.length - 50} more</div>` : '');
+
+        document.getElementById('preview-section').classList.remove('hidden');
+    };
+    reader.readAsText(file);
+}
+
+document.getElementById('import-btn').addEventListener('click', async () => {
+    document.getElementById('step-upload').classList.add('hidden');
+    document.getElementById('step-importing').classList.remove('hidden');
+
+    const formData = new FormData();
+    formData.append('file', csvFile.files[0]);
+
+    try {
+        const resp = await fetch('/api/profile/import/netflix', { method: 'POST', body: formData });
+        const data = await resp.json();
+
+        document.getElementById('step-importing').classList.add('hidden');
+        document.getElementById('done-added').textContent = data.added;
+        document.getElementById('done-skipped').textContent = data.skipped;
+        document.getElementById('step-done').classList.remove('hidden');
+    } catch {
+        document.getElementById('step-importing').classList.add('hidden');
+        document.getElementById('step-upload').classList.remove('hidden');
+        alert('Import failed. Please try again.');
+    }
+});
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+{% endblock %}

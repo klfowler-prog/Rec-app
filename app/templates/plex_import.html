@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Import from Plex{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div>
+        <h2 class="text-2xl font-semibold mb-1">Import from Plex</h2>
+        <p class="text-txt-muted">Connect to your Plex server to import your watch history.</p>
+    </div>
+
+    <div class="bg-sage/5 border border-sage/20 rounded-xl p-5">
+        <h3 class="text-sm font-semibold mb-2 text-sage-dark dark:text-sage-light">How to find your Plex token</h3>
+        <ol class="text-sm text-txt-muted space-y-1.5 list-decimal list-inside">
+            <li>Open Plex Web App and sign in</li>
+            <li>Open any media item and click <strong>Get Info</strong> (or "...") </li>
+            <li>Click <strong>View XML</strong> at the bottom</li>
+            <li>In the URL bar, find <strong>X-Plex-Token=</strong> and copy the value after it</li>
+            <li>Your server URL is usually <strong>http://YOUR_IP:32400</strong></li>
+        </ol>
+    </div>
+
+    <!-- Connect form -->
+    <div id="step-connect">
+        <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-6 max-w-lg">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Plex Server URL</label>
+                    <input type="text" id="plex-url" placeholder="http://192.168.1.100:32400"
+                        class="w-full px-3 py-2.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sage/40">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Plex Token</label>
+                    <input type="text" id="plex-token" placeholder="Your X-Plex-Token value"
+                        class="w-full px-3 py-2.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sage/40 font-mono">
+                </div>
+                <button id="connect-btn" onclick="connectPlex()" class="px-6 py-2.5 bg-sage text-white rounded-lg text-sm font-medium transition-base hover:bg-sage-dark w-full">
+                    Connect &amp; import
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Importing -->
+    <div id="step-importing" class="hidden text-center py-12">
+        <div class="inline-block w-6 h-6 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
+        <p class="text-sm text-txt-muted mt-3">Connecting to Plex and importing watch history...</p>
+        <p class="text-xs text-txt-muted mt-1">This may take a minute for large libraries.</p>
+    </div>
+
+    <!-- Error -->
+    <div id="step-error" class="hidden">
+        <div class="bg-coral/10 border border-coral/20 rounded-xl p-5 text-center">
+            <p class="text-sm text-coral font-medium" id="error-msg"></p>
+            <button onclick="document.getElementById('step-error').classList.add('hidden'); document.getElementById('step-connect').classList.remove('hidden');"
+                class="mt-3 px-4 py-2 text-sm text-txt-muted hover:text-txt transition-base">Try again</button>
+        </div>
+    </div>
+
+    <!-- Done -->
+    <div id="step-done" class="hidden space-y-5">
+        <div class="gradient-navy rounded-xl p-6 text-white text-center">
+            <p class="text-3xl font-bold" id="done-added">0</p>
+            <p class="text-sm text-white/70 mt-1">titles imported from Plex</p>
+            <p class="text-xs text-white/50 mt-0.5"><span id="done-skipped">0</span> skipped</p>
+        </div>
+        <div class="flex gap-3 justify-center">
+            <a href="/profile" class="px-5 py-2.5 bg-sage text-white rounded-lg text-sm font-medium">View profile</a>
+            <a href="/" class="px-5 py-2.5 border border-border-light dark:border-border-dark rounded-lg text-sm text-txt-muted">Home</a>
+        </div>
+        <div id="results-list" class="space-y-1.5"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function connectPlex() {
+    const url = document.getElementById('plex-url').value.trim();
+    const token = document.getElementById('plex-token').value.trim();
+
+    if (!url || !token) {
+        alert('Please enter both your Plex server URL and token.');
+        return;
+    }
+
+    document.getElementById('step-connect').classList.add('hidden');
+    document.getElementById('step-importing').classList.remove('hidden');
+
+    try {
+        const resp = await fetch('/api/profile/import/plex', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ server_url: url, token: token }),
+        });
+
+        if (!resp.ok) {
+            const err = await resp.json();
+            throw new Error(err.detail || 'Connection failed');
+        }
+
+        const data = await resp.json();
+        document.getElementById('step-importing').classList.add('hidden');
+        document.getElementById('done-added').textContent = data.added;
+        document.getElementById('done-skipped').textContent = data.skipped;
+
+        if (data.results) {
+            document.getElementById('results-list').innerHTML = data.results.slice(0, 50).map(r => `
+                <div class="flex items-center gap-3 px-4 py-2 rounded-lg text-sm ${r.status === 'added' ? 'border-l-2 border-emerald-500' : 'border-l-2 border-coral'} bg-surface-light dark:bg-surface-dark">
+                    ${r.image_url ? `<img src="${r.image_url}" class="w-6 h-9 object-cover rounded" alt="">` : '<div class="w-6 h-9 bg-sage/10 rounded"></div>'}
+                    <span class="flex-1 truncate">${escapeHtml(r.title)}</span>
+                    ${r.rating ? `<span class="text-xs font-medium text-emerald-500">${r.rating}/10</span>` : ''}
+                    <span class="text-xs ${r.status === 'added' ? 'text-emerald-500' : 'text-txt-muted'}">${r.status === 'added' ? 'Added' : 'Skipped'}</span>
+                </div>
+            `).join('');
+        }
+
+        document.getElementById('step-done').classList.remove('hidden');
+    } catch (err) {
+        document.getElementById('step-importing').classList.add('hidden');
+        document.getElementById('error-msg').textContent = err.message || 'Could not connect to Plex server.';
+        document.getElementById('step-error').classList.remove('hidden');
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+{% endblock %}
