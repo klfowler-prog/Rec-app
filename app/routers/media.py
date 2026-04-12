@@ -151,6 +151,64 @@ def _is_known(title: str, known_normalized: set[str]) -> bool:
     return _normalize_title(title) in known_normalized
 
 
+def _parse_ai_json(text: str, context: str) -> dict | list | None:
+    """Robust parser for Gemini responses that are supposed to be JSON.
+
+    Handles:
+      - Markdown fences (``` or ```json)
+      - Leading/trailing preamble around the actual JSON
+      - Empty responses
+      - JSONDecodeError with diagnostic logging including a snippet
+
+    Returns None on any failure — the caller should treat None as
+    "Gemini returned nothing we can use" and fall back to an empty
+    result. Context string is used in log messages so we can tell
+    which endpoint failed from Cloud Run logs."""
+    import json
+
+    if not text:
+        log.error("%s: Gemini returned empty text", context)
+        return None
+
+    s = text.strip()
+    # Strip markdown fences in either form
+    if s.startswith("```"):
+        # Drop first line (```json or ```)
+        s = s.split("\n", 1)[1] if "\n" in s else s[3:]
+        s = s.rsplit("```", 1)[0]
+
+    # Fall back to first balanced brace / bracket block so leading or
+    # trailing prose doesn't break the parse.
+    def _slice_between(s: str, open_c: str, close_c: str) -> str | None:
+        first = s.find(open_c)
+        last = s.rfind(close_c)
+        if first >= 0 and last > first:
+            return s[first : last + 1]
+        return None
+
+    # Try object-shaped first, then array-shaped. The JSON-shaped prompts
+    # we use are all one or the other.
+    obj_slice = _slice_between(s, "{", "}")
+    arr_slice = _slice_between(s, "[", "]")
+    # Prefer whichever is larger — the outer shape of the response.
+    candidate = s
+    if obj_slice and arr_slice:
+        candidate = obj_slice if len(obj_slice) >= len(arr_slice) else arr_slice
+    elif obj_slice:
+        candidate = obj_slice
+    elif arr_slice:
+        candidate = arr_slice
+
+    try:
+        return json.loads(candidate)
+    except json.JSONDecodeError as je:
+        log.error(
+            "%s: JSON parse failed — %s — snippet: %s",
+            context, str(je), candidate[:400],
+        )
+        return None
+
+
 @router.get("/trending/{media_type}")
 async def get_trending(media_type: str = "all", limit: int = 10):
     """Get trending movies/TV from TMDB."""
@@ -583,10 +641,9 @@ Icon choices:
 - "shift" = recent change in mood/focus"""
 
         text = (await generate(prompt)).strip()
-        if text.startswith("```"):
-            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-            text = text.rsplit("```", 1)[0]
-        result = json.loads(text)
+        result = _parse_ai_json(text, "insights")
+        if not isinstance(result, dict):
+            return {"insights": []}
         cache.set(cache_key, result, ttl_seconds=86400)
         return result
     except Exception as e:
@@ -952,10 +1009,9 @@ Return ONLY valid JSON, no markdown:
 }}"""
 
         text = (await generate(prompt)).strip()
-        if text.startswith("```"):
-            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-            text = text.rsplit("```", 1)[0]
-        pick = json.loads(text)
+        pick = _parse_ai_json(text, "tonight")
+        if not isinstance(pick, dict):
+            raise HTTPException(status_code=503, detail="Couldn't read AI response; try again.")
 
         if _is_known(pick.get("title", ""), known_normalized):
             log.info("tonight: dropping AI pick '%s' — already in library", pick.get("title"))
@@ -1098,7 +1154,7 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
             suggestions_schema = (
                 "  \"suggestions\": {\n"
                 + ",\n".join(
-                    f'    "{mt}": [{{"title": "...", "year": 2020, "reason": "...", "predicted_rating": 8.5}}, ...]'
+                    f'    "{mt}": [{{"title": "...", "year": 2020, "reason": "...", "predicted_rating": 8.5}}, ... 5 items]'
                     for mt in missing_types_list
                 )
                 + "\n  },"
@@ -1114,8 +1170,8 @@ USER'S TASTE PROFILE (across all media types):
 
 You are producing THREE outputs in one JSON response — do NOT repeat the same items across sections:
 
-1. top_picks: exactly 4 recommendations — ONE movie, ONE TV show, ONE book, ONE podcast. Bold, specific items the user will love.
-2. suggestions: 3 items for each of these categories: {', '.join(missing_types_list) if missing_types_list else '(none needed)'}. These should be DIFFERENT from top_picks.
+1. top_picks: 8 recommendations total — 2 movies, 2 TV shows, 2 books, 2 podcasts. List the strongest pick first in each pair. The app will drop anything the user already has and keep the strongest surviving pick per category.
+2. suggestions: 5 items for each of these categories: {', '.join(missing_types_list) if missing_types_list else '(none needed)'}. These should be DIFFERENT from top_picks. The app filters these too and keeps the top 3 survivors per category.
 3. insights: 3 sharp, specific observations about cross-medium patterns in their profile.
 
 NONFICTION IS WELCOME:
@@ -1133,8 +1189,12 @@ Return ONLY valid JSON, no markdown:
 {{
   "top_picks": [
     {{"title": "...", "media_type": "movie", "year": 2020, "reason": "..."}},
+    {{"title": "...", "media_type": "movie", "year": 2020, "reason": "..."}},
+    {{"title": "...", "media_type": "tv", "year": 2020, "reason": "..."}},
     {{"title": "...", "media_type": "tv", "year": 2020, "reason": "..."}},
     {{"title": "...", "media_type": "book", "year": 2020, "reason": "..."}},
+    {{"title": "...", "media_type": "book", "year": 2020, "reason": "..."}},
+    {{"title": "...", "media_type": "podcast", "year": 2020, "reason": "..."}},
     {{"title": "...", "media_type": "podcast", "year": 2020, "reason": "..."}}
   ],
 {suggestions_schema}
@@ -1146,15 +1206,9 @@ Return ONLY valid JSON, no markdown:
 }}"""
 
         text = (await generate(prompt)).strip()
-        if text.startswith("```"):
-            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-            text = text.rsplit("```", 1)[0]
-        # Robust JSON extraction
-        first_brace = text.find("{")
-        last_brace = text.rfind("}")
-        if first_brace >= 0 and last_brace > first_brace:
-            text = text[first_brace : last_brace + 1]
-        parsed = json.loads(text)
+        parsed = _parse_ai_json(text, "home_bundle")
+        if not isinstance(parsed, dict):
+            return empty_bundle
 
         # Normalize
         raw_top_picks = parsed.get("top_picks", []) or []
@@ -1233,24 +1287,45 @@ Return ONLY valid JSON, no markdown:
                 "media_type": media_type,
             }
 
-        pick_tasks = [enrich_pick(p) for p in raw_top_picks[:4]]
+        # Process up to 8 top_picks (2 per media type) so filters can
+        # drop known items without leaving the UI with one or zero picks.
+        pick_tasks = [enrich_pick(p) for p in raw_top_picks[:8]]
         suggestion_tasks = []
         suggestion_keys: list[str] = []
         for mt, items in raw_suggestions.items():
             if not isinstance(items, list):
                 continue
-            for it in items:
+            for it in items[:5]:  # cap input per category at 5
                 suggestion_tasks.append(enrich_suggestion(it, mt))
                 suggestion_keys.append(mt)
 
         all_results = await asyncio.gather(*pick_tasks, *suggestion_tasks)
-        enriched_picks = [r for r in all_results[: len(pick_tasks)] if r is not None]
+        # Keep one top_pick per media type, preferring the AI's ordering.
+        survivors = [r for r in all_results[: len(pick_tasks)] if r is not None]
+        enriched_picks: list[dict] = []
+        seen_types: set[str] = set()
+        for r in survivors:
+            mt = r.get("media_type")
+            if mt in seen_types:
+                continue
+            seen_types.add(mt)
+            enriched_picks.append(r)
+
         enriched_suggestions: dict[str, list] = {}
         for key, result in zip(suggestion_keys, all_results[len(pick_tasks):]):
             if result is None:
                 continue
             enriched_suggestions.setdefault(key, []).append(result)
+        # Cap at 3 per category after filtering
+        for key in list(enriched_suggestions.keys()):
+            enriched_suggestions[key] = enriched_suggestions[key][:3]
 
+        log.info(
+            "home_bundle [user=%d]: %d top_picks, suggestions=%s, %d insights",
+            user.id, len(enriched_picks),
+            ", ".join(f"{k}={len(v)}" for k, v in enriched_suggestions.items()) or "none",
+            len(raw_insights),
+        )
         bundle = {
             "top_picks": enriched_picks,
             "suggestions": enriched_suggestions,
@@ -1643,7 +1718,7 @@ USER'S TASTE PROFILE (across all media types):
 {taste_summary}
 {recent_section}
 
-TASK: Pick exactly 4 recommendations — ONE movie, ONE TV show, ONE book, ONE podcast.
+TASK: Pick 8 recommendations — TWO movies, TWO TV shows, TWO books, TWO podcasts. I'm asking for two per category so I have a backup if one is already in the user's library; the app will keep the top-ranked survivor per category.
 
 NONFICTION IS WELCOME:
 - Movies can include documentaries (*My Octopus Teacher*, *The Social Dilemma*)
@@ -1658,26 +1733,29 @@ CRITICAL REQUIREMENT: Each "reason" MUST explicitly cite at least ONE specific i
 - "You gave *Educated* (book) a 9/10 — this film has the same aching quality of a young person finding their own voice against the weight of their family."
 
 Rules:
-- 4 items exactly (movie, tv, book, podcast)
+- 8 items total: 2 movies, 2 tv, 2 books, 2 podcasts. List your strongest pick first in each pair.
 - Each reason MUST cite an item from a DIFFERENT media type by name
 - The connection must be CONCRETE — cite a shared theme, idea, emotional beat, or narrative approach. Never rely on shared demographic, setting, or keyword.
 - If recently rated items suggest a mood shift, lean into that mood
 - Do NOT recommend any of these (already in their library): {avoid_str}
 - Pick bold, specific things they'll love — not generic bestsellers
 
-Return ONLY valid JSON, no markdown:
+Return ONLY valid JSON, no markdown — an array of 8 items:
 [
-  {{"title": "...", "media_type": "movie", "year": 2020, "reason": "Because you loved [SPECIFIC ITEM in their profile, different media type], this captures the same [specific, concrete quality]."}},
+  {{"title": "...", "media_type": "movie", "year": 2020, "reason": "..."}},
+  {{"title": "...", "media_type": "movie", "year": 2020, "reason": "..."}},
+  {{"title": "...", "media_type": "tv", "year": 2020, "reason": "..."}},
   {{"title": "...", "media_type": "tv", "year": 2020, "reason": "..."}},
   {{"title": "...", "media_type": "book", "year": 2020, "reason": "..."}},
+  {{"title": "...", "media_type": "book", "year": 2020, "reason": "..."}},
+  {{"title": "...", "media_type": "podcast", "year": 2020, "reason": "..."}},
   {{"title": "...", "media_type": "podcast", "year": 2020, "reason": "..."}}
 ]"""
 
         text = (await generate(prompt)).strip()
-        if text.startswith("```"):
-            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-            text = text.rsplit("```", 1)[0]
-        picks = json.loads(text)
+        picks = _parse_ai_json(text, "top_picks")
+        if not isinstance(picks, list):
+            return []
 
         # Search for each pick to get poster images — in parallel
         import asyncio
@@ -1712,23 +1790,39 @@ Return ONLY valid JSON, no markdown:
                 "genres": [],
             }
 
-        # Filter out any AI picks that map to something already in the user's
-        # library — check BOTH the AI's original title and the enriched
-        # search result's title, since the search can map a loose AI title
-        # to a canonical one the user already owns.
-        filtered_picks = []
-        for p in picks[:4]:
+        # Filter out any AI picks that map to something already in the
+        # user's library — check BOTH the AI's original title and the
+        # enriched search result's title. The AI gave us 2 per category;
+        # we want 1 surviving pick per category after filtering.
+        unknown_picks = []
+        for p in picks[:8]:
             ai_title = p.get("title", "")
             if _is_known(ai_title, known_normalized):
                 log.info("top_picks: dropping AI pick '%s' — already in library", ai_title)
                 continue
-            filtered_picks.append(p)
+            unknown_picks.append(p)
 
-        found = await asyncio.gather(*[search_pick(p) for p in filtered_picks])
-        results = [
+        found = await asyncio.gather(*[search_pick(p) for p in unknown_picks])
+        # Post-filter: the search can map a loose title to a canonical
+        # one the user already owns.
+        survivors = [
             r for r in found
             if r is not None and not _is_known(r["title"], known_normalized)
         ]
+        # Keep one per media type, preferring the AI's own ordering (the
+        # prompt asked it to list its strongest pick first in each pair).
+        results: list = []
+        seen_types: set[str] = set()
+        for r in survivors:
+            mt = r.get("media_type")
+            if mt in seen_types:
+                continue
+            seen_types.add(mt)
+            results.append(r)
+        log.info(
+            "top_picks [user=%d]: %d picks surfaced (%s)",
+            user.id, len(results), ", ".join(sorted(seen_types)) or "none",
+        )
         cache.set(cache_key, results, ttl_seconds=7200)
         return results
     except Exception as e:
@@ -1817,7 +1911,7 @@ USER'S TASTE PROFILE (across all media types):
 {taste_summary}
 {recent_section}
 
-TASK: Suggest 3 items for EACH of these categories: {', '.join(missing_labels)}.
+TASK: Suggest 5 items for EACH of these categories: {', '.join(missing_labels)}. I'm asking for 5 per category so I have backups — the app will filter out anything the user already has and show the top 3 survivors.
 
 NONFICTION IS WELCOME:
 - Movies include documentaries
@@ -1832,22 +1926,21 @@ Bad example: "Both are about cities."
 
 DO NOT recommend any of these titles — the user has already consumed, queued, or dismissed them: {avoid_str}
 
-Return ONLY valid JSON, no markdown:
+Return ONLY valid JSON, no markdown. Each category gets a list of 5 items, strongest first:
 {{
-  "movie": [{{"title": "...", "year": 2020, "reason": "Because you loved [specific item from profile, different media type], ...", "predicted_rating": 8.5}}],
-  "tv": [{{"title": "...", "year": 2020, "reason": "...", "predicted_rating": 8.5}}],
-  "book": [{{"title": "...", "year": 2020, "reason": "...", "predicted_rating": 8.5}}],
-  "podcast": [{{"title": "...", "year": 2020, "reason": "...", "predicted_rating": 8.5}}]
+  "movie": [{{"title": "...", "year": 2020, "reason": "...", "predicted_rating": 8.5}}, ... 5 items],
+  "tv": [{{"title": "...", "year": 2020, "reason": "...", "predicted_rating": 8.5}}, ... 5 items],
+  "book": [{{"title": "...", "year": 2020, "reason": "...", "predicted_rating": 8.5}}, ... 5 items],
+  "podcast": [{{"title": "...", "year": 2020, "reason": "...", "predicted_rating": 8.5}}, ... 5 items]
 }}
 
 predicted_rating is 1-10 based on how much this user would enjoy it.
 Only include categories from this list: {', '.join(missing_types)}"""
 
         text = (await generate(prompt)).strip()
-        if text.startswith("```"):
-            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-            text = text.rsplit("```", 1)[0]
-        parsed = json.loads(text)
+        parsed = _parse_ai_json(text, "home_suggestions")
+        if not isinstance(parsed, dict):
+            return {"suggestions": {}}
 
         # Search for poster images in parallel
         import asyncio
@@ -1905,6 +1998,16 @@ Only include categories from this list: {', '.join(missing_types)}"""
                 continue
             enriched.setdefault(key, []).append(result)
 
+        # Cap at 3 per category — AI gives us up to 5, filters take some,
+        # we keep the strongest survivors.
+        for key in list(enriched.keys()):
+            enriched[key] = enriched[key][:3]
+
+        log.info(
+            "home_suggestions [user=%d]: %s",
+            user.id,
+            ", ".join(f"{k}={len(v)}" for k, v in enriched.items()) or "empty",
+        )
         result = {"suggestions": enriched}
         cache.set(cache_key, result, ttl_seconds=21600)
         return result
