@@ -24,10 +24,20 @@
 {% block content %}
 <div class="space-y-10">
 
-    <!-- Greeting -->
-    <div class="gradient-navy rounded-2xl p-8 text-white">
-        <h2 class="text-3xl font-bold mb-1.5">{{ greeting }}</h2>
-        <p class="text-base text-white/75">{{ suggestion }}</p>
+    <!-- Greeting + Taste Essence -->
+    <div class="gradient-navy rounded-2xl p-8 text-white relative overflow-hidden">
+        <div class="relative z-10">
+            <h2 class="text-3xl font-bold mb-1.5">{{ greeting }}</h2>
+            <p class="text-base text-white/75">{{ suggestion }}</p>
+            <div id="essence-wrap" class="hidden mt-5 pt-5 border-t border-white/15">
+                <p class="text-xs text-white/50 uppercase tracking-wide mb-2">Your taste essence</p>
+                <p id="essence-summary" class="text-sm text-white/90 leading-relaxed"></p>
+                <div id="essence-themes" class="flex flex-wrap gap-1.5 mt-3"></div>
+                <a href="/taste" class="inline-flex items-center gap-1 mt-3 text-xs text-white/70 hover:text-white transition-base">
+                    See your full taste DNA &rarr;
+                </a>
+            </div>
+        </div>
     </div>
 
     <!-- Empty state for brand new users -->
@@ -77,14 +87,19 @@
     </div>
     {% endif %}
 
-    <!-- Mood buttons -->
-    <div class="flex gap-2 flex-wrap">
-        <a href="/recommend?mood=What+should+I+watch+tonight%3F+Something+easy+and+fun" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Movie night</a>
-        <a href="/recommend?mood=Recommend+a+gripping+book+I+won't+be+able+to+put+down" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Page turner</a>
-        <a href="/recommend?mood=I+want+something+thought-provoking+and+deep" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Make me think</a>
-        <a href="/recommend?mood=Something+light+and+funny+to+watch+or+read" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Light &amp; funny</a>
-        <a href="/recommend?mood=Recommend+a+great+podcast+for+my+commute" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Commute listen</a>
-        <a href="/recommend?mood=I+need+a+show+to+binge+this+weekend" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Weekend binge</a>
+    <!-- Theme buttons — work across all media types -->
+    <div>
+        <p class="text-xs text-txt-muted uppercase tracking-wide mb-2">I'm in the mood for something...</p>
+        <div class="flex gap-2 flex-wrap">
+            <a href="/recommend?mood=Recommend+a+slow-burn+story+across+any+medium+%E2%80%94+book%2C+movie%2C+TV%2C+or+podcast+%E2%80%94+that+takes+its+time+with+character+development" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Slow burn</a>
+            <a href="/recommend?mood=Recommend+something+atmospheric+and+immersive+%E2%80%94+a+story+with+a+strong+sense+of+place+and+mood" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Atmospheric</a>
+            <a href="/recommend?mood=Recommend+something+mind-bending+that+will+twist+my+perception+of+reality+or+storytelling" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Mind-bending</a>
+            <a href="/recommend?mood=Recommend+something+character-driven+with+complex%2C+morally+ambiguous+protagonists" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Character-driven</a>
+            <a href="/recommend?mood=Recommend+something+propulsive+and+gripping+that+I+can%27t+stop+consuming" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Propulsive</a>
+            <a href="/recommend?mood=Recommend+something+darkly+comic+that+balances+wit+with+depth" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Darkly comic</a>
+            <a href="/recommend?mood=Recommend+something+hopeful+and+life-affirming" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Hopeful</a>
+            <a href="/recommend?mood=Recommend+something+literary+and+thoughtful+with+beautiful+prose+or+dialogue" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Literary</a>
+        </div>
     </div>
 
     <div class="section-divider"></div>
@@ -189,38 +204,27 @@
 
     <div class="section-divider"></div>
 
-    <!-- Progress -->
-    {% if total > 0 %}
-    <div class="gradient-sage rounded-2xl p-6 text-white">
-        <h3 class="text-sm font-semibold uppercase tracking-wide mb-4 text-white/70">Your journey</h3>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <div>
-                <p class="text-3xl font-bold">{{ total_consumed }}</p>
-                <p class="text-xs text-white/60 mt-0.5">consumed</p>
-            </div>
-            <div>
-                <p class="text-3xl font-bold">{{ total_consuming }}</p>
-                <p class="text-xs text-white/60 mt-0.5">in progress</p>
-            </div>
-            <div>
-                <p class="text-3xl font-bold">{{ genres_explored }}</p>
-                <p class="text-xs text-white/60 mt-0.5">genres explored</p>
-            </div>
-            <div>
-                <p class="text-3xl font-bold">{{ avg_rating or "—" }}</p>
-                <p class="text-xs text-white/60 mt-0.5">avg rating</p>
+    <!-- AI Insights — cross-medium patterns discovered from your taste -->
+    {% if total > 4 %}
+    <div>
+        <h2 class="text-xl font-bold mb-1 flex items-center gap-2">
+            <span class="w-8 h-8 rounded-lg gradient-sage flex items-center justify-center">
+                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            </span>
+            Patterns in your taste
+        </h2>
+        <p class="text-sm text-txt-muted mb-4">AI-discovered cross-medium connections.</p>
+        <div id="insights-list" class="space-y-3">
+            <div class="text-center py-6 text-sm text-txt-muted">
+                <div class="inline-block w-4 h-4 border-2 border-sage/30 border-t-sage rounded-full animate-spin mr-2"></div>
+                Finding patterns...
             </div>
         </div>
-        {% if top_genres %}
-        <div class="mt-5 pt-4 border-t border-white/15">
-            <p class="text-xs text-white/50 mb-2">Top genres</p>
-            <div class="flex gap-2 flex-wrap">
-                {% for genre in top_genres %}
-                <span class="px-2.5 py-1 bg-white/15 text-white text-xs rounded-full">{{ genre }}</span>
-                {% endfor %}
-            </div>
+        <!-- Compact stats footer -->
+        <div class="mt-4 pt-4 border-t border-border-light dark:border-border-dark flex items-center justify-between text-xs text-txt-muted">
+            <span>{{ total_consumed }} consumed · {{ total_consuming }} in progress · {{ genres_explored }} genres · avg {{ avg_rating or "—" }}/10</span>
+            <a href="/profile" class="text-sage hover:underline">View profile &rarr;</a>
         </div>
-        {% endif %}
     </div>
     {% endif %}
 
@@ -543,8 +547,59 @@ async function loadSuggestions() {
     }
 }
 
-// Load both in parallel
-Promise.all([loadTopPicks(), loadSuggestions()]);
+async function loadEssence() {
+    try {
+        const resp = await fetch('/api/media/taste-dna');
+        const data = await resp.json();
+        if (data.summary && data.themes && data.themes.length) {
+            document.getElementById('essence-summary').textContent = data.summary;
+            document.getElementById('essence-themes').innerHTML = data.themes.slice(0, 5).map(t =>
+                `<span class="px-2.5 py-1 bg-white/15 text-white text-xs rounded-full">${escapeHtml(t)}</span>`
+            ).join('');
+            document.getElementById('essence-wrap').classList.remove('hidden');
+        }
+    } catch {}
+}
+
+async function loadInsights() {
+    const list = document.getElementById('insights-list');
+    if (!list) return;
+    try {
+        const resp = await fetch('/api/media/insights');
+        const data = await resp.json();
+        if (data.insights && data.insights.length) {
+            const iconMap = {
+                connection: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>`,
+                trend: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>`,
+                pattern: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>`,
+                shift: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>`,
+            };
+            list.innerHTML = data.insights.map(ins => {
+                const icon = iconMap[ins.icon] || iconMap.pattern;
+                const colorMap = {
+                    connection: 'bg-sage/10 text-sage-dark dark:text-sage-light',
+                    trend: 'bg-coral/10 text-coral',
+                    pattern: 'bg-gold/10 text-gold',
+                    shift: 'bg-navy/10 text-navy dark:text-cream',
+                };
+                const color = colorMap[ins.icon] || colorMap.pattern;
+                return `
+                    <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-4 flex items-start gap-3">
+                        <span class="w-8 h-8 rounded-lg ${color} flex items-center justify-center flex-shrink-0 mt-0.5">${icon}</span>
+                        <p class="text-sm leading-relaxed flex-1">${escapeHtml(ins.text)}</p>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            list.innerHTML = `<p class="text-sm text-txt-muted py-4 text-center">Rate a few more items to unlock pattern insights.</p>`;
+        }
+    } catch {
+        list.innerHTML = `<p class="text-sm text-txt-muted py-4 text-center">Couldn't load insights right now.</p>`;
+    }
+}
+
+// Load everything in parallel
+Promise.all([loadTopPicks(), loadSuggestions(), loadEssence(), loadInsights()]);
 
 {% if needs_predictions %}
 // Auto-generate predicted ratings for queue items that don't have them yet

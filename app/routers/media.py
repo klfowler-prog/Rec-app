@@ -188,6 +188,94 @@ async def refresh_recommendations():
     return {"ok": True}
 
 
+@router.get("/insights")
+async def insights(user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """AI-discovered cross-medium patterns and insights about the user's taste."""
+    import json
+    from datetime import datetime, timedelta
+
+    from app import cache
+    from app.config import settings
+    from app.models import MediaEntry
+
+    cache_key = f"insights:{user.id}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    if not settings.gemini_api_key:
+        return {"insights": []}
+
+    entries = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None)).all()
+    if len(entries) < 5:
+        return {"insights": []}
+
+    # Build grouped summary
+    by_type: dict[str, list] = {"movie": [], "tv": [], "book": [], "podcast": []}
+    for e in entries:
+        if e.rating and e.rating >= 6:
+            by_type.setdefault(e.media_type, []).append(e)
+    for mt in by_type:
+        by_type[mt].sort(key=lambda x: x.rating or 0, reverse=True)
+
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    recent = [e for e in entries if e.rated_at and e.rated_at >= thirty_days_ago]
+    recent.sort(key=lambda e: e.rated_at or datetime.min, reverse=True)
+
+    lines = []
+    label_map = {"movie": "MOVIES", "tv": "TV SHOWS", "book": "BOOKS", "podcast": "PODCASTS"}
+    for mt, label in label_map.items():
+        items = by_type.get(mt, [])[:8]
+        if items:
+            item_lines = [f"  - {e.title} — {e.rating}/10 [{e.genres or ''}]" for e in items]
+            lines.append(f"{label}:\n" + "\n".join(item_lines))
+    profile_summary = "\n\n".join(lines)
+
+    recent_summary = ""
+    if recent:
+        recent_lines = [f"  - {e.title} ({e.media_type}, {e.rating}/10)" for e in recent[:8]]
+        recent_summary = f"\n\nRECENTLY RATED:\n" + "\n".join(recent_lines)
+
+    try:
+        from app.services.gemini import generate
+
+        prompt = f"""Look at this person's cross-medium taste profile and generate 3 sharp, specific insights about patterns or connections. Focus on cross-medium discoveries — things that connect their book taste to their TV taste, or movies to podcasts.
+
+{profile_summary}
+{recent_summary}
+
+Each insight should be ONE specific, non-generic observation. Bad examples: "You like drama" or "Your taste is eclectic". Good examples:
+- "Your top-rated book (*The Road*) and your top-rated TV show (*The Last of Us*) both feature post-apocalyptic parent-child journeys"
+- "You gravitate to unreliable narrators across books and films — from *Gone Girl* to *Shutter Island*"
+- "Your recent ratings show a shift from propulsive thrillers toward meditative literary fiction"
+
+Return ONLY valid JSON, no markdown:
+{{
+  "insights": [
+    {{"icon": "connection|trend|pattern|shift", "text": "one specific insight referencing actual items from their profile"}},
+    {{"icon": "...", "text": "..."}},
+    {{"icon": "...", "text": "..."}}
+  ]
+}}
+
+Icon choices:
+- "connection" = cross-medium pattern (same theme across types)
+- "trend" = overall direction of their taste
+- "pattern" = recurring element
+- "shift" = recent change in mood/focus"""
+
+        text = (await generate(prompt)).strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+            text = text.rsplit("```", 1)[0]
+        result = json.loads(text)
+        cache.set(cache_key, result, ttl_seconds=86400)
+        return result
+    except Exception as e:
+        log.error("insights failed: %s", str(e))
+        return {"insights": []}
+
+
 @router.get("/taste-dna")
 async def taste_dna(user: User = Depends(require_user), db: Session = Depends(get_db)):
     """Generate an AI analysis of the user's taste across all media types. Cached 24h."""
