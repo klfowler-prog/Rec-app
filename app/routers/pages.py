@@ -209,7 +209,7 @@ _CONTEXT_TO_MOOD = {
     "tonight_binge":   "Recommend a TV show I can binge tonight — propulsive, 1-2 hour episodes, an ending that earns the next episode.",
     "wind_down":       "Suggest something to wind down with before bed — a low-stakes book or gentle TV, written or shot with care, slow my pulse.",
     "background_work": "Recommend something I can have on in the background while I work — familiar or conversational, doesn't demand my attention but rewards it when I lean in.",
-    "weekend_project": "Recommend something for a weekend stretch — the kind of thing that pulls you forward and makes time disappear. Could be a series, a book, a film, a podcast run — whatever fits this person's taste. The quality that matters is bingeability: you finish one part and immediately want the next. Not about length or format, about that feeling of being completely inside something.",
+    "weekend_binge": "Recommend something for a weekend stretch — the kind of thing that pulls you forward and makes time disappear. Could be a series, a book, a film, a podcast run — whatever fits this person's taste. The quality that matters is bingeability: you finish one part and immediately want the next. Not about length or format, about that feeling of being completely inside something.",
     "quick_escape":    "Recommend a quick escape — a fun movie or short-form TV, 15-90 minutes, something to get me out of my own head.",
 }
 
