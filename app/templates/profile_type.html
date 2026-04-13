@@ -180,7 +180,7 @@ function newReleaseCard(item) {
                 <div class="bg-surface-light dark:bg-surface-dark p-2.5">
                     <p class="text-xs font-medium truncate">${escapeHtml(item.title)}</p>
                     ${item.year ? `<p class="text-[10px] text-txt-muted">${item.year}</p>` : ''}
-                    <div class="mt-1.5 quick-add-area">${buildActionBar(cardItem, 'sm')}</div>
+                    <div class="mt-1.5 quick-add-area">${typeof buildActionBar === 'function' ? buildActionBar(cardItem, 'sm') : ''}</div>
                 </div>
             </div>
         </div>
@@ -336,7 +336,7 @@ async function loadBestBet() {
                     <h4 class="text-xl md:text-2xl font-bold leading-tight mb-1">${escapeHtml(pick.title)}</h4>
                     ${pick.year || pick.creator ? `<p class="text-xs text-txt-muted mb-3">${[pick.year, pick.creator].filter(Boolean).join(' · ')}</p>` : ''}
                     <p class="text-sm text-txt leading-relaxed mb-4">${escapeHtml(pick.reason || '')}</p>
-                    <div class="quick-add-area">${buildActionBar(pick, 'md')}</div>
+                    <div class="quick-add-area">${typeof buildActionBar === 'function' ? buildActionBar(pick, 'md') : ''}</div>
                 </div>
             </div>
         `;
