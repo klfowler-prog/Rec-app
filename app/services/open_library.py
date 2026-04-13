@@ -5,6 +5,28 @@ from app.schemas import MediaResult
 BASE_URL = "https://openlibrary.org"
 
 
+def _ol_cover_url(doc: dict) -> str | None:
+    """Return the best OpenLibrary cover URL we can build for this doc.
+
+    Prefer ISBN-based covers when available — they're significantly more
+    reliable than cover-id-based covers. Many cover_i values point at
+    zero-byte or truncated images even though the metadata looks valid.
+    We pass ?default=false so OpenLibrary returns HTTP 404 for missing
+    covers instead of a placeholder GIF; the frontend's global
+    `img.error` handler then swaps in a first-letter fallback tile.
+    """
+    isbns = doc.get("isbn") or []
+    if isbns:
+        # Prefer the first 13-digit ISBN (more modern, more likely to
+        # have a cover), falling back to whatever's first.
+        picked = next((i for i in isbns if len(str(i)) == 13), isbns[0])
+        return f"https://covers.openlibrary.org/b/isbn/{picked}-M.jpg?default=false"
+    cover_id = doc.get("cover_i")
+    if cover_id:
+        return f"https://covers.openlibrary.org/b/id/{cover_id}-M.jpg?default=false"
+    return None
+
+
 async def search(query: str) -> list[MediaResult]:
     async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.get(
@@ -28,7 +50,7 @@ async def search(query: str) -> list[MediaResult]:
             continue
 
         cover_id = doc.get("cover_i")
-        image_url = f"https://covers.openlibrary.org/b/id/{cover_id}-M.jpg" if cover_id else None
+        image_url = _ol_cover_url(doc)
         authors = doc.get("author_name", [])
         subjects = doc.get("subject", [])[:5]
 
@@ -74,7 +96,7 @@ async def get_recent_books(limit: int = 20) -> list[MediaResult]:
                 "q": f"first_publish_year:[{current_year - 1} TO {current_year}]",
                 "limit": limit * 2,
                 "sort": "rating",
-                "fields": "key,title,author_name,first_publish_year,cover_i,subject,edition_count",
+                "fields": "key,title,author_name,first_publish_year,cover_i,subject,edition_count,isbn",
             },
         )
         if resp.status_code != 200:
@@ -87,10 +109,9 @@ async def get_recent_books(limit: int = 20) -> list[MediaResult]:
         work_id = work_key.replace("/works/", "") if work_key else ""
         if not work_id:
             continue
-        cover_id = doc.get("cover_i")
-        if not cover_id:
+        image_url = _ol_cover_url(doc)
+        if not image_url:
             continue  # Skip editions without covers — we want a clean grid
-        image_url = f"https://covers.openlibrary.org/b/id/{cover_id}-M.jpg"
         authors = doc.get("author_name", [])
         subjects = doc.get("subject", [])[:5]
         results.append(
@@ -132,9 +153,13 @@ async def get_details(work_id: str) -> MediaResult | None:
     # Get subjects
     subjects = [s for s in work.get("subjects", [])[:8] if isinstance(s, str)]
 
-    # Get cover
+    # Get cover (same ?default=false treatment as search — broken ids
+    # return 404 and the frontend swaps to fallback).
     covers = work.get("covers", [])
-    image_url = f"https://covers.openlibrary.org/b/id/{covers[0]}-M.jpg" if covers else None
+    image_url = (
+        f"https://covers.openlibrary.org/b/id/{covers[0]}-M.jpg?default=false"
+        if covers else None
+    )
 
     # Get authors in parallel
     import asyncio

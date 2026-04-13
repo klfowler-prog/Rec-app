@@ -1836,11 +1836,11 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
             ("tonight_binge",    "Tonight's binge",                                 "tv",      "tv: 1-2 hour episodes, propulsive, ending that actually earns the next episode"),
             ("wind_down",        "Wind down before bed",                            "book",    "book or slow tv: low stakes, not plot-heavy, written or shot with care so it slows your pulse"),
             ("background_work",  "Background while you work",                       "podcast", "podcast or comfort tv rewatch: familiar or conversational, doesn't demand your attention but rewards it when you lean in"),
-            ("weekend_project",  "Weekend project",                                 "movie",   "movie or long book: immersive, something worth sitting with on a saturday"),
+            ("weekend_project",  "Weekend project",                                 "any",     "movie, tv limited series, OR book (any length): immersive, something worth sitting with on a saturday. Mix the media types across the 4 picks — don't return all one category."),
             ("quick_escape",     "Quick escape",                                    "movie",   "movie or short-form tv: 15-90 min, fun, the thing you'd watch when you have a pocket of time and need out of your own head"),
         ]
         theme_schema_lines = [
-            f'    "{slug}": [{{"title": "...", "media_type": "movie|tv|book|podcast", "year": 2020, "reason": "..."}}, ... 4 items]'
+            f'    "{slug}": [{{"title": "...", "media_type": "movie|tv|book|podcast", "year": 2020, "reason": "...", "predicted_rating": 8.3}}, ... 4 items]'
             for (slug, _label, _primary, _guide) in theme_catalog
         ]
         theme_schema = "  \"themes\": {\n" + ",\n".join(theme_schema_lines) + "\n  },"
@@ -1865,6 +1865,13 @@ You are producing FOUR outputs in one JSON response — do NOT repeat the same i
 {theme_guide}
 4. insights: 3 sharp, specific observations about cross-medium patterns in their profile.
 
+PREDICTED RATINGS — CRITICAL:
+Every item in top_picks and every item in themes MUST include a "predicted_rating" field: your honest 1-10 prediction (with one decimal) of how this specific user would actually rate the item, based on their taste profile.
+- Be ruthlessly honest. If a pick genuinely fits the moment but doesn't match the user's taste register (cozy family film for a prestige-drama person, YA for a literary reader, broad comedy for a dark-comedy person), predict LOW — 4, 5 — don't soft-pedal. The app drops anything below 6, so lying gets the item dropped later anyway.
+- Their taste register is visible in the PROFILE above. If they rate prestige TV 9/10 and cozy family movies aren't in their profile at all, a Paddington-style pick should be a 5 at best for them, not an 8.
+- A score of 8+ means "this person will probably love this." 7 means "solid match." 6 means "borderline — worth trying but not a sure thing." Below 6 means "outside their lane."
+- DO NOT inflate. Spread the ratings across the range. It is better to return fewer high-confidence picks than to lie up.
+
 NONFICTION IS WELCOME:
 - Movies can include documentaries
 - Books can be memoirs, essays, idea books, narrative nonfiction
@@ -1879,14 +1886,14 @@ CRITICAL RULES:
 Return ONLY valid JSON, no markdown:
 {{
   "top_picks": [
-    {{"title": "...", "media_type": "movie", "year": 2020, "reason": "..."}},
-    {{"title": "...", "media_type": "movie", "year": 2020, "reason": "..."}},
-    {{"title": "...", "media_type": "tv", "year": 2020, "reason": "..."}},
-    {{"title": "...", "media_type": "tv", "year": 2020, "reason": "..."}},
-    {{"title": "...", "media_type": "book", "year": 2020, "reason": "..."}},
-    {{"title": "...", "media_type": "book", "year": 2020, "reason": "..."}},
-    {{"title": "...", "media_type": "podcast", "year": 2020, "reason": "..."}},
-    {{"title": "...", "media_type": "podcast", "year": 2020, "reason": "..."}}
+    {{"title": "...", "media_type": "movie", "year": 2020, "reason": "...", "predicted_rating": 8.5}},
+    {{"title": "...", "media_type": "movie", "year": 2020, "reason": "...", "predicted_rating": 7.8}},
+    {{"title": "...", "media_type": "tv", "year": 2020, "reason": "...", "predicted_rating": 8.2}},
+    {{"title": "...", "media_type": "tv", "year": 2020, "reason": "...", "predicted_rating": 7.5}},
+    {{"title": "...", "media_type": "book", "year": 2020, "reason": "...", "predicted_rating": 8.0}},
+    {{"title": "...", "media_type": "book", "year": 2020, "reason": "...", "predicted_rating": 7.2}},
+    {{"title": "...", "media_type": "podcast", "year": 2020, "reason": "...", "predicted_rating": 8.1}},
+    {{"title": "...", "media_type": "podcast", "year": 2020, "reason": "...", "predicted_rating": 7.4}}
   ],
 {suggestions_schema}
 {theme_schema}
@@ -1924,9 +1931,19 @@ Return ONLY valid JSON, no markdown:
                 ]
 
         # Enrich top picks and suggestions with posters in parallel.
+        def _coerce_pr(raw) -> float | None:
+            try:
+                pr = float(raw)
+            except (TypeError, ValueError):
+                return None
+            if pr <= 0 or pr > 10:
+                return None
+            return round(pr, 1)
+
         async def enrich_pick(pick: dict) -> dict | None:
             title = pick.get("title", "")
             mt = pick.get("media_type")
+            pr = _coerce_pr(pick.get("predicted_rating"))
             matches = await unified_search(title, mt)
             matches = _rank_by_title_match(title, matches)
             if matches:
@@ -1943,6 +1960,7 @@ Return ONLY valid JSON, no markdown:
                     "description": best.description,
                     "reason": pick.get("reason", ""),
                     "genres": best.genres,
+                    "predicted_rating": pr,
                 }
             return {
                 "title": title,
@@ -1954,6 +1972,7 @@ Return ONLY valid JSON, no markdown:
                 "description": None,
                 "reason": pick.get("reason", ""),
                 "genres": [],
+                "predicted_rating": pr,
             }
 
         async def enrich_suggestion(item: dict, media_type: str) -> dict | None:
@@ -2011,11 +2030,32 @@ Return ONLY valid JSON, no markdown:
         pick_end = len(pick_tasks)
         sugg_end = pick_end + len(suggestion_tasks)
 
-        # Keep one top_pick per media type, preferring the AI's ordering.
-        survivors = [r for r in all_results[:pick_end] if r is not None]
+        # Minimum predicted rating to surface an item. Anything below this
+        # is "outside the user's lane" per the prompt contract; we drop it
+        # rather than show a bad match.
+        MIN_PRED_RATING = 6.0
+
+        def _pr_sort_key(item: dict) -> float:
+            # None predictions sort to the bottom so legit scored items win
+            # every tie. Negative for descending sort.
+            pr = item.get("predicted_rating")
+            return -(pr if isinstance(pr, (int, float)) else -1)
+
+        def _has_min_pr(item: dict) -> bool:
+            pr = item.get("predicted_rating")
+            if pr is None:
+                # Missing predictions pass through (enrichment couldn't
+                # attach one). We don't punish for the AI forgetting.
+                return True
+            return pr >= MIN_PRED_RATING
+
+        # Keep one top_pick per media type, preferring the higher
+        # predicted rating, then the AI's ordering as tie-breaker.
+        raw_survivors = [r for r in all_results[:pick_end] if r is not None and _has_min_pr(r)]
+        raw_survivors.sort(key=_pr_sort_key)
         enriched_picks: list[dict] = []
         seen_types: set[str] = set()
-        for r in survivors:
+        for r in raw_survivors:
             mt = r.get("media_type")
             if mt in seen_types:
                 continue
@@ -2024,20 +2064,22 @@ Return ONLY valid JSON, no markdown:
 
         enriched_suggestions: dict[str, list] = {}
         for key, result in zip(suggestion_keys, all_results[pick_end:sugg_end]):
-            if result is None:
+            if result is None or not _has_min_pr(result):
                 continue
             enriched_suggestions.setdefault(key, []).append(result)
-        # Cap at 3 per category after filtering
+        # Sort desc by predicted_rating, then cap at 3 per category
         for key in list(enriched_suggestions.keys()):
+            enriched_suggestions[key].sort(key=_pr_sort_key)
             enriched_suggestions[key] = enriched_suggestions[key][:3]
 
         enriched_themes: dict[str, list] = {}
         for key, result in zip(theme_keys, all_results[sugg_end:]):
-            if result is None:
+            if result is None or not _has_min_pr(result):
                 continue
             enriched_themes.setdefault(key, []).append(result)
-        # Cap at 4 per theme after filtering
+        # Sort desc by predicted_rating, then cap at 4 per theme
         for key in list(enriched_themes.keys()):
+            enriched_themes[key].sort(key=_pr_sort_key)
             enriched_themes[key] = enriched_themes[key][:4]
 
         log.info(
@@ -2160,12 +2202,14 @@ RULES:
 - DO NOT pick anything the user already has in their library: {', '.join(list(known_normalized)[:30]) if known_normalized else 'none'}
 - The "reason" should start with "Because you loved {anchor.title}..." and cite a specific concrete element.
 - Match audience and tonal register — don't suggest adult content if the anchor is family-friendly, or vice versa.
+- Include a "predicted_rating": your honest 1-10 prediction (one decimal) of how this specific user would rate it. Base this on the anchor they just loved and any other signals above. If you can't find a pick that lands above 7 for them, still return your best candidate but score it honestly — the app will drop picks below 6 rather than show an outside-the-lane rec.
 
 Return ONLY valid JSON, no markdown:
 {{
   "title": "...",
   "year": 2020,
-  "reason": "Because you loved {anchor.title}, <specific concrete connection>."
+  "reason": "Because you loved {anchor.title}, <specific concrete connection>.",
+  "predicted_rating": 8.5
 }}"""
 
         text = (await generate(prompt)).strip()
@@ -2176,6 +2220,27 @@ Return ONLY valid JSON, no markdown:
         title = parsed["title"]
         if _is_known(title, known_normalized):
             return {"pick": None, "anchor": None}
+
+        # Honest predicted rating; drop the whole pick if it's outside the
+        # user's lane. The prompt tells the AI to be ruthless with this —
+        # we'd rather show "no best bet right now" than a 5/10 pick.
+        raw_pr = parsed.get("predicted_rating")
+        try:
+            pr = float(raw_pr) if raw_pr is not None else None
+        except (TypeError, ValueError):
+            pr = None
+        if pr is not None:
+            pr = round(pr, 1) if 0 < pr <= 10 else None
+        if pr is not None and pr < 6.0:
+            log.info(
+                "best_bet [user=%d/%s]: dropping %s — predicted %s below 6",
+                user.id, media_type, title, pr,
+            )
+            return {
+                "pick": None,
+                "anchor": None,
+                "message": "Nothing crossed the 6/10 bar for this category right now — try again in a few days.",
+            }
 
         # Enrich via search for poster + external_id
         matches = await unified_search(title, media_type)
@@ -2195,6 +2260,7 @@ Return ONLY valid JSON, no markdown:
                     "genres": best.genres or [],
                     "description": best.description,
                     "reason": parsed.get("reason", ""),
+                    "predicted_rating": pr,
                 }
         if not enriched_pick:
             enriched_pick = {
@@ -2208,6 +2274,7 @@ Return ONLY valid JSON, no markdown:
                 "genres": [],
                 "description": None,
                 "reason": parsed.get("reason", ""),
+                "predicted_rating": pr,
             }
 
         result = {
@@ -2220,8 +2287,8 @@ Return ONLY valid JSON, no markdown:
             },
         }
         log.info(
-            "best_bet [user=%d/%s]: anchor=%s -> pick=%s",
-            user.id, media_type, anchor.title, enriched_pick["title"],
+            "best_bet [user=%d/%s]: anchor=%s -> pick=%s (pred=%s)",
+            user.id, media_type, anchor.title, enriched_pick["title"], pr,
         )
         cache.set(cache_key, result, ttl_seconds=604800)  # 7 days
         return result

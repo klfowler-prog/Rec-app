@@ -219,6 +219,19 @@ const TYPE_LABEL = {
     podcast: 'Podcasts',
 };
 
+// Predicted-rating badge shown on the top-right of the poster. Colors
+// step with the score so a great match is visually distinct from a
+// borderline one. Null or < 6 predictions render nothing (we filter
+// those out server-side, but guard here too in case cached data lags).
+function prBadge(pr) {
+    if (pr == null || typeof pr !== 'number' || pr < 6) return '';
+    const color = pr >= 8.5 ? 'bg-emerald-500'
+               : pr >= 7.5 ? 'bg-emerald-400'
+               : pr >= 6.5 ? 'bg-yellow-500'
+               : 'bg-amber-400';
+    return `<div class="absolute top-2 right-2 px-2 py-0.5 ${color} rounded-full shadow"><span class="text-[10px] font-bold text-white">${pr.toFixed(1)}</span></div>`;
+}
+
 {% if total > 0 %}
 // -----------------------------------------------------------------
 // New-user welcome modal (kept from the previous design). Shown once
@@ -394,11 +407,11 @@ function renderBestBetCard(mediaType, pick, anchor) {
     const accent = TYPE_ACCENT[mediaType] || TYPE_ACCENT.movie;
     const label = TYPE_LABEL[mediaType] || mediaType;
     const fit = mediaType === 'podcast' ? 'poster-contain' : 'poster-cover';
-    const pr = pick.predicted_rating;
-    const prBadge = pr ? `<div class="absolute top-2 right-2 px-1.5 py-0.5 ${pr >= 8 ? 'bg-emerald-500' : pr >= 6 ? 'bg-yellow-500' : 'bg-amber-400'} rounded-full"><span class="text-[10px] font-bold text-white">${pr}</span></div>` : '';
-    const image = pick.image_url
-        ? `<div class="relative poster-frame"><img src="${pick.image_url}" alt="" class="${fit}">${prBadge}</div>`
-        : `<div class="relative poster-frame"><div class="poster-fallback ${accent}"><span class="text-white text-3xl font-bold">${escapeHtml((pick.title || '?')[0])}</span></div>${prBadge}</div>`;
+    const pr = typeof pick.predicted_rating === 'number' ? prBadge(pick.predicted_rating) : '';
+    const imageInner = pick.image_url
+        ? `<img src="${pick.image_url}" alt="" class="${fit}">`
+        : `<div class="poster-fallback ${accent}"><span class="text-white text-3xl font-bold">${escapeHtml((pick.title || '?')[0])}</span></div>`;
+    const image = `<div class="poster-frame relative">${imageInner}${pr}</div>`;
     const link = pick.external_id ? `/media/${pick.media_type || mediaType}/${pick.external_id}?source=${pick.source}` : '#';
     const itemForCard = {
         external_id: pick.external_id || '',
@@ -494,11 +507,11 @@ function renderThemeCard(item) {
     const accent = TYPE_ACCENT[mt] || TYPE_ACCENT.movie;
     const badge = TYPE_BADGE[mt] || TYPE_BADGE.movie;
     const fit = mt === 'podcast' ? 'poster-contain' : 'poster-cover';
-    const pr = item.predicted_rating;
-    const prBadge = pr ? `<div class="absolute top-1.5 right-1.5 px-1.5 py-0.5 ${pr >= 8 ? 'bg-emerald-500' : pr >= 6 ? 'bg-yellow-500' : 'bg-amber-400'} rounded-full"><span class="text-[9px] font-bold text-white">${pr}</span></div>` : '';
-    const image = item.image_url
-        ? `<div class="relative poster-frame"><img src="${item.image_url}" alt="" class="${fit}">${prBadge}</div>`
-        : `<div class="relative poster-frame"><div class="poster-fallback ${accent}"><span class="text-white text-3xl font-bold">${escapeHtml((item.title || '?')[0])}</span></div>${prBadge}</div>`;
+    const pr = typeof item.predicted_rating === 'number' ? prBadge(item.predicted_rating) : '';
+    const imageInner = item.image_url
+        ? `<img src="${item.image_url}" alt="" class="${fit}">`
+        : `<div class="poster-fallback ${accent}"><span class="text-white text-3xl font-bold">${escapeHtml((item.title || '?')[0])}</span></div>`;
+    const image = `<div class="poster-frame relative">${imageInner}${pr}</div>`;
     const link = item.external_id ? `/media/${mt}/${item.external_id}?source=${item.source}` : '#';
     const itemForCard = {
         external_id: item.external_id || '',

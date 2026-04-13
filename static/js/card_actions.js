@@ -256,3 +256,68 @@ function buildActionBar(item, size = 'md') {
         </div>
     `;
 }
+
+// ---------------------------------------------------------------------------
+// Global poster fallback. A lot of the image URLs we surface come from
+// OpenLibrary cover IDs that return zero-byte responses or placeholder GIFs,
+// or TMDB/iTunes URLs that occasionally 404 — with no onerror handler those
+// leave blank colored squares on the page.
+//
+// Rather than touch every card renderer, install ONE delegated handler on
+// the document that catches any <img> load failure inside a .poster-frame
+// and swaps in a first-letter fallback tile, reading the title from the
+// nearest card element (alt attr, or data-title, or the nearest
+// [data-rec-card] title span).
+//
+// Registered with capture=true because <img>'s `error` event doesn't bubble
+// by default.
+// ---------------------------------------------------------------------------
+(function installPosterFallback() {
+    if (typeof document === 'undefined') return;
+    if (document._posterFallbackInstalled) return;
+    document._posterFallbackInstalled = true;
+
+    function firstChar(s) {
+        if (!s) return '?';
+        const t = String(s).trim();
+        return t ? t[0].toUpperCase() : '?';
+    }
+
+    function swap(img) {
+        if (img._fallbackSwapped) return;
+        img._fallbackSwapped = true;
+        const frame = img.closest('.poster-frame');
+        if (!frame) return;
+        // Pull a title for the fallback letter from: alt attribute,
+        // data-title, or the closest card's first title-bearing text node.
+        let title = img.getAttribute('alt') || img.getAttribute('data-title') || '';
+        if (!title) {
+            const card = img.closest('[data-rec-card], .swim-lane-item, .rounded-lg');
+            if (card) {
+                const t = card.querySelector('.card-title, [data-title], p.font-medium, a.font-semibold, h3, h4');
+                if (t) title = t.textContent || '';
+            }
+        }
+        const div = document.createElement('div');
+        div.className = 'poster-fallback bg-sage/10';
+        div.innerHTML = `<span class="text-sage text-2xl font-bold">${firstChar(title)}</span>`;
+        img.replaceWith(div);
+    }
+
+    document.addEventListener('error', function (ev) {
+        const t = ev.target;
+        if (t && t.tagName === 'IMG' && t.closest('.poster-frame')) {
+            swap(t);
+        }
+    }, true);  // capture — img error does not bubble
+
+    // Some browsers don't fire `error` for zero-byte / 200-with-empty-body
+    // responses; those images load successfully but have naturalWidth 0.
+    // After load, check for that and swap too.
+    document.addEventListener('load', function (ev) {
+        const t = ev.target;
+        if (t && t.tagName === 'IMG' && t.closest('.poster-frame')) {
+            if (t.naturalWidth === 0 || t.naturalHeight === 0) swap(t);
+        }
+    }, true);
+})();
