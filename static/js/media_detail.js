@@ -1,7 +1,5 @@
 const detailLoading = document.getElementById('detail-loading');
 const detailContent = document.getElementById('detail-content');
-const addModal = document.getElementById('add-modal');
-const addForm = document.getElementById('add-form');
 
 let currentMedia = null;
 
@@ -65,14 +63,18 @@ async function loadDetail() {
             `).join('');
         }
 
-        // Check if already in profile. When it is, hide the "Add to
-        // profile" button and mount a live status switcher so the
-        // user can move the item between Later / Now / Done / Dropped
-        // without navigating to /profile.
+        // Inject the shared action bar (save / verb / dismiss)
+        const actionBar = document.getElementById('detail-action-bar');
+        if (actionBar && typeof buildActionBar === 'function') {
+            actionBar.innerHTML = buildActionBar(currentMedia, 'md');
+        }
+
+        // Check if already in profile. When it is, hide the action bar
+        // and mount a live status switcher (Later / Now / Done / Dropped).
         const checkResp = await fetch(`/api/profile/check/${currentMedia.source}/${EXTERNAL_ID}`);
         const checkData = await checkResp.json();
         if (checkData.in_profile && checkData.entry) {
-            document.getElementById('add-to-profile-btn').classList.add('hidden');
+            if (actionBar) actionBar.classList.add('hidden');
             mountStatusSwitcher(checkData.entry);
         }
 
@@ -210,64 +212,6 @@ function renderAdaptation(adaptation) {
     section.classList.remove('hidden');
 }
 
-// Add to profile
-document.getElementById('add-to-profile-btn').addEventListener('click', () => {
-    addModal.classList.remove('hidden');
-});
-
-document.getElementById('add-cancel').addEventListener('click', () => addModal.classList.add('hidden'));
-addModal.addEventListener('click', (e) => { if (e.target === addModal) addModal.classList.add('hidden'); });
-
-addForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!currentMedia) return;
-
-    const data = {
-        external_id: currentMedia.external_id,
-        source: currentMedia.source,
-        title: currentMedia.title,
-        media_type: currentMedia.media_type,
-        image_url: currentMedia.image_url,
-        year: currentMedia.year,
-        creator: currentMedia.creator,
-        genres: currentMedia.genres ? currentMedia.genres.join(', ') : null,
-        description: currentMedia.description,
-        status: document.getElementById('add-status').value,
-        rating: document.getElementById('add-rating').value ? parseFloat(document.getElementById('add-rating').value) : null,
-        notes: document.getElementById('add-notes').value || null,
-    };
-
-    try {
-        const resp = await fetch('/api/profile/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
-        });
-
-        if (resp.ok || resp.status === 409) {
-            addModal.classList.add('hidden');
-            document.getElementById('add-to-profile-btn').classList.add('hidden');
-            let entry = null;
-            if (resp.ok) {
-                entry = await resp.json();
-            } else {
-                // 409 = already exists, fetch the existing entry
-                try {
-                    const checkResp = await fetch(`/api/profile/check/${currentMedia.source}/${currentMedia.external_id}`);
-                    const checkData = await checkResp.json();
-                    entry = checkData.entry || null;
-                } catch {}
-            }
-            if (entry) {
-                // Patch in any fields mountStatusSwitcher needs that the API may not return
-                entry.media_type = entry.media_type || currentMedia.media_type;
-                mountStatusSwitcher(entry);
-            }
-        }
-    } catch (err) {
-        alert('Failed to add to profile. Please try again.');
-    }
-});
 
 function escapeHtml(text) {
     const div = document.createElement('div');

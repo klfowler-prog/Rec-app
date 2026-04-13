@@ -171,25 +171,7 @@ function newReleaseCard(item) {
     const pr = item.predicted_rating;
     const prBadge = pr ? `<div class="absolute top-2 right-2 px-1.5 py-0.5 ${pr >= 8 ? 'bg-emerald-500' : pr >= 6 ? 'bg-yellow-500' : pr >= 4 ? 'bg-amber-400' : 'bg-coral'} rounded-full"><span class="text-[10px] font-bold text-white">${pr}</span></div>` : '';
 
-    const consumeAttr = escapeAttr(JSON.stringify({
-        external_id: item.external_id || '', source: item.source || '', title: item.title,
-        media_type: item.media_type || MEDIA_TYPE, image_url: item.image_url || null,
-        year: item.year || null, creator: item.creator || null,
-        genres: (item.genres && item.genres.length) ? item.genres.join(', ') : null,
-        description: item.description || null, status: 'consumed',
-    }));
-    const saveAttr = escapeAttr(JSON.stringify({
-        external_id: item.external_id || '', source: item.source || '', title: item.title,
-        media_type: item.media_type || MEDIA_TYPE, image_url: item.image_url || null,
-        year: item.year || null, creator: item.creator || null,
-        genres: (item.genres && item.genres.length) ? item.genres.join(', ') : null,
-        description: item.description || null, status: 'want_to_consume',
-    }));
-    const dismissAttr = escapeAttr(JSON.stringify({
-        external_id: item.external_id || '', source: item.source || '',
-        title: item.title, media_type: item.media_type || MEDIA_TYPE,
-    }));
-    const verb = {movie:'Watched',tv:'Watched',book:'Read',podcast:'Listened'}[MEDIA_TYPE] || 'Done';
+    const cardItem = {...item, media_type: item.media_type || MEDIA_TYPE};
 
     return `
         <div class="swim-lane-item flex-shrink-0 w-40" data-rec-card>
@@ -198,17 +180,7 @@ function newReleaseCard(item) {
                 <div class="bg-surface-light dark:bg-surface-dark p-2.5">
                     <p class="text-xs font-medium truncate">${escapeHtml(item.title)}</p>
                     ${item.year ? `<p class="text-[10px] text-txt-muted">${item.year}</p>` : ''}
-                    <div class="mt-1.5 quick-add-area">
-                        <div class="flex items-center gap-1">
-                            <button onclick="saveForLater(this, ${saveAttr})" class="p-1 bg-sage/10 hover:bg-sage hover:text-white text-sage rounded transition-base" title="Save for later">
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
-                            </button>
-                            <button onclick="quickAdd(this, ${consumeAttr})" class="px-2 py-1 bg-sage/10 hover:bg-sage hover:text-white text-sage text-[10px] font-medium rounded transition-base">${verb}</button>
-                            <button onclick="dismissItem(this, ${dismissAttr})" class="p-1 bg-gray-100 dark:bg-gray-800 hover:bg-coral hover:text-white text-txt-muted rounded transition-base" title="Not interested">
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                            </button>
-                        </div>
-                    </div>
+                    <div class="mt-1.5 quick-add-area">${buildActionBar(cardItem, 'sm')}</div>
                 </div>
             </div>
         </div>
@@ -356,22 +328,6 @@ async function loadBestBet() {
             : `<div class="poster-frame"><div class="poster-fallback bg-sage/10"><span class="text-sage text-3xl">${escapeHtml((pick.title || '?')[0])}</span></div></div>`;
         const link = pick.external_id ? `/media/${pick.media_type}/${pick.external_id}?source=${pick.source}` : '#';
 
-        const consumeAttr = escapeAttr(JSON.stringify({
-            external_id: pick.external_id || '', source: pick.source || '', title: pick.title,
-            media_type: pick.media_type, image_url: pick.image_url || null, year: pick.year || null,
-            creator: pick.creator || null,
-            genres: (pick.genres && pick.genres.length) ? pick.genres.join(', ') : null,
-            description: pick.description || null, status: 'consumed',
-        }));
-        const saveAttr = escapeAttr(JSON.stringify({
-            external_id: pick.external_id || '', source: pick.source || '', title: pick.title,
-            media_type: pick.media_type, image_url: pick.image_url || null, year: pick.year || null,
-            creator: pick.creator || null,
-            genres: (pick.genres && pick.genres.length) ? pick.genres.join(', ') : null,
-            description: pick.description || null, status: 'want_to_consume',
-        }));
-        const verb = {movie: 'Watched it', tv: 'Watched it', book: 'Read it', podcast: 'Listened'}[MEDIA_TYPE] || 'Done';
-
         card.innerHTML = `
             <div class="flex flex-col sm:flex-row gap-5 p-5 md:p-6">
                 <a href="${link}" class="block w-32 md:w-40 flex-shrink-0 self-center sm:self-start">${image}</a>
@@ -380,13 +336,7 @@ async function loadBestBet() {
                     <h4 class="text-xl md:text-2xl font-bold leading-tight mb-1">${escapeHtml(pick.title)}</h4>
                     ${pick.year || pick.creator ? `<p class="text-xs text-txt-muted mb-3">${[pick.year, pick.creator].filter(Boolean).join(' · ')}</p>` : ''}
                     <p class="text-sm text-txt leading-relaxed mb-4">${escapeHtml(pick.reason || '')}</p>
-                    <div class="flex items-center gap-2 flex-wrap">
-                        <button onclick="saveForLater(this, ${saveAttr})" class="px-3 py-1.5 bg-sage/15 hover:bg-sage hover:text-white text-sage text-xs font-medium rounded-lg transition-base inline-flex items-center gap-1.5">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
-                            Save for later
-                        </button>
-                        <button onclick="quickAdd(this, ${consumeAttr})" class="px-3 py-1.5 bg-sage hover:bg-sage-dark text-white text-xs font-medium rounded-lg transition-base">${verb}</button>
-                    </div>
+                    <div class="quick-add-area">${buildActionBar(pick, 'md')}</div>
                 </div>
             </div>
         `;
