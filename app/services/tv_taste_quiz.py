@@ -86,6 +86,19 @@ SHOWS: list[dict] = [
      "weights": {"ambiguity": 2, "genre": 1, "serialization": 1, "darkness": 1}},
     {"order": 19, "title": "The Leftovers",        "tmdb_year": 2014, "years": "2014–2017",
      "weights": {"ambiguity": 2, "emotional": 2, "darkness": 2, "genre": 1}},
+    # Additional items to broaden surface area — warm earnest
+    # comfort, absurdist animation, international genre thriller,
+    # workplace sitcom, and prestige royal drama.
+    {"order": 20, "title": "Ted Lasso",             "tmdb_year": 2020, "years": "2020–2023",
+     "weights": {"emotional": 2, "irony": -2, "darkness": -2}},
+    {"order": 21, "title": "Brooklyn Nine-Nine",    "tmdb_year": 2013, "years": "2013–2021",
+     "weights": {"comedy": 1, "emotional": 1, "irony": -1, "darkness": -1}},
+    {"order": 22, "title": "Rick and Morty",        "tmdb_year": 2013, "years": "2013–",
+     "weights": {"comedy": 2, "irony": 2, "ambiguity": 1, "darkness": 1, "emotional": -1}},
+    {"order": 23, "title": "Squid Game",            "tmdb_year": 2021, "years": "2021–",
+     "weights": {"genre": 1, "darkness": 2, "serialization": 1, "moral_ambiguity": 1}},
+    {"order": 24, "title": "The Crown",             "tmdb_year": 2016, "years": "2016–2023",
+     "weights": {"serialization": 2, "emotional": 1, "moral_ambiguity": 1}},
 ]
 
 
@@ -132,7 +145,7 @@ PROFILES: list[dict] = [
 # Below the movie quiz threshold because there are 19 shows, not 20,
 # and TV taste tends to be more hybrid than film taste so we want to
 # surface a profile slightly earlier.
-MIN_ANSWERED = 10
+MIN_ANSWERED = 8
 
 
 def score_responses(responses: list[dict]) -> dict:

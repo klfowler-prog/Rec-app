@@ -94,6 +94,19 @@ FICTION: list[dict] = [
      "weights": {"commitment": 2, "prose": 2, "ideas": 1, "irony": 1, "plot": -2}},
     {"order": 20, "title": "Blood Meridian", "author": "Cormac McCarthy", "years": "1985",
      "weights": {"prose": 2, "darkness": 2, "irony": 1, "plot": -2}},
+    # Additional mainstream/canonical fiction — sci-fi epic, YA,
+    # modern bestsellers, contemporary literary. Gives readers more
+    # surface to find titles they've actually read.
+    {"order": 21, "title": "Dune", "author": "Frank Herbert", "years": "1965",
+     "weights": {"commitment": 2, "ideas": 1, "prose": 1, "plot": 1}},
+    {"order": 22, "title": "The Hunger Games", "author": "Suzanne Collins", "years": "2008",
+     "weights": {"plot": 2, "emotional": 1, "darkness": 1, "prose": -1}},
+    {"order": 23, "title": "The Seven Husbands of Evelyn Hugo", "author": "Taylor Jenkins Reid", "years": "2017",
+     "weights": {"plot": 1, "emotional": 2, "prose": -1}},
+    {"order": 24, "title": "Where the Crawdads Sing", "author": "Delia Owens", "years": "2018",
+     "weights": {"emotional": 2, "plot": 1, "prose": 1, "darkness": 1}},
+    {"order": 25, "title": "Tomorrow, and Tomorrow, and Tomorrow", "author": "Gabrielle Zevin", "years": "2022",
+     "weights": {"emotional": 1, "ideas": 1, "prose": 1, "commitment": 1}},
 ]
 
 
@@ -122,6 +135,19 @@ NONFICTION: list[dict] = [
      "weights": {"prose": 2, "irony": 1, "nonfiction_register": -1}},
     {"order": 10, "title": "How to Change Your Mind", "author": "Michael Pollan", "years": "2018",
      "weights": {"ideas": 2, "nonfiction_register": 1, "prose": 1}},
+    # Additional nonfiction — two more ideas books, two more narrative
+    # memoirs, one investigative. Broadens the surface to match the
+    # fiction module's new size.
+    {"order": 11, "title": "Atomic Habits", "author": "James Clear", "years": "2018",
+     "weights": {"ideas": 2, "nonfiction_register": 2, "emotional": -1}},
+    {"order": 12, "title": "Thinking, Fast and Slow", "author": "Daniel Kahneman", "years": "2011",
+     "weights": {"ideas": 2, "nonfiction_register": 2, "commitment": 1, "emotional": -1}},
+    {"order": 13, "title": "Just Mercy", "author": "Bryan Stevenson", "years": "2014",
+     "weights": {"emotional": 2, "darkness": 1, "moral_ambiguity": 1, "nonfiction_register": -1}},
+    {"order": 14, "title": "The Glass Castle", "author": "Jeannette Walls", "years": "2005",
+     "weights": {"emotional": 2, "darkness": 1, "plot": 1, "prose": 1}},
+    {"order": 15, "title": "Bad Blood", "author": "John Carreyrou", "years": "2018",
+     "weights": {"plot": 2, "moral_ambiguity": 1, "darkness": 1, "nonfiction_register": -1}},
 ]
 
 
@@ -177,9 +203,9 @@ PROFILES: list[dict] = [
 ]
 
 
-FICTION_MIN = 8
-NONFICTION_MIN = 8
-NONFICTION_MIN_TO_USE = 5  # below this, fiction-only even if fiction met its minimum
+FICTION_MIN = 7
+NONFICTION_MIN = 6
+NONFICTION_MIN_TO_USE = 4  # below this, fiction-only even if fiction met its minimum
 
 
 def score_book_responses(responses: list[dict]) -> dict:

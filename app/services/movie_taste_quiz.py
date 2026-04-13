@@ -90,6 +90,20 @@ FILMS: list[dict] = [
      "weights": {"film_history": 2, "pace": 2, "darkness": 2}},
     {"order": 20, "title": "2001: A Space Odyssey",                  "year": 1968,
      "weights": {"pace": 2, "ambiguity": 2, "film_history": 1}},
+    # Additional mainstream/canonical items to give users a bigger
+    # surface to find things they've actually seen. Span comedy,
+    # romance, action, classic prestige, and coming-of-age so the
+    # axis probes stay balanced.
+    {"order": 21, "title": "Toy Story",                              "year": 1995,
+     "weights": {"emotional": 1, "comedy": 1, "darkness": -2}},
+    {"order": 22, "title": "When Harry Met Sally",                   "year": 1989,
+     "weights": {"emotional": 1, "comedy": 1, "irony": 1}},
+    {"order": 23, "title": "The Godfather",                          "year": 1972,
+     "weights": {"film_history": 2, "pace": 1, "darkness": 1, "emotional": 1}},
+    {"order": 24, "title": "John Wick",                              "year": 2014,
+     "weights": {"genre": 1, "pace": -2, "darkness": 1, "emotional": -1}},
+    {"order": 25, "title": "Boyhood",                                "year": 2014,
+     "weights": {"pace": 2, "emotional": 1, "ambiguity": 1}},
 ]
 
 
@@ -137,7 +151,7 @@ PROFILES: list[dict] = [
 ]
 
 
-MIN_ANSWERED = 11
+MIN_ANSWERED = 9
 
 
 def score_responses(responses: list[dict]) -> dict:
