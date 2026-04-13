@@ -1832,12 +1832,12 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
         # consumption the user might actually be in. These replace the
         # old "Patterns in your taste" insights block on the home page.
         theme_catalog = [
-            ("walking_the_dog", "Something to listen to while walking the dog", "podcast", "podcast: 30-60 min, conversational or narrative, one you can drop in and out of without losing the thread"),
-            ("tonight_binge",    "Tonight's binge",                                 "tv",      "tv: 1-2 hour episodes, propulsive, ending that actually earns the next episode"),
-            ("wind_down",        "Wind down before bed",                            "book",    "book or slow tv: low stakes, not plot-heavy, written or shot with care so it slows your pulse"),
-            ("background_work",  "Background while you work",                       "podcast", "podcast or comfort tv rewatch: familiar or conversational, doesn't demand your attention but rewards it when you lean in"),
-            ("weekend_project",  "Weekend project",                                 "any",     "movie, tv limited series, OR book (any length): immersive, something worth sitting with on a saturday. Mix the media types across the 4 picks — don't return all one category."),
-            ("quick_escape",     "Quick escape",                                    "movie",   "movie or short-form tv: 15-90 min, fun, the thing you'd watch when you have a pocket of time and need out of your own head"),
+            ("walking_the_dog", "Something to listen to while walking the dog, cooking, cleaning the house, or running errands", "podcast", "podcast: 30-60 min, conversational or narrative, one you can drop in and out of without losing the thread"),
+            ("tonight_binge",    "Tonight's binge",                                                                                "tv",      "tv: 1-2 hour episodes, propulsive, something the user will be eager to engage with and that feels well aligned with their taste"),
+            ("wind_down",        "Wind down before bed",                                                                           "book",    "book or slow tv: low stakes, light and entertaining, not super high energy, cozy"),
+            ("background_work",  "Background while you work",                                                                      "podcast", "podcast or comfort tv rewatch: familiar or conversational, doesn't demand your attention but rewards it when you lean in"),
+            ("weekend_binge",    "Weekend binge",                                                                                  "any",     "movie, tv limited series, OR book (any length). This category can ask more of the user than the weeknight binge — engaging, something worth sitting with on a Saturday. Mix the media types across the 4 picks — don't return all one category."),
+            ("quick_escape",     "Quick escape",                                                                                   "movie",   "movie or short-form tv: 15-90 min, fun, the thing you'd watch when you have a pocket of time and need out of your own head, a laugh, or to feel inspired or positive"),
         ]
         theme_schema_lines = [
             f'    "{slug}": [{{"title": "...", "media_type": "movie|tv|book|podcast", "year": 2020, "reason": "...", "predicted_rating": 8.3}}, ... 4 items]'
@@ -2407,7 +2407,7 @@ async def get_home_right_now(
                 f"  - {e.title} ({e.media_type}, {e.genres or 'unknown genre'})"
                 for e in consuming
             ]
-            prompt = f"""You are writing ONE sentence — warm, specific, not cute — about the intersection of the media this user is currently in the middle of. The goal is to name, in plain words, the through-line across these items: the tonal register, the idea they keep circling, the kind of emotional territory they're walking through right now. Cite at least ONE of the items by name.
+            prompt = f"""You are writing ONE sentence — warm, specific, insightful — about the intersection of the media this user is currently in the middle of. The goal is to name, in plain words, the through-line across these items: the tonal register, the idea they keep circling, the kind of emotional territory they're walking through right now. Cite at least ONE of the items by name.
 
 CURRENTLY CONSUMING:
 {chr(10).join(lines)}
@@ -2415,7 +2415,7 @@ CURRENTLY CONSUMING:
 RULES:
 - ONE sentence only. 25-40 words.
 - Plain prose. No metaphors piled on metaphors. No "it's almost as if…".
-- Don't hedge — commit to the observation.
+- Commit to the observation.
 - If the items genuinely don't intersect, say that plainly: "You've got a wide net cast right now — {{pick one}} is the outlier." Don't force a connection.
 
 Return ONLY the sentence, no quotes, no preamble."""

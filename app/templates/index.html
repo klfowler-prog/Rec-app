@@ -134,7 +134,7 @@
             <a href="/recommend?context=walking_the_dog" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">While walking the dog</a>
             <a href="/recommend?context=background_work" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Background while I work</a>
             <a href="/recommend?context=quick_escape" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Quick escape</a>
-            <a href="/recommend?context=weekend_project" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Lose the weekend</a>
+            <a href="/recommend?context=weekend_binge" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Lose the weekend</a>
             <a href="/recommend" class="px-4 py-2 border border-dashed border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Something else&hellip;</a>
         </div>
     </div>
@@ -454,10 +454,10 @@ const THEME_META = {
     tonight_binge:    { label: "Tonight's binge",          blurb: "TV that actually earns the next episode.",          accent: 'text-purple-500' },
     wind_down:        { label: "Wind down before bed",     blurb: "Low-stakes, slow your pulse.",                      accent: 'text-amber-500' },
     background_work:  { label: "Background while you work", blurb: "Familiar and conversational, half-attention-safe.", accent: 'text-sky-500' },
-    weekend_project:  { label: "Lose the weekend",          blurb: "Binge it. Fall in. Look up and it's dark outside.",  accent: 'text-coral' },
+    weekend_binge:    { label: "Lose the weekend",          blurb: "Binge it. Fall in. Look up and it's dark outside.",  accent: 'text-coral' },
     quick_escape:     { label: "Quick escape",             blurb: "15-90 minutes, out of your own head.",              accent: 'text-rose-500' },
 };
-const THEME_ORDER = ['tonight_binge', 'wind_down', 'walking_the_dog', 'background_work', 'weekend_project', 'quick_escape'];
+const THEME_ORDER = ['tonight_binge', 'wind_down', 'walking_the_dog', 'background_work', 'weekend_binge', 'quick_escape'];
 
 async function loadThemes() {
     const wrap = document.getElementById('themes-wrap');
