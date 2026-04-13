@@ -126,6 +126,41 @@
             <div id="podcast-bonus-items" class="hidden space-y-3"></div>
         </div>
 
+        <!-- All-done celebration + import prompts. Shown only when
+             the user just finished their third quiz. renderResult()
+             populates + reveals this block when data.next_quiz is
+             null (meaning all three quizzes are complete). -->
+        <div id="all-done-wrap" class="hidden rounded-2xl p-6 text-white" style="background: linear-gradient(135deg, #2B3A4E 0%, #1E2A3A 100%);">
+            <div class="flex items-start gap-3 mb-4">
+                <span class="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                </span>
+                <div class="flex-1">
+                    <h3 class="text-xl font-bold mb-1">Your taste profile is ready</h3>
+                    <p class="text-sm text-white/80 leading-relaxed">All three quizzes done. The AI now has cross-medium signals blending your film, TV, and book directions into every recommendation. It'll get sharper as you add more of what you actually watch, read, and listen to.</p>
+                </div>
+            </div>
+            <p class="text-[11px] text-white/60 uppercase tracking-widest mb-2 font-semibold">Sharpen your profile further</p>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <a href="/import/goodreads" class="flex items-center gap-2 px-3 py-2.5 bg-white/10 hover:bg-white/15 rounded-lg text-xs transition-base">
+                    <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                    <span>Goodreads CSV</span>
+                </a>
+                <a href="/import/plex" class="flex items-center gap-2 px-3 py-2.5 bg-white/10 hover:bg-white/15 rounded-lg text-xs transition-base">
+                    <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                    <span>Plex library</span>
+                </a>
+                <a href="/add" class="flex items-center gap-2 px-3 py-2.5 bg-white/10 hover:bg-white/15 rounded-lg text-xs transition-base">
+                    <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+                    <span>Bulk add</span>
+                </a>
+                <a href="/search" class="flex items-center gap-2 px-3 py-2.5 bg-white/10 hover:bg-white/15 rounded-lg text-xs transition-base">
+                    <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    <span>Search &amp; rate</span>
+                </a>
+            </div>
+        </div>
+
         <div class="flex items-center justify-center gap-3 pt-2">
             <!-- Primary CTA: offer the next incomplete quiz if there
                  is one, otherwise point at Taste DNA as the home for
@@ -450,13 +485,16 @@ function renderResult(data) {
         explainer.textContent = "The more media types you cover, the sharper the cross-medium blend gets.";
         explainer.classList.remove('hidden');
     } else {
-        // All three quizzes are done — celebrate and point at DNA.
+        // All three quizzes are done — show the big celebration card
+        // with import prompts, and point the primary CTA at /taste.
+        document.getElementById('all-done-wrap').classList.remove('hidden');
         primaryCta.href = '/taste';
         primaryLabel.textContent = 'See your full Taste DNA';
         secondaryCta.href = '/';
         secondaryCta.textContent = 'Go to home';
-        explainer.textContent = "All three quizzes done — your cross-medium taste signals are feeding every recommendation now.";
-        explainer.classList.remove('hidden');
+        // The big celebration card already explains the state, so
+        // hide the small explainer line below the buttons.
+        explainer.classList.add('hidden');
     }
 
     // Fire the podcast bonus fetch after the main result renders.
