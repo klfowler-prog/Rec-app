@@ -550,10 +550,12 @@ async def score_movie_quiz(
     to UserPreferences so the recommendation prompts can blend it
     with the other quizzes."""
     from app.services.movie_taste_quiz import score_responses
-    from app.services.taste_quiz_scoring import persist_quiz_result
+    from app.services.taste_quiz_scoring import compute_next_quiz, persist_quiz_result
 
     result = score_responses([r.model_dump() for r in submission.responses])
     persist_quiz_result(db, user.id, "movies", result)
+    if result.get("has_enough_data"):
+        result["next_quiz"] = compute_next_quiz(db, user.id, current_slug="movies")
     log.info(
         "movie_taste_quiz [user=%d]: %d answered, top=%s",
         user.id,
@@ -570,11 +572,13 @@ async def score_tv_quiz(
     db: Session = Depends(get_db),
 ):
     """Score the user's TV quiz responses and persist."""
-    from app.services.taste_quiz_scoring import persist_quiz_result
+    from app.services.taste_quiz_scoring import compute_next_quiz, persist_quiz_result
     from app.services.tv_taste_quiz import score_responses
 
     result = score_responses([r.model_dump() for r in submission.responses])
     persist_quiz_result(db, user.id, "tv", result)
+    if result.get("has_enough_data"):
+        result["next_quiz"] = compute_next_quiz(db, user.id, current_slug="tv")
     log.info(
         "tv_taste_quiz [user=%d]: %d answered, top=%s",
         user.id,
@@ -862,10 +866,12 @@ async def score_book_quiz(
     per-module counts, a combined axis vector, profile matches, and
     which module drove the result."""
     from app.services.books_taste_quiz import score_book_responses
-    from app.services.taste_quiz_scoring import persist_quiz_result
+    from app.services.taste_quiz_scoring import compute_next_quiz, persist_quiz_result
 
     result = score_book_responses([r.model_dump() for r in submission.responses])
     persist_quiz_result(db, user.id, "books", result)
+    if result.get("has_enough_data"):
+        result["next_quiz"] = compute_next_quiz(db, user.id, current_slug="books")
     log.info(
         "book_taste_quiz [user=%d]: fic=%d non=%d top=%s dom=%s",
         user.id,

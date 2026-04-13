@@ -67,6 +67,32 @@ def persist_quiz_result(db, user_id: int, quiz_slug: str, result: dict) -> None:
     db.commit()
 
 
+def compute_next_quiz(db, user_id: int, current_slug: str | None = None) -> dict | None:
+    """Return a hint for the next incomplete quiz the user could take,
+    or None if all three are done. Used by the /score endpoints so
+    the quiz result screen can offer the next quiz as its primary
+    CTA — turning the result screen into a funnel through the whole
+    profile instead of a dead end.
+
+    Iterates in the canonical order (movies → tv → books) and returns
+    the first quiz whose results aren't persisted yet, excluding the
+    quiz the user just finished (current_slug).
+    """
+    QUIZ_META = [
+        {"slug": "movies", "label": "Movies", "href": "/quick-start/movies"},
+        {"slug": "tv",     "label": "TV",     "href": "/quick-start/tv"},
+        {"slug": "books",  "label": "Books",  "href": "/quick-start/books"},
+    ]
+    results = load_quiz_results(db, user_id)
+    for meta in QUIZ_META:
+        if meta["slug"] == current_slug:
+            continue
+        entry = results.get(meta["slug"]) if results else None
+        if not entry or not entry.get("profiles"):
+            return meta
+    return None
+
+
 def build_quiz_signals_block(db, user_id: int) -> str:
     """One-call convenience for recommendation prompts: loads the
     user's quiz results and formats them into a prompt block. Returns

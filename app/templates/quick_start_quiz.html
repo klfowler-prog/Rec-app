@@ -127,9 +127,18 @@
         </div>
 
         <div class="flex items-center justify-center gap-3 pt-2">
-            <a href="/" class="px-5 py-2.5 bg-sage hover:bg-sage-dark text-white text-sm font-medium rounded-lg transition-base">Go to home &rarr;</a>
-            <a href="/quick-start" class="px-5 py-2.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark text-sm text-txt-muted hover:text-txt transition-base rounded-lg">Back to Quick Start</a>
+            <!-- Primary CTA: offer the next incomplete quiz if there
+                 is one, otherwise point at Taste DNA as the home for
+                 the completed profile. Populated by renderResult()
+                 based on data.next_quiz from the score endpoint. -->
+            <a id="result-primary-cta" href="/taste"
+               class="px-5 py-2.5 bg-sage hover:bg-sage-dark text-white text-sm font-medium rounded-lg transition-base inline-flex items-center gap-2">
+                <span id="result-primary-label">See your Taste DNA</span>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+            </a>
+            <a id="result-secondary-cta" href="/" class="px-5 py-2.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark text-sm text-txt-muted hover:text-txt transition-base rounded-lg">Go to home</a>
         </div>
+        <p id="result-primary-explainer" class="hidden text-xs text-txt-muted text-center -mt-2"></p>
     </div>
 
     <!-- Not enough data state -->
@@ -424,6 +433,30 @@ function renderResult(data) {
         const moduleNote = document.getElementById('result-module-note');
         moduleNote.textContent = data.note;
         moduleNote.classList.remove('hidden');
+    }
+
+    // Primary CTA: if another quiz is still incomplete, route the
+    // user straight to it instead of sending them home. Turns the
+    // result screen into a funnel through the full profile.
+    const primaryCta = document.getElementById('result-primary-cta');
+    const primaryLabel = document.getElementById('result-primary-label');
+    const secondaryCta = document.getElementById('result-secondary-cta');
+    const explainer = document.getElementById('result-primary-explainer');
+    if (data.next_quiz && data.next_quiz.href) {
+        primaryCta.href = data.next_quiz.href;
+        primaryLabel.textContent = `Take the ${data.next_quiz.label} quiz next`;
+        secondaryCta.href = '/taste';
+        secondaryCta.textContent = 'See your Taste DNA';
+        explainer.textContent = "The more media types you cover, the sharper the cross-medium blend gets.";
+        explainer.classList.remove('hidden');
+    } else {
+        // All three quizzes are done — celebrate and point at DNA.
+        primaryCta.href = '/taste';
+        primaryLabel.textContent = 'See your full Taste DNA';
+        secondaryCta.href = '/';
+        secondaryCta.textContent = 'Go to home';
+        explainer.textContent = "All three quizzes done — your cross-medium taste signals are feeding every recommendation now.";
+        explainer.classList.remove('hidden');
     }
 
     // Fire the podcast bonus fetch after the main result renders.
