@@ -107,7 +107,7 @@ PROFILES: list[dict] = [
         "id": "long_game_player",
         "name": "The Long Game Player",
         "vector": {"serialization": 1.0, "moral_ambiguity": 1.0, "darkness": 1.0},
-        "description": "You treat TV as the medium's truest form. Patience is a prerequisite, not a sacrifice. The Sopranos, The Wire, and Breaking Bad reward the commitment they demand.",
+        "description": "You treat TV as the medium's truest form. Patience is a prerequisite, not a sacrifice. You commit to slow-build dramas that trust you to follow a long arc, and you're rewarded for staying with them.",
     },
     {
         "id": "dark_comedy_devotee",
@@ -119,25 +119,25 @@ PROFILES: list[dict] = [
         "id": "emotionally_invested",
         "name": "The Emotionally Invested",
         "vector": {"emotional": 1.0, "irony": -1.0, "darkness": -0.5},
-        "description": "Character is everything. You're not looking to be provoked — you're looking to recognize something true. Fleabag, Schitt's Creek, The Bear.",
+        "description": "Character is everything. You're not looking to be provoked — you're looking to recognize something true. You're drawn to shows that trust small moments and earn their feelings.",
     },
     {
         "id": "comfortable_rewatcher",
         "name": "The Comfortable Rewatcher",
         "vector": {"emotional": 1.0, "serialization": -1.0, "darkness": -1.0},
-        "description": "You know what you like and you return to it. TV is pleasure, not a commitment or a challenge. Friends, The Office, Abbott Elementary.",
+        "description": "You know what you like and you return to it. TV is pleasure, not a commitment or a challenge. You want warmth, familiarity, and stories that leave you lighter than they found you.",
     },
     {
         "id": "ambiguity_seeker",
         "name": "The Ambiguity Seeker",
         "vector": {"ambiguity": 1.0, "genre": 1.0, "emotional": -0.5},
-        "description": "You want TV to destabilize, not reassure. Severance, The Leftovers, True Detective — shows that leave you uncertain about what you just watched.",
+        "description": "You want TV to destabilize, not reassure. You're drawn to shows that withhold answers, shift reality, or leave you uncertain about what you just watched.",
     },
     {
         "id": "prestige_convert",
         "name": "The Prestige Convert",
         "vector": {"serialization": 1.0, "moral_ambiguity": 1.0, "emotional": 0.3},
-        "description": "You think of the best dramas in the same breath as great novels. The Sopranos, Mad Men, The Wire — long-form storytelling at the level of literature.",
+        "description": "You think of the best dramas in the same breath as great novels. You want craft, patience, and long-form storytelling that pays off character work episode by episode.",
     },
 ]
 
