@@ -8,14 +8,23 @@
         <p class="text-txt-muted">Connect to your Plex server to import your watch history.</p>
     </div>
 
+    <div class="bg-coral/5 border border-coral/20 rounded-xl p-5">
+        <h3 class="text-sm font-semibold mb-2 text-coral">Important: local IPs won't work</h3>
+        <p class="text-sm text-txt-muted mb-2">NextUp runs in the cloud, so it can't reach a Plex server on your home network (addresses like <strong>192.168.x.x</strong> or <strong>10.x.x.x</strong>). You need either:</p>
+        <ul class="text-sm text-txt-muted space-y-1 list-disc list-inside">
+            <li>A <strong>Plex Remote Access URL</strong> — a <code class="text-xs bg-bg-light dark:bg-bg-dark px-1 rounded">plex.direct</code> hostname. Enable it in Plex Settings → Remote Access.</li>
+            <li>Or a Plex server hosted publicly (e.g. on a VPS).</li>
+        </ul>
+    </div>
+
     <div class="bg-sage/5 border border-sage/20 rounded-xl p-5">
-        <h3 class="text-sm font-semibold mb-2 text-sage-dark dark:text-sage-light">How to find your Plex token</h3>
+        <h3 class="text-sm font-semibold mb-2 text-sage-dark dark:text-sage-light">How to find your server URL and token</h3>
         <ol class="text-sm text-txt-muted space-y-1.5 list-decimal list-inside">
             <li>Open Plex Web App and sign in</li>
             <li>Open any media item and click <strong>Get Info</strong> (or "...") </li>
             <li>Click <strong>View XML</strong> at the bottom</li>
-            <li>In the URL bar, find <strong>X-Plex-Token=</strong> and copy the value after it</li>
-            <li>Your server URL is usually <strong>http://YOUR_IP:32400</strong></li>
+            <li>Copy the full URL from the address bar up to <code class="text-xs bg-bg-light dark:bg-bg-dark px-1 rounded">:32400</code> — that's your server URL. Look for a <code class="text-xs bg-bg-light dark:bg-bg-dark px-1 rounded">plex.direct</code> hostname, not a 192.168 address.</li>
+            <li>In the same URL, find <strong>X-Plex-Token=</strong> and copy the value after it — that's your token.</li>
         </ol>
     </div>
 

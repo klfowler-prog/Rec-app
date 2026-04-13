@@ -656,64 +656,175 @@ class PlexImportRequest(PydanticBaseModel):
 
 @router.post("/import/plex")
 async def import_plex(req: PlexImportRequest, user: User = Depends(require_user), db: Session = Depends(get_db)):
-    """Import watch history from a Plex server via API."""
+    """Import watch history from a Plex server via API.
+
+    Calls the local or remote-accessible Plex server directly, walks
+    every movie and show section with pagination, and persists any
+    watched items to the profile. Notes:
+
+    - For TV shows, Plex's `/library/sections/{id}/all` returns shows
+      at the library level. The show-level `viewCount` is always 0;
+      the real "have you watched this" signal is `viewedLeafCount`
+      (episodes watched). Filter on that instead.
+    - Plex will truncate long libraries without explicit pagination.
+      Use X-Plex-Container-Start / X-Plex-Container-Size headers and
+      loop until the server reports no more items.
+    - Cloud Run can't reach private LAN addresses (192.168.x.x,
+      10.x.x.x, etc). Users with home Plex servers must provide a
+      Plex Remote Access URL (a plex.direct hostname) or set up a
+      tunnel. We try to detect private IPs and surface a clear
+      error instead of a cryptic connection timeout.
+    """
+    import ipaddress
+    import logging
     from urllib.parse import urlparse
 
     import httpx
 
     from app.services.tmdb import search as tmdb_search
 
-    # Validate URL to prevent SSRF
+    log = logging.getLogger(__name__)
+
+    # Validate URL — both to prevent SSRF and to give the user a
+    # helpful error when they point us at a private LAN address.
     parsed = urlparse(req.server_url)
     if parsed.scheme not in ("http", "https") or not parsed.netloc:
         raise HTTPException(status_code=400, detail="Invalid Plex server URL")
 
+    hostname = parsed.hostname or ""
+    try:
+        ip = ipaddress.ip_address(hostname)
+        if ip.is_private or ip.is_loopback or ip.is_link_local:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "NextUp runs in the cloud and can't reach private network addresses "
+                    f"like {hostname}. If your Plex server is on your home network, "
+                    "enable Remote Access in Plex Settings → Remote Access, then use "
+                    "the plex.direct URL it gives you (it'll look like "
+                    "https://12-34-56-78.xxxx.plex.direct:32400)."
+                ),
+            )
+    except ValueError:
+        # hostname isn't an IP literal — a domain name like plex.direct
+        pass
+
     server_url = req.server_url.rstrip("/")
     headers = {"X-Plex-Token": req.token, "Accept": "application/json"}
+    log.info("import_plex [user=%d]: connecting to %s", user.id, server_url)
 
-    # Reuse one client for all Plex requests
-    async with httpx.AsyncClient(timeout=30) as client:
+    # Reuse one client for all Plex requests. verify=False because
+    # Plex's Remote Access endpoints use certs signed for *.plex.direct
+    # which are valid, but local servers often use self-signed certs.
+    async with httpx.AsyncClient(timeout=30, verify=False) as client:
         try:
             sections_resp = await client.get(f"{server_url}/library/sections", headers=headers)
             sections_resp.raise_for_status()
             sections = sections_resp.json()
+        except httpx.ConnectError as e:
+            log.error("import_plex: connect failed: %s", str(e))
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Couldn't reach your Plex server. Double-check the URL (including the "
+                    ":32400 port) and that your Plex server is online and reachable from "
+                    "the public internet. Home Plex servers usually need Remote Access "
+                    "enabled so NextUp can reach them from the cloud."
+                ),
+            )
+        except httpx.HTTPStatusError as e:
+            log.error("import_plex: HTTP error: %s", str(e))
+            detail = "Plex rejected the request — check your X-Plex-Token."
+            if e.response.status_code == 401:
+                detail = "Invalid X-Plex-Token. Grab a fresh one from View XML in the Plex web app."
+            raise HTTPException(status_code=400, detail=detail)
         except Exception as e:
+            log.exception("import_plex: unexpected error connecting to Plex")
             raise HTTPException(status_code=400, detail=f"Could not connect to Plex server: {str(e)}")
 
+        # Walk every movie + show section with pagination.
         watched_items = []
+        stats_per_section: list[str] = []
         for section in sections.get("MediaContainer", {}).get("Directory", []):
             section_type = section.get("type")
             section_key = section.get("key")
+            section_title = section.get("title", "?")
             if section_type not in ("movie", "show"):
                 continue
 
-            try:
-                items_resp = await client.get(
-                    f"{server_url}/library/sections/{section_key}/all",
-                    headers=headers,
-                    params={"unwatched": "0"},
-                )
-                items_resp.raise_for_status()
-                data = items_resp.json()
+            page_size = 200
+            start = 0
+            section_count = 0
+            while True:
+                try:
+                    page_headers = {
+                        **headers,
+                        "X-Plex-Container-Start": str(start),
+                        "X-Plex-Container-Size": str(page_size),
+                    }
+                    items_resp = await client.get(
+                        f"{server_url}/library/sections/{section_key}/all",
+                        headers=page_headers,
+                    )
+                    items_resp.raise_for_status()
+                    data = items_resp.json()
+                except Exception as e:
+                    log.warning(
+                        "import_plex [user=%d]: section %s (%s) failed at offset %d: %s",
+                        user.id, section_title, section_type, start, str(e),
+                    )
+                    break
 
-                for item in data.get("MediaContainer", {}).get("Metadata", []):
-                    if not item.get("viewCount", 0):
-                        continue
+                metadata = data.get("MediaContainer", {}).get("Metadata", [])
+                if not metadata:
+                    break
+
+                for item in metadata:
                     title = item.get("title", "").strip()
                     if not title:
                         continue
-                    year = item.get("year")
+
+                    # Filter for "watched" differently based on media
+                    # type:
+                    #   movie: viewCount > 0
+                    #   show:  viewedLeafCount > 0 (at least one
+                    #          episode watched)
+                    if section_type == "movie":
+                        if not item.get("viewCount", 0):
+                            continue
+                    else:  # show
+                        if not item.get("viewedLeafCount", 0):
+                            continue
+
                     media_type = "movie" if section_type == "movie" else "tv"
                     rating = None
                     if item.get("userRating"):
-                        rating = round(float(item["userRating"]), 1)
+                        try:
+                            rating = round(float(item["userRating"]), 1)
+                        except (TypeError, ValueError):
+                            rating = None
 
                     watched_items.append({
-                        "title": title, "year": year,
-                        "media_type": media_type, "rating": rating,
+                        "title": title,
+                        "year": item.get("year"),
+                        "media_type": media_type,
+                        "rating": rating,
                     })
-            except Exception:
-                continue
+                    section_count += 1
+
+                # Did Plex return a full page? If yes, keep paginating.
+                # If fewer items than page_size came back, this was
+                # the last page.
+                if len(metadata) < page_size:
+                    break
+                start += page_size
+
+            stats_per_section.append(f"{section_title}={section_count}")
+
+        log.info(
+            "import_plex [user=%d]: fetched %d watched items (%s)",
+            user.id, len(watched_items), ", ".join(stats_per_section) or "no sections",
+        )
 
     # Deduplicate
     seen = set()
