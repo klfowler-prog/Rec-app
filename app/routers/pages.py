@@ -246,6 +246,21 @@ async def quick_start_tv_page(request: Request, user: User = Depends(require_use
     )
 
 
+@router.get("/quick-start/books")
+async def quick_start_books_page(request: Request, user: User = Depends(require_user)):
+    return templates.TemplateResponse(
+        "quick_start_quiz.html",
+        {
+            "request": request,
+            "user": user,
+            "quiz_slug": "books",
+            "quiz_title": "Book taste quiz",
+            "quiz_blurb": "Two modules — 20 fiction titles, then 10 nonfiction. We'll learn how you read (prose vs plot, ideas vs feelings, how dark you can go) and figure out which module is really driving your taste.",
+            "item_label": "Book",
+        },
+    )
+
+
 @router.get("/media/{media_type}/{external_id}")
 async def media_detail_page(request: Request, media_type: str, external_id: str, user: User = Depends(require_user)):
     return templates.TemplateResponse(

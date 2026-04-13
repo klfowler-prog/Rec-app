@@ -581,6 +581,148 @@ async def score_tv_quiz(
     return result
 
 
+async def _enrich_books_via_open_library(items: list[dict]) -> list[dict]:
+    """Enrich book items with Open Library metadata. Items carry a
+    title + author, which we combine into a query so the right work
+    comes back instead of a random edition or study guide."""
+    import asyncio
+
+    from app.services.open_library import search as search_books
+
+    _JUNK = ("study guide", "summary of", "cliffsnotes", "sparknotes", "analysis of", "workbook", "companion to")
+
+    async def enrich(item: dict) -> dict:
+        query = f"{item['title']} {item.get('author', '')}".strip()
+        try:
+            results = await search_books(query)
+        except Exception:
+            results = []
+        # Reject study guides
+        results = [r for r in results if not any(j in (r.title or "").lower() for j in _JUNK)]
+        best = None
+        t_lower = item["title"].lower().strip()
+        for r in results[:10]:
+            r_lower = (r.title or "").lower().strip()
+            if (r_lower == t_lower or r_lower.startswith(t_lower) or t_lower.startswith(r_lower)) and r.image_url:
+                best = r
+                break
+        if not best:
+            for r in results[:10]:
+                if r.image_url:
+                    best = r
+                    break
+        if not best and results:
+            best = results[0]
+        return {
+            "order": item["order"],
+            "title": item["title"],
+            "author": item.get("author"),
+            "years": item.get("years"),
+            "note_in_ui": item.get("note_in_ui"),
+            "weights": item["weights"],
+            "media_type": "book",
+            "image_url": best.image_url if best else None,
+            "external_id": best.external_id if best else "",
+            "source": best.source if best else "",
+            "creator": item.get("author"),  # ensure the UI shows the spec author
+            "description": best.description if best else None,
+            "genres": best.genres if best else [],
+        }
+
+    enriched = await asyncio.gather(*[enrich(it) for it in items])
+    return sorted(enriched, key=lambda x: x["order"])
+
+
+@router.get("/taste-quiz/books")
+async def taste_quiz_books_items():
+    """Return the two book quiz modules (fiction + nonfiction), each
+    enriched with Open Library metadata. Fiction is presented as
+    Part 1, nonfiction as Part 2."""
+    import asyncio
+
+    from app import cache
+    from app.services.books_taste_quiz import (
+        FICTION, NONFICTION, RESPONSE_OPTIONS, AXES,
+        FICTION_MIN, NONFICTION_MIN,
+    )
+
+    cached = cache.get("book_taste_quiz_items")
+    if cached is not None:
+        return cached
+
+    fiction_items, nonfiction_items = await asyncio.gather(
+        _enrich_books_via_open_library(FICTION),
+        _enrich_books_via_open_library(NONFICTION),
+    )
+
+    # Tag each item with its module so the frontend can split the
+    # flow into Part 1 / Part 2 and the scoring endpoint knows which
+    # module bucket each response belongs in.
+    for it in fiction_items:
+        it["module"] = "fiction"
+    for it in nonfiction_items:
+        it["module"] = "nonfiction"
+
+    result = {
+        "modules": [
+            {
+                "id": "fiction",
+                "label": "Part 1 · Fiction",
+                "items": fiction_items,
+                "min_answered": FICTION_MIN,
+            },
+            {
+                "id": "nonfiction",
+                "label": "Part 2 · Nonfiction",
+                "items": nonfiction_items,
+                "min_answered": NONFICTION_MIN,
+            },
+        ],
+        "options": RESPONSE_OPTIONS,
+        "axes": AXES,
+        "media_type": "book",
+        "media_label": "book",
+        "media_label_plural": "books",
+        "verb": "read",
+        "total_questions": len(fiction_items) + len(nonfiction_items),
+    }
+    cache.set("book_taste_quiz_items", result, ttl_seconds=86400 * 7)
+    return result
+
+
+class BookQuizResponseItem(BaseModel):
+    module: str  # "fiction" | "nonfiction"
+    order: int
+    value: int | None
+
+
+class BookQuizSubmission(BaseModel):
+    responses: list[BookQuizResponseItem]
+
+
+@router.post("/taste-quiz/books/score")
+async def score_book_quiz(
+    submission: BookQuizSubmission,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Score the two-module book quiz. Returns fiction/nonfiction
+    per-module counts, a combined axis vector, profile matches, and
+    which module drove the result."""
+    from app.services.books_taste_quiz import score_book_responses
+
+    result = score_book_responses([r.model_dump() for r in submission.responses])
+    log.info(
+        "book_taste_quiz [user=%d]: fic=%d non=%d top=%s dom=%s",
+        user.id,
+        result.get("fiction_answered", 0),
+        result.get("nonfiction_answered", 0),
+        result["profiles"][0]["id"] if result.get("profiles") else "none",
+        result.get("dominant_module"),
+    )
+    return result
+
+
 @router.get("/taste-test")
 async def taste_test():
     """Return contrasting taste-axis pools. Each axis has two LABELED
