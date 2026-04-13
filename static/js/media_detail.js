@@ -244,14 +244,25 @@ addForm.addEventListener('submit', async (e) => {
             body: JSON.stringify(data),
         });
 
-        if (resp.ok) {
+        if (resp.ok || resp.status === 409) {
             addModal.classList.add('hidden');
             document.getElementById('add-to-profile-btn').classList.add('hidden');
-            document.getElementById('already-in-profile').classList.remove('hidden');
-        } else if (resp.status === 409) {
-            addModal.classList.add('hidden');
-            document.getElementById('add-to-profile-btn').classList.add('hidden');
-            document.getElementById('already-in-profile').classList.remove('hidden');
+            let entry = null;
+            if (resp.ok) {
+                entry = await resp.json();
+            } else {
+                // 409 = already exists, fetch the existing entry
+                try {
+                    const checkResp = await fetch(`/api/profile/check/${currentMedia.source}/${currentMedia.external_id}`);
+                    const checkData = await checkResp.json();
+                    entry = checkData.entry || null;
+                } catch {}
+            }
+            if (entry) {
+                // Patch in any fields mountStatusSwitcher needs that the API may not return
+                entry.media_type = entry.media_type || currentMedia.media_type;
+                mountStatusSwitcher(entry);
+            }
         }
     } catch (err) {
         alert('Failed to add to profile. Please try again.');
