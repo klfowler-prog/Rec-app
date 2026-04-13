@@ -33,7 +33,6 @@ async def admin_add_user(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    from app.main import templates
     if not settings.admin_email or user.email.lower() != settings.admin_email.lower():
         return RedirectResponse("/")
     email = email.lower().strip()
