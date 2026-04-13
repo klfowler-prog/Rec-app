@@ -159,8 +159,25 @@ async def profile_type_page(request: Request, media_type: str, user: User = Depe
 
 
 @router.get("/taste")
-async def taste_dna_page(request: Request, user: User = Depends(require_user)):
-    return templates.TemplateResponse("taste_dna.html", {"request": request, "user": user})
+async def taste_dna_page(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """Taste DNA page. Loads the user's saved quiz results so the
+    template can decide whether to show the new-user quiz prompts at
+    the top or tuck them into a secondary 'retake' section at the
+    bottom."""
+    from app.services.taste_quiz_scoring import load_quiz_results
+
+    quiz_results = load_quiz_results(db, user.id)
+    quiz_status = {
+        "movies": bool(quiz_results.get("movies", {}).get("profiles")) if quiz_results else False,
+        "tv":     bool(quiz_results.get("tv", {}).get("profiles")) if quiz_results else False,
+        "books":  bool(quiz_results.get("books", {}).get("profiles")) if quiz_results else False,
+    }
+    quiz_status["completed_count"] = sum(1 for v in (quiz_status["movies"], quiz_status["tv"], quiz_status["books"]) if v)
+    quiz_status["total"] = 3
+    return templates.TemplateResponse(
+        "taste_dna.html",
+        {"request": request, "user": user, "quiz_status": quiz_status},
+    )
 
 
 @router.get("/collections")
