@@ -212,30 +212,39 @@
                 {% if queue_by_type.get(mt) %}
                 <div class="swim-lane flex gap-4 pb-1">
                     {% for item in queue_by_type[mt] %}
-                    <a href="/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}" class="swim-lane-item flex-shrink-0">
+                    <div class="swim-lane-item flex-shrink-0">
                         <div class="rounded-lg overflow-hidden transition-base card-hover shadow-sm border border-border-light dark:border-border-dark relative">
-                            <div class="poster-frame">
-                            {% if item.image_url %}
-                            <img src="{{ item.image_url }}" alt="{{ item.title }}" class="{{ 'poster-contain' if item.media_type == 'podcast' else 'poster-cover' }}" loading="lazy">
-                            {% else %}
-                            <div class="poster-fallback bg-sage/10">
-                                <span class="text-sage text-2xl">{{ item.title[0] }}</span>
-                            </div>
-                            {% endif %}
-                            </div>
-                            {% if item.predicted_rating %}
-                            {% set pr = item.predicted_rating %}
-                            {% set pr_color = 'bg-emerald-500' if pr >= 8 else ('bg-yellow-500' if pr >= 6 else ('bg-amber-400' if pr >= 4 else 'bg-coral')) %}
-                            <div class="absolute top-2 right-2 px-1.5 py-0.5 {{ pr_color }} rounded-full">
-                                <span class="text-[10px] font-bold text-white">{{ pr }}</span>
-                            </div>
-                            {% endif %}
-                            <div class="bg-surface-light dark:bg-surface-dark p-2.5">
-                                <p class="text-xs font-medium truncate">{{ item.title }}</p>
-                                {% if item.year %}<p class="text-[10px] text-txt-muted">{{ item.year }}</p>{% endif %}
+                            <a href="/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}" class="block relative">
+                                <div class="poster-frame">
+                                {% if item.image_url %}
+                                <img src="{{ item.image_url }}" alt="{{ item.title }}" class="{{ 'poster-contain' if item.media_type == 'podcast' else 'poster-cover' }}" loading="lazy">
+                                {% else %}
+                                <div class="poster-fallback bg-sage/10">
+                                    <span class="text-sage text-2xl">{{ item.title[0] }}</span>
+                                </div>
+                                {% endif %}
+                                </div>
+                                {% if item.predicted_rating %}
+                                {% set pr = item.predicted_rating %}
+                                {% set pr_color = 'bg-emerald-500' if pr >= 8 else ('bg-yellow-500' if pr >= 6 else ('bg-amber-400' if pr >= 4 else 'bg-coral')) %}
+                                <div class="absolute top-2 right-2 px-1.5 py-0.5 {{ pr_color }} rounded-full">
+                                    <span class="text-[10px] font-bold text-white">{{ pr }}</span>
+                                </div>
+                                {% endif %}
+                            </a>
+                            <div class="bg-surface-light dark:bg-surface-dark p-2.5 space-y-1.5">
+                                <a href="/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}" class="block">
+                                    <p class="text-xs font-medium truncate">{{ item.title }}</p>
+                                    {% if item.year %}<p class="text-[10px] text-txt-muted">{{ item.year }}</p>{% endif %}
+                                </a>
+                                <!-- Inline status switcher so the user
+                                     can move items between Later / Now
+                                     / Done / Dropped without leaving
+                                     the home page. -->
+                                <div class="queue-status-mount" data-entry-id="{{ item.id }}" data-current-status="{{ item.status }}" data-media-type="{{ item.media_type }}"></div>
                             </div>
                         </div>
-                    </a>
+                    </div>
                     {% endfor %}
                 </div>
                 {% else %}
@@ -282,6 +291,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="/static/js/card_actions.js"></script>
 <script>
 function escapeHtml(text) {
     const div = document.createElement('div');
@@ -681,6 +691,21 @@ async function loadInsights() {
 
 // Load everything in parallel
 Promise.all([loadTopPicks(), loadSuggestions(), loadEssence(), loadInsights()]);
+
+// Mount the status switcher on every queue swim lane card. The card
+// HTML is server-rendered with data-entry-id / data-current-status /
+// data-media-type; we read those and inject the shared switcher
+// component so the user can change status from the home page.
+(function mountQueueStatusSwitchers() {
+    if (typeof buildStatusSwitcher !== 'function') return;
+    document.querySelectorAll('.queue-status-mount').forEach(el => {
+        const id = parseInt(el.dataset.entryId, 10);
+        const status = el.dataset.currentStatus || 'want_to_consume';
+        const mt = el.dataset.mediaType || null;
+        if (!id) return;
+        el.innerHTML = buildStatusSwitcher(id, status, mt);
+    });
+})();
 
 // -----------------------------------------------------------------
 // New-user welcome modal. Shows once per browser for users who have

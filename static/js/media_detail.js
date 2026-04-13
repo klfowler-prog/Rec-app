@@ -65,12 +65,15 @@ async function loadDetail() {
             `).join('');
         }
 
-        // Check if already in profile
+        // Check if already in profile. When it is, hide the "Add to
+        // profile" button and mount a live status switcher so the
+        // user can move the item between Later / Now / Done / Dropped
+        // without navigating to /profile.
         const checkResp = await fetch(`/api/profile/check/${currentMedia.source}/${EXTERNAL_ID}`);
         const checkData = await checkResp.json();
-        if (checkData.in_profile) {
+        if (checkData.in_profile && checkData.entry) {
             document.getElementById('add-to-profile-btn').classList.add('hidden');
-            document.getElementById('already-in-profile').classList.remove('hidden');
+            mountStatusSwitcher(checkData.entry);
         }
 
         detailLoading.classList.add('hidden');
@@ -84,6 +87,27 @@ async function loadDetail() {
     } catch (err) {
         detailLoading.innerHTML = `<p class="text-txt-muted">Could not load details for this item.</p>`;
     }
+}
+
+function mountStatusSwitcher(entry) {
+    const block = document.getElementById('profile-status-block');
+    const switcherMount = document.getElementById('status-switcher-mount');
+    const ratingMount = document.getElementById('status-rating-mount');
+    if (!block || !switcherMount || typeof buildStatusSwitcher !== 'function') return;
+
+    switcherMount.innerHTML = buildStatusSwitcher(entry.id, entry.status, entry.media_type);
+
+    // If already rated, show the rating. Otherwise, if status is
+    // consumed, reveal rating dots so the user can rate in place.
+    if (entry.rating) {
+        const color = entry.rating <= 3 ? 'text-coral' : entry.rating <= 5 ? 'text-amber-500' : entry.rating <= 7 ? 'text-yellow-600' : 'text-emerald-500';
+        ratingMount.innerHTML = `<span class="text-xs font-semibold ${color}">Rated ${entry.rating}/10</span>`;
+    } else if (entry.status === 'consumed' && typeof showRatingDots === 'function') {
+        showRatingDots(ratingMount, entry.id);
+    } else {
+        ratingMount.innerHTML = '';
+    }
+    block.classList.remove('hidden');
 }
 
 async function loadRelated() {
