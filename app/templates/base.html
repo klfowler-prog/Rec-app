@@ -131,18 +131,27 @@
                         </a>
                     </div>
                 </div>
-                {% set quiz_active = request.url.path == '/quick-start' or request.url.path.startswith('/quick-start/') %}
+                {% set taste_active = request.url.path == '/taste' or request.url.path == '/quick-start' or request.url.path.startswith('/quick-start/') %}
                 <div class="nav-group">
-                    <button type="button" onclick="toggleQuizGroup()" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-base hover:bg-sage/10 {% if quiz_active %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093M12 17h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        Taste Quiz
-                        <svg id="quiz-chevron" class="w-4 h-4 ml-auto transition-transform {% if quiz_active %}rotate-180{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    <button type="button" onclick="toggleTasteGroup()" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-base hover:bg-sage/10 {% if taste_active %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                        Taste
+                        <svg id="taste-chevron" class="w-4 h-4 ml-auto transition-transform {% if taste_active %}rotate-180{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                     </button>
-                    <div id="quiz-submenu" class="{% if not quiz_active %}hidden {% endif %}mt-1 ml-6 space-y-0.5 border-l border-border-light dark:border-border-dark pl-3">
-                        <a href="/quick-start" onclick="closeSidebar()" class="nav-link flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-base hover:bg-sage/10 {% if request.url.path == '/quick-start' %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
-                            <span class="w-1 h-1 rounded-full bg-current opacity-50"></span>
-                            Overview
+                    <div id="taste-submenu" class="{% if not taste_active %}hidden {% endif %}mt-1 ml-6 space-y-0.5 border-l border-border-light dark:border-border-dark pl-3">
+                        <!-- Taste DNA is the primary destination inside this
+                             group — once the quizzes have been taken, this
+                             is what the user comes back to. Listed first
+                             and given its own little icon so it stands
+                             apart from the quiz sub-items below. -->
+                        <a href="/taste" onclick="closeSidebar()" class="nav-link flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-base hover:bg-sage/10 {% if request.url.path == '/taste' %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                            Taste DNA
                         </a>
+                        <!-- Quiz sub-items — collapsed behind their own
+                             mini-divider so they read as "inputs" to the
+                             DNA output above. -->
+                        <p class="text-[9px] uppercase tracking-widest text-txt-muted opacity-60 pl-2 pt-2 pb-1">Take a quiz</p>
                         <a href="/quick-start/movies" onclick="closeSidebar()" class="nav-link flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-base hover:bg-sage/10 {% if request.url.path == '/quick-start/movies' %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
                             <span class="w-1.5 h-1.5 rounded gradient-blue"></span>
                             Movies
@@ -157,10 +166,6 @@
                         </a>
                     </div>
                 </div>
-                <a href="/taste" onclick="closeSidebar()" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-base hover:bg-sage/10 {% if request.url.path == '/taste' %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-                    Taste DNA
-                </a>
                 <a href="/collections" onclick="closeSidebar()" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-base hover:bg-sage/10 {% if request.url.path.startswith('/collections') %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
                     Threads
@@ -259,9 +264,9 @@
             chevron.classList.toggle('rotate-180');
         }
 
-        function toggleQuizGroup() {
-            const submenu = document.getElementById('quiz-submenu');
-            const chevron = document.getElementById('quiz-chevron');
+        function toggleTasteGroup() {
+            const submenu = document.getElementById('taste-submenu');
+            const chevron = document.getElementById('taste-chevron');
             submenu.classList.toggle('hidden');
             chevron.classList.toggle('rotate-180');
         }
