@@ -69,6 +69,12 @@ class UserPreferences(Base):
     favorite_genres: Mapped[str | None] = mapped_column(Text, nullable=True)
     disliked_genres: Mapped[str | None] = mapped_column(Text, nullable=True)
     preferred_media_types: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Taste-quiz results per medium. JSON string keyed by quiz slug
+    # ("movies", "tv", "books"). Each entry carries axis_scores,
+    # top-2 profiles, answered_count, and (for books) module split.
+    # Used by the recommendation prompts as a cross-medium taste
+    # signal beyond individual ratings.
+    quiz_results: Mapped[str | None] = mapped_column(Text, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
     )

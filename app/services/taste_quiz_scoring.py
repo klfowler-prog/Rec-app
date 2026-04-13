@@ -14,7 +14,142 @@ entirely generic — no mention of films or shows or any media-specific
 concept. Adding a new media type is just a data file + two endpoints.
 """
 
+import json
 import math
+from datetime import datetime
+
+
+def persist_quiz_result(db, user_id: int, quiz_slug: str, result: dict) -> None:
+    """Save a quiz result to UserPreferences.quiz_results as JSON.
+    Keyed by quiz_slug so each medium's result is stored separately
+    and can be read independently by the recommendation prompts.
+
+    Only persists on has_enough_data=True so we don't save thin
+    partial results that would pollute the AI signals."""
+    if not result.get("has_enough_data"):
+        return
+    from app.models import UserPreferences
+
+    # Build the minimal record we want to keep: profiles (names +
+    # similarities), axis_scores, answered count, and for books the
+    # dominant module. No timestamps from the scorer — we add one.
+    summary = {
+        "answered_count": result.get("answered_count", 0),
+        "axis_scores": result.get("axis_scores", {}),
+        "profiles": [
+            {"id": p.get("id"), "name": p.get("name"), "similarity": p.get("similarity")}
+            for p in (result.get("profiles") or [])
+        ],
+        "updated_at": datetime.utcnow().isoformat(),
+    }
+    # Books-specific extras
+    if "dominant_module" in result:
+        summary["dominant_module"] = result.get("dominant_module")
+    if "fiction_answered" in result:
+        summary["fiction_answered"] = result.get("fiction_answered")
+    if "nonfiction_answered" in result:
+        summary["nonfiction_answered"] = result.get("nonfiction_answered")
+
+    prefs = db.query(UserPreferences).filter(UserPreferences.user_id == user_id).first()
+    if not prefs:
+        prefs = UserPreferences(user_id=user_id)
+        db.add(prefs)
+
+    try:
+        existing = json.loads(prefs.quiz_results) if prefs.quiz_results else {}
+        if not isinstance(existing, dict):
+            existing = {}
+    except (json.JSONDecodeError, TypeError):
+        existing = {}
+
+    existing[quiz_slug] = summary
+    prefs.quiz_results = json.dumps(existing)
+    db.commit()
+
+
+def build_quiz_signals_block(db, user_id: int) -> str:
+    """One-call convenience for recommendation prompts: loads the
+    user's quiz results and formats them into a prompt block. Returns
+    an empty string when there are no results, so the caller can
+    include the output unconditionally."""
+    return format_quiz_signals_for_prompt(load_quiz_results(db, user_id))
+
+
+def load_quiz_results(db, user_id: int) -> dict:
+    """Return the user's saved quiz results keyed by quiz slug, or
+    an empty dict if none. Used by recommendation prompts to blend
+    cross-medium taste signals."""
+    from app.models import UserPreferences
+
+    prefs = db.query(UserPreferences).filter(UserPreferences.user_id == user_id).first()
+    if not prefs or not prefs.quiz_results:
+        return {}
+    try:
+        data = json.loads(prefs.quiz_results)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def format_quiz_signals_for_prompt(quiz_results: dict) -> str:
+    """Format the user's quiz results into a compact block the AI
+    can read as taste signals. Returns an empty string if there are
+    no quiz results — the caller should conditionally include the
+    block only when it's non-empty.
+
+    Output is intentionally concise because it goes into every
+    recommendation prompt. Each medium gets one line with the
+    dominant profile(s) and a short summary of which axes are high
+    or low."""
+    if not quiz_results:
+        return ""
+
+    labels = {"movies": "Movies", "tv": "TV", "books": "Books"}
+    lines: list[str] = ["## TASTE QUIZ SIGNALS (blend these across media types when recommending):"]
+    for slug, label in labels.items():
+        data = quiz_results.get(slug)
+        if not data or not isinstance(data, dict):
+            continue
+        profiles = data.get("profiles") or []
+        if not profiles:
+            continue
+        primary = profiles[0].get("name", "")
+        secondary = profiles[1].get("name") if len(profiles) > 1 else None
+        profile_str = primary
+        if secondary:
+            profile_str += f" / {secondary}"
+
+        # Highlight the 3 strongest and 3 weakest axes so the AI
+        # can cross-reference them into other media.
+        scores = data.get("axis_scores") or {}
+        if scores:
+            ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
+            top = [k for k, v in ranked if v > 0][:3]
+            bottom = [k for k, v in ranked if v < 0][-3:]
+            axis_hint = ""
+            if top:
+                axis_hint += f" HIGH on {', '.join(top)}"
+            if bottom:
+                axis_hint += f"; LOW on {', '.join(bottom)}"
+        else:
+            axis_hint = ""
+
+        extra = ""
+        if slug == "books" and data.get("dominant_module"):
+            extra = f" (dominant: {data['dominant_module']})"
+        lines.append(f"- **{label}** lean: {profile_str}{axis_hint}{extra}")
+
+    if len(lines) == 1:  # only the header, no actual data
+        return ""
+    lines.append("")
+    lines.append(
+        "INSTRUCTION: Use these signals to make CROSS-MEDIUM connections. "
+        "If the user is a 'Patient Formalist' in film and 'The Long Game Player' in TV, "
+        "recommend books that reward commitment and formal craft too. "
+        "The quizzes give direction — your job is to BLEND them into a single coherent taste picture "
+        "and recommend things that hit multiple signals at once, not just one."
+    )
+    return "\n".join(lines) + "\n"
 
 
 def score_responses(

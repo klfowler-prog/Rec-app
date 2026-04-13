@@ -20,6 +20,11 @@ with engine.connect() as conn:
         if "rated_at" not in columns:
             conn.execute(text("ALTER TABLE media_entries ADD COLUMN rated_at TIMESTAMP"))
             conn.commit()
+    if "user_preferences" in inspector.get_table_names():
+        up_columns = [c["name"] for c in inspector.get_columns("user_preferences")]
+        if "quiz_results" not in up_columns:
+            conn.execute(text("ALTER TABLE user_preferences ADD COLUMN quiz_results TEXT"))
+            conn.commit()
 
 app = FastAPI(title="NextUp", description="Personal media recommendation engine")
 

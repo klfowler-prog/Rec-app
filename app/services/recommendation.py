@@ -129,6 +129,18 @@ async def stream_recommendation(
     # would try to parse as format placeholders and raise KeyError.
     system_prompt = SYSTEM_PROMPT.replace("{profile_context}", profile_context)
 
+    # Inject taste-quiz signals into the system prompt so the chat
+    # can cross-reference the user's quiz direction (e.g. "Patient
+    # Formalist in film") when making recommendations in another
+    # medium. Returns empty string if no quizzes completed.
+    try:
+        from app.services.taste_quiz_scoring import build_quiz_signals_block
+        quiz_signals = build_quiz_signals_block(db, user_id)
+        if quiz_signals:
+            system_prompt = quiz_signals + "\n" + system_prompt
+    except Exception:
+        pass
+
     if not settings.gemini_api_key:
         yield f'data: {{"error": "Gemini API key not configured. Add GEMINI_API_KEY to your .env file."}}\n\n'
         return

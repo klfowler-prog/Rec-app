@@ -546,13 +546,14 @@ async def score_movie_quiz(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    """Score the user's movie quiz responses. Returns axis breakdown
-    and the top 2 profile matches (direction hints, not pigeonhole
-    labels). Does NOT persist ratings — the frontend saves inline as
-    the user taps responses."""
+    """Score the user's movie quiz responses and persist the result
+    to UserPreferences so the recommendation prompts can blend it
+    with the other quizzes."""
     from app.services.movie_taste_quiz import score_responses
+    from app.services.taste_quiz_scoring import persist_quiz_result
 
     result = score_responses([r.model_dump() for r in submission.responses])
+    persist_quiz_result(db, user.id, "movies", result)
     log.info(
         "movie_taste_quiz [user=%d]: %d answered, top=%s",
         user.id,
@@ -568,10 +569,12 @@ async def score_tv_quiz(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    """Score the user's TV quiz responses."""
+    """Score the user's TV quiz responses and persist."""
+    from app.services.taste_quiz_scoring import persist_quiz_result
     from app.services.tv_taste_quiz import score_responses
 
     result = score_responses([r.model_dump() for r in submission.responses])
+    persist_quiz_result(db, user.id, "tv", result)
     log.info(
         "tv_taste_quiz [user=%d]: %d answered, top=%s",
         user.id,
@@ -710,8 +713,10 @@ async def score_book_quiz(
     per-module counts, a combined axis vector, profile matches, and
     which module drove the result."""
     from app.services.books_taste_quiz import score_book_responses
+    from app.services.taste_quiz_scoring import persist_quiz_result
 
     result = score_book_responses([r.model_dump() for r in submission.responses])
+    persist_quiz_result(db, user.id, "books", result)
     log.info(
         "book_taste_quiz [user=%d]: fic=%d non=%d top=%s dom=%s",
         user.id,
@@ -1352,10 +1357,13 @@ async def tonight_pick(
 
     try:
         from app.services.gemini import generate
+        from app.services.taste_quiz_scoring import build_quiz_signals_block
+        quiz_signals = build_quiz_signals_block(db, user.id)
 
         mood_line = f"\nCURRENT MOOD: {req.mood}" if req.mood else ""
         prompt = f"""You are NextUp, a cross-medium taste expert. Pick ONE perfect thing — fiction or nonfiction — for this person to consume right now based on their taste, available time, and mood.
 
+{quiz_signals}
 USER'S TASTE PROFILE:
 {taste_summary}
 {recent_text}
@@ -1533,8 +1541,12 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
         else:
             suggestions_schema = '  "suggestions": {},'
 
+        from app.services.taste_quiz_scoring import build_quiz_signals_block
+        quiz_signals = build_quiz_signals_block(db, user.id)
+
         prompt = f"""You are a cross-medium taste expert. Find connections between books, TV, movies, and podcasts — fiction AND nonfiction — that share themes, ideas, tone, subject matter, or emotional register.
 
+{quiz_signals}
 USER'S TASTE PROFILE (across all media types):
 {taste_summary}
 {recent_section}
@@ -2082,9 +2094,12 @@ async def top_picks(user: User = Depends(require_user), db: Session = Depends(ge
 
     try:
         from app.services.gemini import generate
+        from app.services.taste_quiz_scoring import build_quiz_signals_block
+        quiz_signals = build_quiz_signals_block(db, user.id)
 
         prompt = f"""You are a cross-medium taste expert. Your specialty is finding specific, real connections between books, TV, movies, and podcasts — fiction AND nonfiction — that share themes, ideas, tone, subject matter, or emotional register.
 
+{quiz_signals}
 USER'S TASTE PROFILE (across all media types):
 {taste_summary}
 {recent_section}
@@ -2275,9 +2290,12 @@ async def home_suggestions(user: User = Depends(require_user), db: Session = Dep
 
     try:
         from app.services.gemini import generate
+        from app.services.taste_quiz_scoring import build_quiz_signals_block
+        quiz_signals = build_quiz_signals_block(db, user.id)
 
         prompt = f"""You are a cross-medium taste expert. Find connections between books, TV, movies, and podcasts — fiction AND nonfiction — that share themes, ideas, tone, or emotional register.
 
+{quiz_signals}
 USER'S TASTE PROFILE (across all media types):
 {taste_summary}
 {recent_section}
@@ -2449,6 +2467,8 @@ async def related_items(
 
     try:
         from app.services.gemini import generate
+        from app.services.taste_quiz_scoring import build_quiz_signals_block
+        quiz_signals = build_quiz_signals_block(db, user.id)
 
         prompt = f"""You are a cross-medium taste expert. Given this media item, suggest 2 items from EACH OTHER media type that share a real, specific connection — theme, tone, subject matter, emotional register, ideas, or storytelling approach — AND are appropriate for the same audience and tonal register.
 
@@ -2456,6 +2476,7 @@ CURRENT ITEM: {item.title} ({media_type}, {item.year or '?'})
 Genres: {item_genres}
 Description: {item_desc}
 
+{quiz_signals}
 User's taste profile (for personalization):
 {taste_summary}
 
