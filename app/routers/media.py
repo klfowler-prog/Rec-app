@@ -1881,6 +1881,174 @@ Return ONLY valid JSON, no markdown:
         return empty_bundle
 
 
+@router.get("/best-bet/{media_type}")
+async def best_bet(
+    media_type: str,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+    refresh: bool = Query(False),
+):
+    """Return ONE hero recommendation for this media type, explicitly
+    anchored to something the user recently rated very highly.
+
+    The point of "Your best bet" on the per-type library page isn't
+    to be another random AI rec — it's to name WHY this one pick is
+    special. We pick an anchor (a recently rated 9+/10 item from
+    ANY media type), then ask the AI for a single cross-medium rec
+    in the requested type that's specifically tied to a concrete
+    element of the anchor. Returns {pick, anchor, reason}.
+
+    Cached 7 days per (user, media_type). Bustable with ?refresh=1."""
+    import asyncio
+    from datetime import datetime, timedelta
+
+    from app import cache
+    from app.config import settings
+    from app.models import MediaEntry
+    from app.services.unified_search import unified_search
+
+    if media_type not in ("movie", "tv", "book", "podcast"):
+        raise HTTPException(status_code=400, detail="Invalid media type")
+
+    cache_key = f"best_bet:{user.id}:{media_type}"
+    if refresh:
+        cache.invalidate(cache_key)
+    else:
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+    if not settings.gemini_api_key:
+        return {"pick": None, "anchor": None}
+
+    # Find the user's most recently rated 9+/10 items across any
+    # media type. Prefer ones rated in the last 60 days so the
+    # anchor reflects their current mood. Fall back to all-time top
+    # rated if nothing recent is available.
+    sixty_days_ago = datetime.utcnow() - timedelta(days=60)
+    recent_loved = (
+        db.query(MediaEntry)
+        .filter(
+            MediaEntry.user_id == user.id,
+            MediaEntry.rating.isnot(None),
+            MediaEntry.rating >= 9,
+            MediaEntry.rated_at.isnot(None),
+            MediaEntry.rated_at >= sixty_days_ago,
+        )
+        .order_by(MediaEntry.rated_at.desc())
+        .limit(5)
+        .all()
+    )
+    if not recent_loved:
+        recent_loved = (
+            db.query(MediaEntry)
+            .filter(MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None), MediaEntry.rating >= 9)
+            .order_by(MediaEntry.rating.desc(), MediaEntry.created_at.desc())
+            .limit(5)
+            .all()
+        )
+
+    if not recent_loved:
+        return {"pick": None, "anchor": None, "message": "Rate a few items 9 or 10 out of 10 to unlock your best bet."}
+
+    # Pick the single most recent loved item that isn't in the
+    # requested media_type — a cross-medium anchor is more
+    # interesting than "you loved this book, here's another book".
+    # Fall back to same-type if no cross-medium anchor exists.
+    anchor = next((e for e in recent_loved if e.media_type != media_type), None) or recent_loved[0]
+
+    known_normalized, _ = _build_known_titles(db, user.id)
+
+    try:
+        from app.services.gemini import generate
+
+        type_label = {"movie": "movie", "tv": "TV show", "book": "book", "podcast": "podcast"}[media_type]
+        prompt = f"""You're picking ONE {type_label} as a hero recommendation for a user based specifically on something they recently rated 9 or 10 out of 10.
+
+ANCHOR ITEM (the thing they just loved):
+- Title: {anchor.title}
+- Media type: {anchor.media_type}
+- Year: {anchor.year or 'unknown'}
+- Genres: {anchor.genres or 'unknown'}
+- Rating: {anchor.rating}/10
+
+TASK: Pick ONE {type_label} that picks up a CONCRETE, specific element of the anchor item — a theme, a tonal register, a narrative approach, a specific idea it's wrestling with, or a character dynamic. The connection must be named explicitly and tied to something real about the anchor, not a surface-level genre match or a shared keyword.
+
+RULES:
+- The pick must be a real, findable {type_label} — no invented titles.
+- DO NOT pick anything the user already has in their library: {', '.join(list(known_normalized)[:30]) if known_normalized else 'none'}
+- The "reason" should start with "Because you loved {anchor.title}..." and cite a specific concrete element.
+- Match audience and tonal register — don't suggest adult content if the anchor is family-friendly, or vice versa.
+
+Return ONLY valid JSON, no markdown:
+{{
+  "title": "...",
+  "year": 2020,
+  "reason": "Because you loved {anchor.title}, <specific concrete connection>."
+}}"""
+
+        text = (await generate(prompt)).strip()
+        parsed = _parse_ai_json(text, f"best_bet:{media_type}")
+        if not isinstance(parsed, dict) or not parsed.get("title"):
+            return {"pick": None, "anchor": None}
+
+        title = parsed["title"]
+        if _is_known(title, known_normalized):
+            return {"pick": None, "anchor": None}
+
+        # Enrich via search for poster + external_id
+        matches = await unified_search(title, media_type)
+        matches = _rank_by_title_match(title, matches)
+        enriched_pick: dict | None = None
+        if matches:
+            best = matches[0]
+            if not _is_known(best.title, known_normalized):
+                enriched_pick = {
+                    "title": best.title,
+                    "media_type": best.media_type,
+                    "year": best.year,
+                    "image_url": best.image_url,
+                    "external_id": best.external_id,
+                    "source": best.source,
+                    "creator": best.creator,
+                    "genres": best.genres or [],
+                    "description": best.description,
+                    "reason": parsed.get("reason", ""),
+                }
+        if not enriched_pick:
+            enriched_pick = {
+                "title": title,
+                "media_type": media_type,
+                "year": parsed.get("year"),
+                "image_url": None,
+                "external_id": "",
+                "source": "",
+                "creator": None,
+                "genres": [],
+                "description": None,
+                "reason": parsed.get("reason", ""),
+            }
+
+        result = {
+            "pick": enriched_pick,
+            "anchor": {
+                "title": anchor.title,
+                "media_type": anchor.media_type,
+                "rating": anchor.rating,
+                "image_url": anchor.image_url,
+            },
+        }
+        log.info(
+            "best_bet [user=%d/%s]: anchor=%s -> pick=%s",
+            user.id, media_type, anchor.title, enriched_pick["title"],
+        )
+        cache.set(cache_key, result, ttl_seconds=604800)  # 7 days
+        return result
+    except Exception as e:
+        log.exception("best_bet failed for %s: %s", media_type, str(e))
+        return {"pick": None, "anchor": None}
+
+
 @router.get("/new-releases/{media_type}")
 async def new_releases(
     media_type: str,

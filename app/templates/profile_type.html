@@ -1,30 +1,83 @@
 {% extends "base.html" %}
 {% block title %}{{ type_label }}{% endblock %}
 
+{% block head %}
+<style>
+    /* Collapsible row — applied to a .collapsible grid when the
+       number of children exceeds the visible cap. Keeps roughly
+       two rows of cards visible (~ 2 * 16rem on md/lg screens),
+       then a Show all / Show less toggle flips the .expanded
+       class and removes the cap. */
+    .collapsible.collapsed { max-height: 36rem; overflow: hidden; }
+    .collapsible.expanded { max-height: none; overflow: visible; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="space-y-8">
     <div class="flex items-start justify-between gap-4 flex-wrap">
         <div>
             <p class="text-[11px] text-txt-muted uppercase tracking-widest font-semibold mb-1">My Library</p>
             <h2 class="text-2xl font-semibold mb-1">{{ type_label }}</h2>
-            <p class="text-txt-muted text-sm">What's new, what's queued, what you've already consumed.</p>
+            <p class="text-txt-muted text-sm">Your current picks, one best bet, fresh releases, and everything you're queued or already in with.</p>
         </div>
         <a href="/profile" class="text-xs px-3 py-1.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg text-txt-muted hover:text-sage hover:border-sage transition-base">
             All media &rarr;
         </a>
     </div>
 
-    <!-- What's new for you -->
+    <!-- Currently {watching/reading/listening to} — shown only when
+         the user has at least one item in the "consuming" state.
+         Rendered by loadCurrentlyConsuming() from the same
+         /api/profile/?media_type=X fetch the library uses. -->
+    <section id="currently-section" class="hidden">
+        <div class="mb-3">
+            <h3 class="text-lg font-semibold flex items-center gap-2">
+                <span class="w-7 h-7 rounded-lg gradient-coral flex items-center justify-center">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                </span>
+                {{ currently_heading }}
+            </h3>
+            <p class="text-sm text-txt-muted">{{ currently_blurb }}</p>
+        </div>
+        <div id="currently-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3"></div>
+    </section>
+
+    <!-- Your best bet — one hero pick anchored to a recently rated
+         9+/10 item. Populated from /api/media/best-bet/{type}.
+         Hidden until the endpoint returns a real pick. -->
+    <section id="best-bet-section" class="hidden">
+        <div class="mb-3">
+            <h3 class="text-lg font-semibold flex items-center gap-2">
+                <span class="w-7 h-7 rounded-lg gradient-navy flex items-center justify-center">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+                </span>
+                Your best bet
+            </h3>
+            <p class="text-sm text-txt-muted">The one pick we'd stake on — picked because of something you just loved.</p>
+        </div>
+        <div id="best-bet-card" class="rounded-2xl overflow-hidden shadow-md border border-sage/30"
+             style="background: linear-gradient(135deg, #EFEAE0 0%, #FAF5EC 100%);">
+            <!-- Populated by loadBestBet(). Structure: flex with a
+                 w-32/w-40 poster on the left and title + byline +
+                 "Because you loved X…" reason on the right. -->
+        </div>
+    </section>
+
+    {% if show_new_releases %}
+    <!-- New you might like — trending + fresh releases scored
+         against the user's taste. Skipped for podcasts where we
+         don't have a reliable "new" signal. -->
     <section>
         <div class="flex items-center justify-between mb-3">
             <div>
                 <h3 class="text-lg font-semibold flex items-center gap-2">
-                    <span class="w-7 h-7 rounded-lg gradient-coral flex items-center justify-center">
+                    <span class="w-7 h-7 rounded-lg gradient-amber flex items-center justify-center">
                         <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                     </span>
-                    What's new for you
+                    New you might like
                 </h3>
-                <p class="text-sm text-txt-muted">Fresh releases scored against your taste. Updated weekly.</p>
+                <p class="text-sm text-txt-muted">New releases and trending titles, scored against your taste. Updated weekly.</p>
             </div>
             <button id="refresh-new-btn" onclick="refreshNewReleases()" class="text-xs px-3 py-1.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg text-txt-muted hover:text-sage hover:border-sage transition-base inline-flex items-center gap-1.5">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h4.586M20 20v-5h-4.586M4.929 9A8 8 0 0119.07 9M19.071 15A8 8 0 014.93 15"/></svg>
@@ -35,8 +88,14 @@
             <p class="text-sm text-txt-muted py-4 text-center">Loading fresh picks...</p>
         </div>
     </section>
+    {% endif %}
 
-    <!-- Your queue (want to consume) -->
+    <!-- Your queue — split into two rows. "You saved" is the
+         user's own want_to_consume items; "We suggest" is AI
+         recommendations pulled from /api/media/home-bundle
+         filtered to this media type, deduped against saved.
+         Each row caps at 2 rows of cards (12 on desktop) and
+         unfurls with the Show more/less toggle underneath. -->
     <section>
         <h3 class="text-lg font-semibold flex items-center gap-2 mb-3">
             <span class="w-7 h-7 rounded-lg gradient-sage flex items-center justify-center">
@@ -44,35 +103,48 @@
             </span>
             Your queue
         </h3>
-        <div id="queue-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-            <p class="col-span-full text-sm text-txt-muted py-4 text-center">Loading...</p>
+
+        <!-- You saved — user-added want_to_consume items -->
+        <div class="mb-5">
+            <p class="text-[11px] text-txt-muted uppercase tracking-widest font-semibold mb-2">You saved</p>
+            <div id="queue-saved" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 collapsible">
+                <p class="col-span-full text-sm text-txt-muted py-4 text-center">Loading...</p>
+            </div>
+            <div id="queue-saved-toggle" class="hidden text-center mt-2">
+                <button onclick="toggleCollapsible('queue-saved', this)" class="text-xs text-sage hover:underline">Show all</button>
+            </div>
+        </div>
+
+        <!-- We suggest — AI recs for this media type. Saving a
+             suggestion moves its card over to the "You saved" row. -->
+        <div>
+            <p class="text-[11px] text-txt-muted uppercase tracking-widest font-semibold mb-2">We suggest</p>
+            <div id="queue-suggest" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 collapsible">
+                <p class="col-span-full text-sm text-txt-muted py-4 text-center">Finding picks...</p>
+            </div>
+            <div id="queue-suggest-toggle" class="hidden text-center mt-2">
+                <button onclick="toggleCollapsible('queue-suggest', this)" class="text-xs text-sage hover:underline">Show all</button>
+            </div>
         </div>
     </section>
 
-    <!-- Picked for you (AI recs for this type) -->
+    <!-- Your library — items the user has marked as consumed.
+         Per-type heading + blurb because you don't really "finish"
+         a TV show or a podcast the way you finish a movie or a
+         book; the section reflects engagement, not completion. -->
     <section>
-        <h3 class="text-lg font-semibold flex items-center gap-2 mb-3">
-            <span class="w-7 h-7 rounded-lg gradient-navy flex items-center justify-center">
-                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-            </span>
-            Picked for you
-        </h3>
-        <div id="picks-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-            <p class="col-span-full text-sm text-txt-muted py-4 text-center">Loading...</p>
-        </div>
-    </section>
-
-    <!-- Your library (consumed) -->
-    <section>
-        <h3 class="text-lg font-semibold flex items-center gap-2 mb-3">
-            <span class="w-7 h-7 rounded-lg gradient-amber flex items-center justify-center">
+        <h3 class="text-lg font-semibold flex items-center gap-2 mb-1">
+            <span class="w-7 h-7 rounded-lg gradient-purple flex items-center justify-center">
                 <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 13l4 4L19 7"/></svg>
             </span>
-            Your library
+            {{ library_heading }}
         </h3>
-        <p class="text-sm text-txt-muted mb-3">Everything you've finished in this category.</p>
-        <div id="library-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+        <p class="text-sm text-txt-muted mb-3">{{ library_blurb }}</p>
+        <div id="library-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 collapsible">
             <p class="col-span-full text-sm text-txt-muted py-4 text-center">Loading...</p>
+        </div>
+        <div id="library-grid-toggle" class="hidden text-center mt-2">
+            <button onclick="toggleCollapsible('library-grid', this)" class="text-xs text-sage hover:underline">Show all</button>
         </div>
     </section>
 </div>
@@ -197,44 +269,141 @@ async function refreshNewReleases() {
     btn.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h4.586M20 20v-5h-4.586M4.929 9A8 8 0 0119.07 9M19.071 15A8 8 0 014.93 15"/></svg> Refresh';
 }
 
-async function loadQueueAndLibrary() {
+// Profile entries are cached here after the first fetch so
+// loadCurrentlyConsuming / loadSavedAndLibrary / loadSuggestions
+// can share the same HTTP call without racing.
+let _profileEntries = null;
+const SAVED_TITLES = new Set();  // used by loadSuggestions to dedupe
+
+async function fetchProfileEntries() {
+    if (_profileEntries !== null) return _profileEntries;
     try {
         const resp = await fetch(`/api/profile/?media_type=${MEDIA_TYPE}`);
-        const entries = resp.ok ? await resp.json() : [];
-
-        const queue = entries.filter(e => e.status === 'want_to_consume' || e.status === 'consuming');
-        const library = entries.filter(e => e.status === 'consumed');
-
-        const queueGrid = document.getElementById('queue-grid');
-        if (queue.length === 0) {
-            queueGrid.innerHTML = `<p class="col-span-full text-sm text-txt-muted py-4 text-center">Nothing queued yet. Save items from search or recommendations.</p>`;
-        } else {
-            queueGrid.innerHTML = queue.map(simpleEntryCard).join('');
-        }
-
-        const libraryGrid = document.getElementById('library-grid');
-        if (library.length === 0) {
-            libraryGrid.innerHTML = `<p class="col-span-full text-sm text-txt-muted py-4 text-center">No finished items here yet.</p>`;
-        } else {
-            // Sort by rating desc then recency
-            library.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-            libraryGrid.innerHTML = library.slice(0, 30).map(simpleEntryCard).join('');
-        }
+        _profileEntries = resp.ok ? await resp.json() : [];
     } catch {
-        document.getElementById('queue-grid').innerHTML = '';
-        document.getElementById('library-grid').innerHTML = '';
+        _profileEntries = [];
+    }
+    return _profileEntries;
+}
+
+async function loadCurrentlyConsuming() {
+    const entries = await fetchProfileEntries();
+    const consuming = entries.filter(e => e.status === 'consuming');
+    if (consuming.length === 0) return;
+    const grid = document.getElementById('currently-grid');
+    grid.innerHTML = consuming.map(currentlyCard).join('');
+    document.getElementById('currently-section').classList.remove('hidden');
+}
+
+function currentlyCard(entry) {
+    const fit = entry.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
+    const image = entry.image_url
+        ? `<div class="poster-frame"><img src="${entry.image_url}" alt="" class="${fit}" loading="lazy"></div>`
+        : `<div class="poster-frame"><div class="poster-fallback bg-sage/10"><span class="text-sage text-xl">${escapeHtml((entry.title || '?')[0])}</span></div></div>`;
+    const switcher = typeof buildStatusSwitcher === 'function'
+        ? buildStatusSwitcher(entry.id, entry.status, entry.media_type)
+        : '';
+    return `
+        <div class="rounded-lg overflow-hidden border border-border-light dark:border-border-dark card-hover">
+            <a href="/media/${entry.media_type}/${entry.external_id}?source=${entry.source}">${image}</a>
+            <div class="bg-surface-light dark:bg-surface-dark p-2 space-y-1.5">
+                <p class="text-xs font-medium truncate">${escapeHtml(entry.title)}</p>
+                ${switcher}
+            </div>
+        </div>
+    `;
+}
+
+async function loadSavedAndLibrary() {
+    const entries = await fetchProfileEntries();
+    const saved = entries.filter(e => e.status === 'want_to_consume');
+    const library = entries.filter(e => e.status === 'consumed');
+
+    SAVED_TITLES.clear();
+    saved.forEach(e => SAVED_TITLES.add((e.title || '').toLowerCase()));
+
+    const savedGrid = document.getElementById('queue-saved');
+    if (saved.length === 0) {
+        savedGrid.innerHTML = `<p class="col-span-full text-sm text-txt-muted py-4 text-center">Nothing saved yet — save items from the suggestions below or from search.</p>`;
+    } else {
+        saved.sort((a, b) => (b.predicted_rating || 0) - (a.predicted_rating || 0));
+        savedGrid.innerHTML = saved.map(simpleEntryCard).join('');
+        applyCollapsible('queue-saved', 12);
+    }
+
+    const libraryGrid = document.getElementById('library-grid');
+    if (library.length === 0) {
+        libraryGrid.innerHTML = `<p class="col-span-full text-sm text-txt-muted py-4 text-center">Nothing in your ${TYPE_LABEL.toLowerCase()} library yet.</p>`;
+    } else {
+        library.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        libraryGrid.innerHTML = library.map(simpleEntryCard).join('');
+        applyCollapsible('library-grid', 12);
     }
 }
 
-async function loadPicks() {
-    const grid = document.getElementById('picks-grid');
+async function loadBestBet() {
+    const section = document.getElementById('best-bet-section');
+    const card = document.getElementById('best-bet-card');
+    try {
+        const resp = await fetch(`/api/media/best-bet/${MEDIA_TYPE}`);
+        const data = resp.ok ? await resp.json() : {};
+        if (!data.pick || !data.anchor) return;  // stays hidden
+        const pick = data.pick;
+        const anchor = data.anchor;
+        const fit = pick.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
+        const image = pick.image_url
+            ? `<div class="poster-frame"><img src="${pick.image_url}" alt="" class="${fit}" loading="lazy"></div>`
+            : `<div class="poster-frame"><div class="poster-fallback bg-sage/10"><span class="text-sage text-3xl">${escapeHtml((pick.title || '?')[0])}</span></div></div>`;
+        const link = pick.external_id ? `/media/${pick.media_type}/${pick.external_id}?source=${pick.source}` : '#';
+
+        const consumeAttr = escapeAttr(JSON.stringify({
+            external_id: pick.external_id || '', source: pick.source || '', title: pick.title,
+            media_type: pick.media_type, image_url: pick.image_url || null, year: pick.year || null,
+            creator: pick.creator || null,
+            genres: (pick.genres && pick.genres.length) ? pick.genres.join(', ') : null,
+            description: pick.description || null, status: 'consumed',
+        }));
+        const saveAttr = escapeAttr(JSON.stringify({
+            external_id: pick.external_id || '', source: pick.source || '', title: pick.title,
+            media_type: pick.media_type, image_url: pick.image_url || null, year: pick.year || null,
+            creator: pick.creator || null,
+            genres: (pick.genres && pick.genres.length) ? pick.genres.join(', ') : null,
+            description: pick.description || null, status: 'want_to_consume',
+        }));
+        const verb = {movie: 'Watched it', tv: 'Watched it', book: 'Read it', podcast: 'Listened'}[MEDIA_TYPE] || 'Done';
+
+        card.innerHTML = `
+            <div class="flex flex-col sm:flex-row gap-5 p-5 md:p-6">
+                <a href="${link}" class="block w-32 md:w-40 flex-shrink-0 self-center sm:self-start">${image}</a>
+                <div class="flex-1 min-w-0">
+                    <p class="text-[10px] text-txt-muted uppercase tracking-widest font-semibold mb-1">Because you loved <span class="text-txt font-bold">${escapeHtml(anchor.title)}</span></p>
+                    <h4 class="text-xl md:text-2xl font-bold leading-tight mb-1">${escapeHtml(pick.title)}</h4>
+                    ${pick.year || pick.creator ? `<p class="text-xs text-txt-muted mb-3">${[pick.year, pick.creator].filter(Boolean).join(' · ')}</p>` : ''}
+                    <p class="text-sm text-txt leading-relaxed mb-4">${escapeHtml(pick.reason || '')}</p>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <button onclick="saveForLater(this, ${saveAttr})" class="px-3 py-1.5 bg-sage/15 hover:bg-sage hover:text-white text-sage text-xs font-medium rounded-lg transition-base inline-flex items-center gap-1.5">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+                            Save for later
+                        </button>
+                        <button onclick="quickAdd(this, ${consumeAttr})" class="px-3 py-1.5 bg-sage hover:bg-sage-dark text-white text-xs font-medium rounded-lg transition-base">${verb}</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        section.classList.remove('hidden');
+    } catch {}
+}
+
+async function loadSuggestions() {
+    // Wait for saved titles to be populated so we can dedupe
+    await loadSavedAndLibrary();
+    const grid = document.getElementById('queue-suggest');
     try {
         const resp = await fetch('/api/media/home-bundle');
         const data = resp.ok ? await resp.json() : {};
         const picks = (data.top_picks || []).filter(p => p.media_type === MEDIA_TYPE);
         const suggestions = (data.suggestions && data.suggestions[MEDIA_TYPE]) || [];
-        // Merge, deduped by title
-        const seen = new Set();
+        const seen = new Set(SAVED_TITLES);
         const merged = [];
         for (const p of [...picks, ...suggestions]) {
             const key = (p.title || '').toLowerCase();
@@ -244,32 +413,116 @@ async function loadPicks() {
             }
         }
         if (merged.length === 0) {
-            grid.innerHTML = `<p class="col-span-full text-sm text-txt-muted py-4 text-center">No picks for this category yet. Rate more ${TYPE_LABEL.toLowerCase()} to unlock recommendations.</p>`;
+            grid.innerHTML = `<p class="col-span-full text-sm text-txt-muted py-4 text-center">No suggestions for this category right now. Rate more ${TYPE_LABEL.toLowerCase()} to unlock recommendations.</p>`;
             return;
         }
-        grid.innerHTML = merged.slice(0, 5).map(p => {
-            const fit = p.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
-            const image = p.image_url
-                ? `<div class="poster-frame"><img src="${p.image_url}" alt="" class="${fit}" loading="lazy"></div>`
-                : `<div class="poster-frame"><div class="poster-fallback bg-sage/10"><span class="text-sage text-xl">${escapeHtml((p.title || '?')[0])}</span></div></div>`;
-            const link = p.external_id ? `/media/${p.media_type}/${p.external_id}?source=${p.source}` : '#';
-            return `
-                <a href="${link}" class="group">
-                    <div class="rounded-lg overflow-hidden border border-border-light dark:border-border-dark transition-base card-hover">
-                        ${image}
-                        <div class="bg-surface-light dark:bg-surface-dark p-2">
-                            <p class="text-xs font-medium truncate">${escapeHtml(p.title)}</p>
-                            ${p.predicted_rating ? `<p class="text-[10px] text-sage">~${p.predicted_rating}</p>` : ''}
-                        </div>
-                    </div>
-                </a>
-            `;
-        }).join('');
+        grid.innerHTML = merged.map(suggestionCard).join('');
+        applyCollapsible('queue-suggest', 12);
     } catch {
         grid.innerHTML = '';
     }
 }
 
-Promise.all([loadNewReleases(false), loadQueueAndLibrary(), loadPicks()]);
+function suggestionCard(item) {
+    const fit = (item.media_type || MEDIA_TYPE) === 'podcast' ? 'poster-contain' : 'poster-cover';
+    const image = item.image_url
+        ? `<div class="poster-frame"><img src="${item.image_url}" alt="" class="${fit}" loading="lazy"></div>`
+        : `<div class="poster-frame"><div class="poster-fallback bg-sage/10"><span class="text-sage text-xl">${escapeHtml((item.title || '?')[0])}</span></div></div>`;
+    const link = item.external_id ? `/media/${item.media_type || MEDIA_TYPE}/${item.external_id}?source=${item.source}` : '#';
+    const saveAttr = escapeAttr(JSON.stringify({
+        external_id: item.external_id || '', source: item.source || '', title: item.title,
+        media_type: item.media_type || MEDIA_TYPE, image_url: item.image_url || null,
+        year: item.year || null, creator: item.creator || null,
+        genres: (item.genres && item.genres.length) ? item.genres.join(', ') : null,
+        description: item.description || null, status: 'want_to_consume',
+    }));
+    const pr = item.predicted_rating;
+    const prBadge = pr ? `<div class="absolute top-1.5 right-1.5 px-1.5 py-0.5 ${pr >= 8 ? 'bg-emerald-500' : pr >= 6 ? 'bg-yellow-500' : 'bg-amber-400'} rounded-full"><span class="text-[9px] font-bold text-white">${pr}</span></div>` : '';
+    return `
+        <div class="rounded-lg overflow-hidden border-2 border-dashed border-border-light dark:border-border-dark hover:border-sage transition-base" data-suggestion-card>
+            <a href="${link}" class="relative block">${image}${prBadge}</a>
+            <div class="bg-surface-light dark:bg-surface-dark p-2 space-y-1.5">
+                <p class="text-xs font-medium truncate">${escapeHtml(item.title)}</p>
+                <button onclick="saveSuggestion(this, ${saveAttr})" class="w-full px-2 py-1 bg-sage/10 hover:bg-sage hover:text-white text-sage text-[10px] font-medium rounded transition-base">
+                    + Save
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+async function saveSuggestion(btn, data) {
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+    try {
+        await fetch('/api/profile/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+    } catch {}
+    // Remove the suggestion card, inject into the saved row, bust
+    // the profile cache so next visit reflects the change.
+    const card = btn.closest('[data-suggestion-card]');
+    if (card) {
+        card.style.transition = 'opacity 0.3s';
+        card.style.opacity = '0';
+        setTimeout(() => card.remove(), 300);
+    }
+    _profileEntries = null;
+    SAVED_TITLES.add((data.title || '').toLowerCase());
+    // Prepend a matching card into the saved row
+    const savedGrid = document.getElementById('queue-saved');
+    if (savedGrid) {
+        const placeholder = savedGrid.querySelector('p.col-span-full');
+        if (placeholder) placeholder.remove();
+        const newCard = document.createElement('div');
+        newCard.innerHTML = simpleEntryCard(data);
+        savedGrid.prepend(newCard.firstElementChild);
+        applyCollapsible('queue-saved', 12);
+    }
+}
+
+function applyCollapsible(containerId, visibleCount) {
+    const grid = document.getElementById(containerId);
+    const toggle = document.getElementById(`${containerId}-toggle`);
+    if (!grid || !toggle) return;
+    const realChildren = Array.from(grid.children).filter(c => !c.matches('p.col-span-full'));
+    if (realChildren.length <= visibleCount) {
+        grid.classList.remove('collapsed', 'expanded');
+        toggle.classList.add('hidden');
+        return;
+    }
+    grid.classList.add('collapsed');
+    grid.classList.remove('expanded');
+    toggle.classList.remove('hidden');
+    toggle.querySelector('button').textContent = `Show all ${realChildren.length}`;
+}
+
+function toggleCollapsible(containerId, btn) {
+    const grid = document.getElementById(containerId);
+    if (!grid) return;
+    const isCollapsed = grid.classList.contains('collapsed');
+    if (isCollapsed) {
+        grid.classList.remove('collapsed');
+        grid.classList.add('expanded');
+        btn.textContent = 'Show less';
+    } else {
+        grid.classList.remove('expanded');
+        grid.classList.add('collapsed');
+        const realChildren = Array.from(grid.children).filter(c => !c.matches('p.col-span-full'));
+        btn.textContent = `Show all ${realChildren.length}`;
+    }
+}
+
+// Kick off every loader in parallel. loadSuggestions() awaits
+// loadSavedAndLibrary() internally because it needs SAVED_TITLES
+// populated before it dedupes, so we don't need to serialize here.
+Promise.all([
+    loadCurrentlyConsuming(),
+    loadBestBet(),
+    {% if show_new_releases %}loadNewReleases(false),{% endif %}
+    loadSuggestions(),
+]);
 </script>
 {% endblock %}
