@@ -11,6 +11,7 @@ from app.database import get_db
 from app.models import MediaEntry, User
 
 templates = Jinja2Templates(directory="app/templates")
+templates.env.globals["admin_email"] = __import__("app.config", fromlist=["settings"]).settings.admin_email
 router = APIRouter()
 
 

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Access Required — NextUp</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: { colors: {
+                sage: { DEFAULT: '#8B9E6B', dark: '#6E8350' },
+                txt: { DEFAULT: '#2B3A4E', muted: '#7A8494', light: '#E5E5E3' },
+                surface: { light: '#FFFFFF', dark: '#252830' },
+                bg: { light: '#FAF9F6', dark: '#1A1D23' },
+                border: { light: '#E8E4DC', dark: '#353840' },
+            }}}
+        }
+    </script>
+</head>
+<body class="bg-bg-light text-txt min-h-screen flex items-center justify-center p-6">
+    <div class="max-w-md w-full text-center space-y-5">
+        <div class="w-16 h-16 bg-sage/10 rounded-full flex items-center justify-center mx-auto">
+            <svg class="w-8 h-8 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+            </svg>
+        </div>
+        <div>
+            <h1 class="text-2xl font-semibold mb-2">Access Required</h1>
+            <p class="text-txt-muted">
+                <strong class="text-txt">{{ email }}</strong> isn't on the access list yet.
+                Ask the owner to add you at <code class="text-sm bg-surface-light border border-border-light rounded px-1.5 py-0.5">/admin/users</code>.
+            </p>
+        </div>
+        <a href="/auth/login" class="inline-block px-5 py-2.5 bg-sage text-white rounded-lg text-sm font-medium hover:bg-sage-dark transition-all duration-200">
+            Try a different account
+        </a>
+    </div>
+</body>
+</html>

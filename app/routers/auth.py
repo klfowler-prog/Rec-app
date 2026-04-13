@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
-from app.models import User
+from app.models import AllowedEmail, User
 
 router = APIRouter()
 
@@ -80,6 +80,13 @@ async def auth_callback(request: Request, code: str = "", state: str = "", db: S
             return RedirectResponse("/?error=userinfo_failed")
         userinfo = userinfo_resp.json()
 
+    # Allowlist check — only runs when INVITE_ONLY=true
+    email = userinfo.get("email", "").lower().strip()
+    if settings.invite_only and email != settings.admin_email.lower().strip():
+        allowed = db.query(AllowedEmail).filter(AllowedEmail.email == email).first()
+        if not allowed:
+            return RedirectResponse(f"/auth/access-denied?email={email}")
+
     # Find or create user
     google_id = userinfo["id"]
     try:
@@ -115,3 +122,10 @@ async def logout(request: Request):
     """Clear session and redirect to login."""
     request.session.clear()
     return RedirectResponse("/auth/login")
+
+
+@router.get("/access-denied")
+async def access_denied(request: Request, email: str = ""):
+    from fastapi.templating import Jinja2Templates
+    templates = Jinja2Templates(directory="app/templates")
+    return templates.TemplateResponse("access_denied.html", {"request": request, "email": email})

@@ -18,6 +18,10 @@ class Settings:
     google_client_secret: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
     secret_key: str = os.getenv("SECRET_KEY", "nextup-dev-secret-change-in-production")
     database_url: str = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR}/rec.db")
+    admin_email: str = os.getenv("ADMIN_EMAIL", "")
+    # When True, only admin + emails in allowed_emails table can log in.
+    # Set INVITE_ONLY=true in .env to enable.
+    invite_only: bool = os.getenv("INVITE_ONLY", "false").lower() == "true"
 
 
 settings = Settings()
