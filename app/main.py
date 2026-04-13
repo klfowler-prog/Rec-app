@@ -9,6 +9,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.auth import _LoginRequired
 from app.config import settings
 from app.database import Base, engine
+from app import models  # noqa: F401 — ensures all models are registered before create_all
 
 Base.metadata.create_all(bind=engine)
 
