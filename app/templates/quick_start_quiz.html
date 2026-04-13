@@ -107,57 +107,63 @@
             <div id="axis-bars" class="space-y-3"></div>
         </div>
 
-        <!-- Podcast bonus — surfaced after any quiz to translate
-             the user's taste direction into 4 podcast picks. Each
-             card has the same 5-emoji rating row as the quiz itself
-             so the user can optionally rate/save any that land. -->
-        <div id="podcast-bonus-wrap" class="hidden bg-surface-light dark:bg-surface-dark rounded-2xl border border-border-light dark:border-border-dark p-5">
-            <div class="flex items-center gap-2 mb-1">
-                <span class="w-6 h-6 rounded bg-green-500 flex items-center justify-center flex-shrink-0">
-                    <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
-                </span>
-                <h3 class="text-base font-semibold">Based on your taste, you might like these podcasts</h3>
-            </div>
-            <p class="text-xs text-txt-muted mb-4">Rate any that catch your eye — no pressure to rate them all. Each pick is translated from your quiz axes into a podcast equivalent.</p>
-            <div id="podcast-bonus-loading" class="py-4 text-center">
-                <div class="inline-block w-5 h-5 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
-                <p class="text-xs text-txt-muted mt-2">Finding podcasts that match...</p>
-            </div>
-            <div id="podcast-bonus-items" class="hidden space-y-3"></div>
-        </div>
-
-        <!-- All-done celebration + import prompts. Shown only when
-             the user just finished their third quiz. renderResult()
-             populates + reveals this block when data.next_quiz is
-             null (meaning all three quizzes are complete). -->
-        <div id="all-done-wrap" class="hidden rounded-2xl p-6 text-white" style="background: linear-gradient(135deg, #2B3A4E 0%, #1E2A3A 100%);">
-            <div class="flex items-start gap-3 mb-4">
-                <span class="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center flex-shrink-0">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                </span>
-                <div class="flex-1">
-                    <h3 class="text-xl font-bold mb-1">Your taste profile is ready</h3>
-                    <p class="text-sm text-white/80 leading-relaxed">All three quizzes done. The AI now has cross-medium signals blending your film, TV, and book directions into every recommendation. It'll get sharper as you add more of what you actually watch, read, and listen to.</p>
+        <!-- All-done celebration. Shown only when the user just
+             finished their third quiz (data.next_quiz is null).
+             The celebratory moment itself, the podcast bonus, and
+             the import prompts all live inside this card so there's
+             one coherent reward beat for completing the trio. -->
+        <div id="all-done-wrap" class="hidden rounded-2xl overflow-hidden shadow-2xl border border-sage/30">
+            <!-- Celebration header — big, sage gradient, confetti-y -->
+            <div class="relative p-6 md:p-8 text-white overflow-hidden" style="background: linear-gradient(135deg, #6E8350 0%, #8B9E6B 50%, #E8734A 100%);">
+                <div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(circle at 20% 30%, white 1px, transparent 1.5px), radial-gradient(circle at 80% 20%, white 1px, transparent 1.5px), radial-gradient(circle at 40% 80%, white 1px, transparent 1.5px), radial-gradient(circle at 70% 65%, white 1px, transparent 1.5px), radial-gradient(circle at 15% 75%, white 1px, transparent 1.5px); background-size: 200px 200px;"></div>
+                <div class="relative">
+                    <div class="text-5xl mb-3">🎉</div>
+                    <p class="text-[11px] text-white/80 uppercase tracking-[0.2em] mb-1 font-bold">You did it</p>
+                    <h3 class="text-3xl md:text-4xl font-bold mb-3 leading-tight">Your taste profile is ready.</h3>
+                    <p class="text-base text-white/95 leading-relaxed max-w-2xl">Three quizzes down. The AI now has cross-medium signals blending your film, TV, and book directions into every recommendation. It'll get sharper every time you add something real — and you've just earned your first round of picks.</p>
                 </div>
             </div>
-            <p class="text-[11px] text-white/60 uppercase tracking-widest mb-2 font-semibold">Sharpen your profile further</p>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
-                <a href="/import/goodreads" class="flex items-center gap-2 px-3 py-2.5 bg-white/10 hover:bg-white/15 rounded-lg text-xs transition-base">
-                    <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
-                    <span>Goodreads CSV</span>
-                </a>
-                <a href="/import/plex" class="flex items-center gap-2 px-3 py-2.5 bg-white/10 hover:bg-white/15 rounded-lg text-xs transition-base">
-                    <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                    <span>Plex library</span>
-                </a>
-                <a href="/add" class="flex items-center gap-2 px-3 py-2.5 bg-white/10 hover:bg-white/15 rounded-lg text-xs transition-base">
-                    <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
-                    <span>Bulk add</span>
-                </a>
-                <a href="/search" class="flex items-center gap-2 px-3 py-2.5 bg-white/10 hover:bg-white/15 rounded-lg text-xs transition-base">
-                    <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                    <span>Search &amp; rate</span>
-                </a>
+
+            <!-- Podcast bonus — the first batch of recs, presented
+                 as a reward for finishing the trio. Follows the
+                 user's spec: short explainer about why podcasts work
+                 differently, then 4 picks with inline rating. -->
+            <div class="p-6 md:p-8 bg-surface-light dark:bg-surface-dark">
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="w-7 h-7 rounded-lg bg-green-500 flex items-center justify-center flex-shrink-0">
+                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
+                    </span>
+                    <h3 class="text-lg font-bold">Your first round of picks — podcasts</h3>
+                </div>
+                <p class="text-sm text-txt-muted mb-4 leading-relaxed">Podcasts don't lend themselves to quizzes the same way books, movies, and TV do. But based on your full taste profile, we think you'll like these. Rate any you've listened to so we can better understand your podcast preferences.</p>
+                <div id="podcast-bonus-loading" class="py-6 text-center">
+                    <div class="inline-block w-5 h-5 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
+                    <p class="text-xs text-txt-muted mt-2">Blending your signals into podcast picks...</p>
+                </div>
+                <div id="podcast-bonus-items" class="hidden space-y-3"></div>
+            </div>
+
+            <!-- Import prompts — keep sharpening in the wider app -->
+            <div class="p-6 md:p-8 border-t border-border-light dark:border-border-dark bg-bg-light dark:bg-bg-dark">
+                <p class="text-[11px] text-txt-muted uppercase tracking-widest mb-3 font-semibold">Sharpen your profile further</p>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <a href="/import/goodreads" class="flex items-center gap-2 px-3 py-2.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg text-xs hover:border-sage transition-base">
+                        <svg class="w-3.5 h-3.5 flex-shrink-0 text-txt-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                        <span class="font-medium">Goodreads CSV</span>
+                    </a>
+                    <a href="/import/plex" class="flex items-center gap-2 px-3 py-2.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg text-xs hover:border-sage transition-base">
+                        <svg class="w-3.5 h-3.5 flex-shrink-0 text-txt-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                        <span class="font-medium">Plex library</span>
+                    </a>
+                    <a href="/add" class="flex items-center gap-2 px-3 py-2.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg text-xs hover:border-sage transition-base">
+                        <svg class="w-3.5 h-3.5 flex-shrink-0 text-txt-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+                        <span class="font-medium">Bulk add</span>
+                    </a>
+                    <a href="/search" class="flex items-center gap-2 px-3 py-2.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg text-xs hover:border-sage transition-base">
+                        <svg class="w-3.5 h-3.5 flex-shrink-0 text-txt-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        <span class="font-medium">Search &amp; rate</span>
+                    </a>
+                </div>
             </div>
         </div>
 
@@ -497,10 +503,12 @@ function renderResult(data) {
         explainer.classList.add('hidden');
     }
 
-    // Fire the podcast bonus fetch after the main result renders.
-    // No await — let the bars paint first, then drop the podcasts in
-    // when they're ready.
-    loadPodcastBonus();
+    // Fire the podcast bonus ONLY in the all-done state. It's the
+    // capstone reward for finishing all three quizzes — blended
+    // across every completed quiz's axes.
+    if (!data.next_quiz) {
+        loadPodcastBonus();
+    }
 
     // Axis bars
     const axisBars = document.getElementById('axis-bars');
@@ -530,22 +538,20 @@ function renderResult(data) {
 }
 
 // -----------------------------------------------------------------
-// Podcast bonus — fetched once the main quiz result renders. Uses
-// the just-persisted quiz axes to generate 4 podcast picks. Each
-// card has the same 5-emoji response row so users can optionally
-// rate any that land; un-rated cards are skipped.
+// Podcast bonus — fired ONLY in the all-done state after the user
+// finishes all three quizzes. The endpoint reads every saved quiz
+// result and blends the axes across media types, so the picks
+// reflect the full taste direction, not just one quiz.
 // -----------------------------------------------------------------
 async function loadPodcastBonus() {
-    const wrap = document.getElementById('podcast-bonus-wrap');
     const loading = document.getElementById('podcast-bonus-loading');
     const container = document.getElementById('podcast-bonus-items');
-    wrap.classList.remove('hidden');
     loading.classList.remove('hidden');
     container.classList.add('hidden');
     container.innerHTML = '';
 
     try {
-        const resp = await fetch(`/api/media/taste-quiz/${QUIZ_SLUG}/podcast-bonus`);
+        const resp = await fetch('/api/media/taste-quiz/podcast-bonus');
         if (!resp.ok) throw new Error('fetch failed');
         const data = await resp.json();
         const items = data.items || [];

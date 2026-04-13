@@ -707,86 +707,91 @@ class BookQuizSubmission(BaseModel):
     responses: list[BookQuizResponseItem]
 
 
-@router.get("/taste-quiz/{quiz_slug}/podcast-bonus")
+@router.get("/taste-quiz/podcast-bonus")
 async def taste_quiz_podcast_bonus(
-    quiz_slug: str,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    """Generate 3-4 podcast recommendations blended from the user's
-    just-completed quiz axes. Called from the quiz result screen as
-    a secondary section — "Based on your taste, you might like these
-    podcasts". We don't run a podcast quiz because the podcast
-    landscape is too niche for a universal 20-item lineup; instead
-    we take the taste direction the user just told us about and
-    translate it into a short curated list they can rate or skip.
+    """Generate 4 podcast recommendations BLENDED from every completed
+    taste quiz. Fired only on the all-quizzes-done celebration screen.
 
-    Reads the saved quiz_results for quiz_slug, builds a prompt
-    using the axis scores + profile direction, asks Gemini for 4
-    podcast picks with concrete reasons, and enriches each via
-    iTunes search. Cached 24h per (user, slug)."""
-    import json
+    Why no podcast quiz: the podcast landscape is too fragmented and
+    niche for a universal 20-item lineup. Instead, once the user has
+    given us taste direction on film, TV, and books, we translate the
+    combined axes into 4 curated podcast picks they can rate or skip.
 
+    Reads every saved quiz result, builds a combined prompt with the
+    top profiles + aggregated axis deltas across all media, asks
+    Gemini for 4 podcast picks with concrete reasons, and enriches
+    each via iTunes search. Cached 24h per user."""
     from app import cache
     from app.config import settings
     from app.services.itunes import search as search_podcasts
     from app.services.taste_quiz_scoring import load_quiz_results
 
-    if quiz_slug not in ("movies", "tv", "books"):
-        raise HTTPException(status_code=400, detail="Invalid quiz slug")
-
-    cache_key = f"podcast_bonus:{user.id}:{quiz_slug}"
+    cache_key = f"podcast_bonus:{user.id}:all"
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
 
     quiz_results = load_quiz_results(db, user.id)
-    quiz = quiz_results.get(quiz_slug)
-    if not quiz or not quiz.get("profiles"):
+    if not quiz_results:
+        return {"items": []}
+
+    # Collect profile leans + top axes from every completed quiz so
+    # the AI has a full picture of the user's cross-medium direction.
+    medium_labels = {"movies": "Film", "tv": "TV", "books": "Books"}
+    medium_lines: list[str] = []
+    for slug in ("movies", "tv", "books"):
+        q = quiz_results.get(slug)
+        if not q or not q.get("profiles"):
+            continue
+        profiles = q.get("profiles") or []
+        lean = " / ".join(p.get("name", "") for p in profiles[:2] if p.get("name"))
+        scores = q.get("axis_scores") or {}
+        ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
+        high = [k for k, v in ranked if v > 0][:3]
+        low = [k for k, v in ranked if v < 0][-2:]
+        high_str = ", ".join(high) or "—"
+        low_str = ", ".join(low) or "—"
+        medium_lines.append(
+            f"- **{medium_labels[slug]}**: {lean} (high: {high_str}; low: {low_str})"
+        )
+
+    if not medium_lines:
         return {"items": []}
 
     if not settings.gemini_api_key:
         return {"items": []}
-
-    # Build a compact prompt using this quiz's axis direction
-    profiles = quiz.get("profiles") or []
-    profile_line = " / ".join(p.get("name", "") for p in profiles[:2] if p.get("name"))
-    axis_scores = quiz.get("axis_scores") or {}
-    ranked_axes = sorted(axis_scores.items(), key=lambda kv: kv[1], reverse=True)
-    high_axes = [k for k, v in ranked_axes if v > 0][:4]
-    low_axes = [k for k, v in ranked_axes if v < 0][-3:]
-    high_str = ", ".join(high_axes) or "none"
-    low_str = ", ".join(low_axes) or "none"
 
     known_normalized, _ = _build_known_titles(db, user.id)
 
     try:
         from app.services.gemini import generate
 
-        medium_label = {"movies": "film", "tv": "TV", "books": "books"}[quiz_slug]
+        blended_block = "\n".join(medium_lines)
 
-        prompt = f"""You are a podcast curator. A user has just finished our {medium_label} taste quiz. Based on the direction they revealed, suggest 4 podcasts they'd likely enjoy.
+        prompt = f"""You are a podcast curator. A user has just finished every NextUp taste quiz across film, TV, and books. Based on their full cross-medium direction, pick 4 podcasts they'd likely enjoy.
 
-QUIZ RESULT — {medium_label.upper()} DIRECTION:
-- Profile lean: {profile_line}
-- Strongest axes (HIGH): {high_str}
-- Weakest axes (LOW): {low_str}
+THEIR FULL TASTE DIRECTION:
+{blended_block}
 
-TASK: Pick 4 podcasts that match this taste direction. Translate the axes into podcast equivalents:
-- High "darkness" / "moral ambiguity" → true crime, investigative journalism, dark narrative
-- High "ideas" → explainer / science / long-form interview podcasts
-- High "pace tolerance" / "commitment" → long-form narrative series (Serial, Scam Inc, Revisionist History)
-- High "irony" / "comedy" → comedy interview, absurdist chat shows
-- High "emotional" → personal narrative, storytelling podcasts (This American Life, Heavyweight)
-- High "ambiguity" → philosophy, science-of-the-mind, speculative
+TASK: Pick 4 podcasts that match the BLEND of signals above — not just one medium. Translate axes into podcast equivalents:
+- High darkness / moral ambiguity → true crime, investigative journalism, dark narrative
+- High ideas → explainer / science / long-form interview podcasts
+- High pace tolerance / commitment / serialization → long-form narrative series (Serial, Scam Inc, Revisionist History style)
+- High irony / comedy → comedy interview, absurdist chat shows
+- High emotional → personal narrative, storytelling podcasts
+- High ambiguity → philosophy, science-of-the-mind, speculative
 - Low emotional + high irony → dry wit interview podcasts
-- Prestige-drama TV fans → investigative narrative podcasts like The Wire in audio form
+- Prestige-drama TV fans → investigative narrative podcasts that work like long-form audio prestige drama
 - Literary-fiction readers → book-focused podcasts, author interviews, essayistic shows
 
 Rules:
 - NO mainstream defaults unless they actually match the axes. Don't reflexively pick The Daily or Joe Rogan.
-- Variety: don't pick 4 true crime shows even if darkness is high. Span different podcast types.
-- Each pick needs a reason that cites the SPECIFIC axis or profile that justifies it.
+- Variety: don't pick 4 of one type. Span different podcast styles.
+- Each pick needs a reason that cites at least one SPECIFIC axis or profile from the blend above.
+- The best picks hit MULTIPLE signals across media at once — say so explicitly when they do.
 - Do NOT pick anything the user already has in their library.
 - Already-owned titles to avoid: {', '.join(list(known_normalized)[:40]) if known_normalized else 'none'}
 
@@ -799,7 +804,7 @@ Return ONLY valid JSON, no markdown:
 ]"""
 
         text = (await generate(prompt)).strip()
-        parsed = _parse_ai_json(text, f"podcast_bonus:{quiz_slug}")
+        parsed = _parse_ai_json(text, "podcast_bonus:all")
         if not isinstance(parsed, list):
             return {"items": []}
 
@@ -846,8 +851,8 @@ Return ONLY valid JSON, no markdown:
         items = [it for it in enriched_list if it is not None][:4]
         result = {"items": items}
         log.info(
-            "podcast_bonus [user=%d/slug=%s]: %d picks surfaced",
-            user.id, quiz_slug, len(items),
+            "podcast_bonus [user=%d]: %d picks surfaced (blended across all quizzes)",
+            user.id, len(items),
         )
         cache.set(cache_key, result, ttl_seconds=86400)  # 24h
         return result
