@@ -703,6 +703,155 @@ class BookQuizSubmission(BaseModel):
     responses: list[BookQuizResponseItem]
 
 
+@router.get("/taste-quiz/{quiz_slug}/podcast-bonus")
+async def taste_quiz_podcast_bonus(
+    quiz_slug: str,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Generate 3-4 podcast recommendations blended from the user's
+    just-completed quiz axes. Called from the quiz result screen as
+    a secondary section — "Based on your taste, you might like these
+    podcasts". We don't run a podcast quiz because the podcast
+    landscape is too niche for a universal 20-item lineup; instead
+    we take the taste direction the user just told us about and
+    translate it into a short curated list they can rate or skip.
+
+    Reads the saved quiz_results for quiz_slug, builds a prompt
+    using the axis scores + profile direction, asks Gemini for 4
+    podcast picks with concrete reasons, and enriches each via
+    iTunes search. Cached 24h per (user, slug)."""
+    import json
+
+    from app import cache
+    from app.config import settings
+    from app.services.itunes import search as search_podcasts
+    from app.services.taste_quiz_scoring import load_quiz_results
+
+    if quiz_slug not in ("movies", "tv", "books"):
+        raise HTTPException(status_code=400, detail="Invalid quiz slug")
+
+    cache_key = f"podcast_bonus:{user.id}:{quiz_slug}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    quiz_results = load_quiz_results(db, user.id)
+    quiz = quiz_results.get(quiz_slug)
+    if not quiz or not quiz.get("profiles"):
+        return {"items": []}
+
+    if not settings.gemini_api_key:
+        return {"items": []}
+
+    # Build a compact prompt using this quiz's axis direction
+    profiles = quiz.get("profiles") or []
+    profile_line = " / ".join(p.get("name", "") for p in profiles[:2] if p.get("name"))
+    axis_scores = quiz.get("axis_scores") or {}
+    ranked_axes = sorted(axis_scores.items(), key=lambda kv: kv[1], reverse=True)
+    high_axes = [k for k, v in ranked_axes if v > 0][:4]
+    low_axes = [k for k, v in ranked_axes if v < 0][-3:]
+    high_str = ", ".join(high_axes) or "none"
+    low_str = ", ".join(low_axes) or "none"
+
+    known_normalized, _ = _build_known_titles(db, user.id)
+
+    try:
+        from app.services.gemini import generate
+
+        medium_label = {"movies": "film", "tv": "TV", "books": "books"}[quiz_slug]
+
+        prompt = f"""You are a podcast curator. A user has just finished our {medium_label} taste quiz. Based on the direction they revealed, suggest 4 podcasts they'd likely enjoy.
+
+QUIZ RESULT — {medium_label.upper()} DIRECTION:
+- Profile lean: {profile_line}
+- Strongest axes (HIGH): {high_str}
+- Weakest axes (LOW): {low_str}
+
+TASK: Pick 4 podcasts that match this taste direction. Translate the axes into podcast equivalents:
+- High "darkness" / "moral ambiguity" → true crime, investigative journalism, dark narrative
+- High "ideas" → explainer / science / long-form interview podcasts
+- High "pace tolerance" / "commitment" → long-form narrative series (Serial, Scam Inc, Revisionist History)
+- High "irony" / "comedy" → comedy interview, absurdist chat shows
+- High "emotional" → personal narrative, storytelling podcasts (This American Life, Heavyweight)
+- High "ambiguity" → philosophy, science-of-the-mind, speculative
+- Low emotional + high irony → dry wit interview podcasts
+- Prestige-drama TV fans → investigative narrative podcasts like The Wire in audio form
+- Literary-fiction readers → book-focused podcasts, author interviews, essayistic shows
+
+Rules:
+- NO mainstream defaults unless they actually match the axes. Don't reflexively pick The Daily or Joe Rogan.
+- Variety: don't pick 4 true crime shows even if darkness is high. Span different podcast types.
+- Each pick needs a reason that cites the SPECIFIC axis or profile that justifies it.
+- Do NOT pick anything the user already has in their library.
+- Already-owned titles to avoid: {', '.join(list(known_normalized)[:40]) if known_normalized else 'none'}
+
+Return ONLY valid JSON, no markdown:
+[
+  {{"title": "...", "reason": "Short concrete reason citing the axis or profile match"}},
+  {{"title": "...", "reason": "..."}},
+  {{"title": "...", "reason": "..."}},
+  {{"title": "...", "reason": "..."}}
+]"""
+
+        text = (await generate(prompt)).strip()
+        parsed = _parse_ai_json(text, f"podcast_bonus:{quiz_slug}")
+        if not isinstance(parsed, list):
+            return {"items": []}
+
+        # Enrich each with iTunes search for poster + external_id
+        import asyncio
+
+        async def enrich(pick: dict) -> dict | None:
+            title = pick.get("title", "")
+            if not title:
+                return None
+            if _is_known(title, known_normalized):
+                return None
+            try:
+                matches = await search_podcasts(title)
+            except Exception:
+                matches = []
+            matches = _rank_by_title_match(title, matches)
+            if not matches:
+                return {
+                    "title": title,
+                    "year": None,
+                    "creator": None,
+                    "image_url": None,
+                    "external_id": "",
+                    "source": "",
+                    "media_type": "podcast",
+                    "reason": pick.get("reason", ""),
+                }
+            best = matches[0]
+            if _is_known(best.title, known_normalized):
+                return None
+            return {
+                "title": best.title,
+                "year": best.year,
+                "creator": best.creator,
+                "image_url": best.image_url,
+                "external_id": best.external_id,
+                "source": best.source,
+                "media_type": "podcast",
+                "reason": pick.get("reason", ""),
+            }
+
+        enriched_list = await asyncio.gather(*[enrich(p) for p in parsed[:6]])
+        items = [it for it in enriched_list if it is not None][:4]
+        result = {"items": items}
+        log.info(
+            "podcast_bonus [user=%d/slug=%s]: %d picks surfaced",
+            user.id, quiz_slug, len(items),
+        )
+        cache.set(cache_key, result, ttl_seconds=86400)  # 24h
+        return result
+    except Exception as e:
+        log.exception("podcast_bonus failed: %s", str(e))
+        return {"items": []}
+
+
 @router.post("/taste-quiz/books/score")
 async def score_book_quiz(
     submission: BookQuizSubmission,
