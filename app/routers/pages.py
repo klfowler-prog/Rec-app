@@ -218,7 +218,32 @@ async def quick_start_page(request: Request, user: User = Depends(require_user))
 
 @router.get("/quick-start/movies")
 async def quick_start_movies_page(request: Request, user: User = Depends(require_user)):
-    return templates.TemplateResponse("quick_start_movies.html", {"request": request, "user": user})
+    return templates.TemplateResponse(
+        "quick_start_quiz.html",
+        {
+            "request": request,
+            "user": user,
+            "quiz_slug": "movies",
+            "quiz_title": "Movie taste quiz",
+            "quiz_blurb": "20 films, one at a time. We'll learn how you engage with film — pace, tone, ambiguity, humor — and use it to sharpen your recommendations.",
+            "item_label": "Film",
+        },
+    )
+
+
+@router.get("/quick-start/tv")
+async def quick_start_tv_page(request: Request, user: User = Depends(require_user)):
+    return templates.TemplateResponse(
+        "quick_start_quiz.html",
+        {
+            "request": request,
+            "user": user,
+            "quiz_slug": "tv",
+            "quiz_title": "TV taste quiz",
+            "quiz_blurb": "19 shows, one at a time. We'll learn how you engage with long-form TV — commitment to long arcs, tolerance for ambiguity, where you sit on irony — and use it to sharpen your recommendations.",
+            "item_label": "Show",
+        },
+    )
 
 
 @router.get("/media/{media_type}/{external_id}")

@@ -430,35 +430,30 @@ def _filter_quiz_items_for_user(base: dict, db: Session, user_id: int) -> dict:
     }
 
 
-@router.get("/taste-quiz/movies")
-async def taste_quiz_movies_items():
-    """Return the 20 films for the movie taste quiz, enriched with
-    TMDB poster + metadata. Fixed order (accessible → challenging),
-    shared across all users, cached 7 days."""
+async def _enrich_quiz_items_via_tmdb(items: list[dict], media_type: str) -> list[dict]:
+    """Enrich a list of quiz items with TMDB posters. Handles both
+    movies (items use `year`) and TV shows (items use `tmdb_year` for
+    the lookup + `years` for display). Shared between the movie and
+    TV quiz endpoints so the enrichment rules stay consistent."""
     import asyncio
 
-    from app import cache
-    from app.services.movie_taste_quiz import FILMS, RESPONSE_OPTIONS, AXES
     from app.services.tmdb import search as tmdb_search
 
-    cached = cache.get("movie_taste_quiz_items")
-    if cached is not None:
-        return cached
-
-    async def enrich(film: dict) -> dict:
+    async def enrich(item: dict) -> dict:
         try:
-            results = await tmdb_search(film["title"], "movie")
+            results = await tmdb_search(item["title"], media_type)
         except Exception:
             results = []
+        lookup_year = item.get("tmdb_year") if media_type == "tv" else item.get("year")
         best = None
         if results:
-            # Prefer an exact year match since film titles collide
-            for r in results[:10]:
-                if r.year == film["year"]:
-                    best = r
-                    break
+            # Prefer an exact year match since popular titles collide
+            if lookup_year:
+                for r in results[:10]:
+                    if r.year == lookup_year:
+                        best = r
+                        break
             if not best:
-                # Fall back to the first result with a poster
                 for r in results[:10]:
                     if r.image_url:
                         best = r
@@ -466,11 +461,11 @@ async def taste_quiz_movies_items():
             if not best:
                 best = results[0]
         return {
-            "order": film["order"],
-            "title": film["title"],
-            "year": film["year"],
-            "weights": film["weights"],
-            "media_type": "movie",
+            "order": item["order"],
+            "title": item["title"],
+            "year": item.get("year") or item.get("years"),
+            "weights": item["weights"],
+            "media_type": media_type,
             "image_url": best.image_url if best else None,
             "external_id": best.external_id if best else "",
             "source": best.source if best else "",
@@ -479,17 +474,60 @@ async def taste_quiz_movies_items():
             "genres": best.genres if best else [],
         }
 
-    enriched = await asyncio.gather(*[enrich(f) for f in FILMS])
-    # Preserve the canonical order, don't sort by anything else
-    enriched_sorted = sorted(enriched, key=lambda f: f["order"])
+    enriched = await asyncio.gather(*[enrich(it) for it in items])
+    return sorted(enriched, key=lambda x: x["order"])
+
+
+@router.get("/taste-quiz/movies")
+async def taste_quiz_movies_items():
+    """Return the 20 films for the movie taste quiz, enriched with
+    TMDB metadata. Fixed order (accessible → challenging), shared
+    across all users, cached 7 days."""
+    from app import cache
+    from app.services.movie_taste_quiz import FILMS, RESPONSE_OPTIONS, AXES, MIN_ANSWERED
+
+    cached = cache.get("movie_taste_quiz_items")
+    if cached is not None:
+        return cached
+    enriched = await _enrich_quiz_items_via_tmdb(FILMS, "movie")
     result = {
-        "items": enriched_sorted,
+        "items": enriched,
         "options": RESPONSE_OPTIONS,
         "axes": AXES,
-        "min_answered": 11,
+        "min_answered": MIN_ANSWERED,
         "total_questions": len(FILMS),
+        "media_type": "movie",
+        "media_label": "film",
+        "media_label_plural": "films",
+        "verb": "watched",
     }
     cache.set("movie_taste_quiz_items", result, ttl_seconds=86400 * 7)
+    return result
+
+
+@router.get("/taste-quiz/tv")
+async def taste_quiz_tv_items():
+    """Return the 19 TV shows for the TV taste quiz, enriched with
+    TMDB metadata. Fixed accessible → challenging order."""
+    from app import cache
+    from app.services.tv_taste_quiz import SHOWS, RESPONSE_OPTIONS, AXES, MIN_ANSWERED
+
+    cached = cache.get("tv_taste_quiz_items")
+    if cached is not None:
+        return cached
+    enriched = await _enrich_quiz_items_via_tmdb(SHOWS, "tv")
+    result = {
+        "items": enriched,
+        "options": RESPONSE_OPTIONS,
+        "axes": AXES,
+        "min_answered": MIN_ANSWERED,
+        "total_questions": len(SHOWS),
+        "media_type": "tv",
+        "media_label": "show",
+        "media_label_plural": "shows",
+        "verb": "watched",
+    }
+    cache.set("tv_taste_quiz_items", result, ttl_seconds=86400 * 7)
     return result
 
 
@@ -508,16 +546,34 @@ async def score_movie_quiz(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    """Score the user's quiz responses. Returns axis breakdown and
-    the top 2 profile matches (direction hints, not pigeonhole labels).
-    Does NOT persist the film ratings — that's handled inline by the
-    frontend as the user taps responses so the save flow matches the
-    rest of the app."""
+    """Score the user's movie quiz responses. Returns axis breakdown
+    and the top 2 profile matches (direction hints, not pigeonhole
+    labels). Does NOT persist ratings — the frontend saves inline as
+    the user taps responses."""
     from app.services.movie_taste_quiz import score_responses
 
     result = score_responses([r.model_dump() for r in submission.responses])
     log.info(
         "movie_taste_quiz [user=%d]: %d answered, top=%s",
+        user.id,
+        result.get("answered_count", 0),
+        result["profiles"][0]["id"] if result.get("profiles") else "none",
+    )
+    return result
+
+
+@router.post("/taste-quiz/tv/score")
+async def score_tv_quiz(
+    submission: QuizSubmission,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Score the user's TV quiz responses."""
+    from app.services.tv_taste_quiz import score_responses
+
+    result = score_responses([r.model_dump() for r in submission.responses])
+    log.info(
+        "tv_taste_quiz [user=%d]: %d answered, top=%s",
         user.id,
         result.get("answered_count", 0),
         result["profiles"][0]["id"] if result.get("profiles") else "none",

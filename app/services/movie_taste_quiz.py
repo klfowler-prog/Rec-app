@@ -1,4 +1,4 @@
-"""Movie taste quiz — static data + scoring logic.
+"""Movie taste quiz — static data only.
 
 20-question quiz that scores the user on 8 taste axes and surfaces a
 direction-blend (top 2 profile matches) rather than pinning them to a
@@ -9,9 +9,11 @@ into recommendation prompts as a hint.
 Films are presented in a deliberate accessible → challenging order.
 Do NOT randomize. Films with a null response are excluded from
 scoring entirely.
+
+Scoring logic lives in taste_quiz_scoring.py — this module is data.
 """
 
-import math
+from app.services.taste_quiz_scoring import score_responses as _score
 
 # 8 axes with short keys + human labels used in the UI.
 AXES: list[dict] = [
@@ -135,62 +137,16 @@ PROFILES: list[dict] = [
 ]
 
 
+MIN_ANSWERED = 11
+
+
 def score_responses(responses: list[dict]) -> dict:
-    """Score a list of {order, value} responses against the film
-    weights. Null values are excluded. Returns axis_scores, top
-    profile matches (with similarity), and a count of real answers.
-
-    We return the TOP 2 profiles instead of a single winner so the
-    UI can present the result as a blend — "you lean Patient
-    Formalist with a side of Chaos Enjoyer" — rather than a forced
-    pigeonhole."""
-    film_by_order = {f["order"]: f for f in FILMS}
-
-    # Compute raw axis deltas from non-null responses
-    axis_scores: dict[str, float] = {k: 0.0 for k in AXIS_KEYS}
-    real_count = 0
-    for r in responses:
-        value = r.get("value")
-        if value is None:
-            continue
-        film = film_by_order.get(r.get("order"))
-        if not film:
-            continue
-        real_count += 1
-        for axis, weight in film["weights"].items():
-            if axis in axis_scores:
-                axis_scores[axis] += weight * value
-
-    if real_count < 11:
-        return {
-            "answered_count": real_count,
-            "axis_scores": axis_scores,
-            "profiles": [],
-            "has_enough_data": False,
-        }
-
-    # Cosine-similarity match against each profile
-    user_vec = [axis_scores[k] for k in AXIS_KEYS]
-    norm_u = math.sqrt(sum(v * v for v in user_vec))
-    ranked: list[dict] = []
-    for profile in PROFILES:
-        profile_vec = [profile["vector"].get(k, 0.0) for k in AXIS_KEYS]
-        norm_p = math.sqrt(sum(v * v for v in profile_vec))
-        if norm_u == 0 or norm_p == 0:
-            continue
-        dot = sum(a * b for a, b in zip(user_vec, profile_vec))
-        similarity = dot / (norm_u * norm_p)
-        ranked.append({
-            "id": profile["id"],
-            "name": profile["name"],
-            "description": profile["description"],
-            "similarity": round(similarity, 3),
-        })
-    ranked.sort(key=lambda p: p["similarity"], reverse=True)
-
-    return {
-        "answered_count": real_count,
-        "axis_scores": axis_scores,
-        "profiles": ranked[:2],  # top 2 — direction hint, not a pigeonhole
-        "has_enough_data": True,
-    }
+    """Score quiz responses against the movie data. Thin wrapper that
+    delegates the actual math to taste_quiz_scoring._score."""
+    return _score(
+        responses=responses,
+        items=FILMS,
+        axis_keys=AXIS_KEYS,
+        profiles=PROFILES,
+        min_answered=MIN_ANSWERED,
+    )

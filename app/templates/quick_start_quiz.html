@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Movie Taste Quiz{% endblock %}
+{% block title %}{{ quiz_title }}{% endblock %}
 
 {% block head %}
 <style>
@@ -27,8 +27,8 @@
             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
             Quick Start
         </a>
-        <h2 class="text-2xl font-semibold mb-1">Movie taste quiz</h2>
-        <p class="text-txt-muted text-sm">20 films, one at a time. We'll learn how you engage with film — pace, tone, ambiguity, humor — and use it to sharpen your recommendations.</p>
+        <h2 class="text-2xl font-semibold mb-1">{{ quiz_title }}</h2>
+        <p class="text-txt-muted text-sm">{{ quiz_blurb }}</p>
     </div>
 
     <!-- Progress -->
@@ -45,10 +45,10 @@
     <!-- Loading -->
     <div id="quiz-loading" class="text-center py-20">
         <div class="inline-block w-6 h-6 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
-        <p class="text-sm text-txt-muted mt-3">Loading films...</p>
+        <p class="text-sm text-txt-muted mt-3">Loading {{ item_label|lower }}s...</p>
     </div>
 
-    <!-- Film card -->
+    <!-- Item card -->
     <div id="film-card" class="hidden">
         <div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-2xl p-5 md:p-6">
             <div class="flex gap-5 items-start">
@@ -89,7 +89,7 @@
     <!-- Result screen -->
     <div id="result-screen" class="hidden space-y-6">
         <div class="gradient-navy rounded-2xl p-8 text-white" style="background: linear-gradient(135deg, #2B3A4E 0%, #1E2A3A 100%);">
-            <p class="text-[11px] text-white/60 uppercase tracking-widest font-semibold mb-2">Your film taste leans</p>
+            <p class="text-[11px] text-white/60 uppercase tracking-widest font-semibold mb-2">Your {{ item_label|lower }} taste leans</p>
             <h2 id="result-primary-name" class="text-3xl font-bold mb-3"></h2>
             <p id="result-primary-desc" class="text-base text-white/90 leading-relaxed"></p>
 
@@ -114,7 +114,7 @@
 
     <!-- Not enough data state -->
     <div id="not-enough" class="hidden text-center py-12">
-        <p class="text-sm text-txt-muted">You've only rated <span id="answered-short">0</span> films so far. Answer at least 11 (loved / liked / fine / didn't click) to see your taste direction.</p>
+        <p class="text-sm text-txt-muted">You've only rated <span id="answered-short">0</span> {{ item_label|lower }}s so far. Answer a few more (loved / liked / fine / didn't click) to see your taste direction.</p>
         <button onclick="resumeQuiz()" class="mt-4 px-5 py-2.5 bg-sage hover:bg-sage-dark text-white text-sm font-medium rounded-lg transition-base">Keep going</button>
     </div>
 </div>
@@ -123,6 +123,10 @@
 {% block scripts %}
 <script>
 // Quiz state — responses map order -> {value, saved}
+const QUIZ_SLUG = "{{ quiz_slug }}";
+const ITEM_LABEL = "{{ item_label }}";
+const QUIZ_ENDPOINT = `/api/media/taste-quiz/${QUIZ_SLUG}`;
+const SCORE_ENDPOINT = `/api/media/taste-quiz/${QUIZ_SLUG}/score`;
 let QUIZ = null;
 let currentIdx = 0;
 const responses = {};  // order -> {value, savedEntryId}
@@ -135,7 +139,7 @@ function escapeHtml(text) {
 
 async function loadQuiz() {
     try {
-        const resp = await fetch('/api/media/taste-quiz/movies');
+        const resp = await fetch(QUIZ_ENDPOINT);
         if (!resp.ok) throw new Error('fetch failed');
         QUIZ = await resp.json();
         document.getElementById('quiz-loading').classList.add('hidden');
@@ -169,8 +173,8 @@ function renderResponseButtons() {
 }
 
 function renderCurrent() {
-    const film = QUIZ.items[currentIdx];
-    if (!film) return;
+    const item = QUIZ.items[currentIdx];
+    if (!item) return;
 
     // Progress
     const total = QUIZ.items.length;
@@ -179,33 +183,33 @@ function renderCurrent() {
     document.getElementById('answered-label').textContent = `${answered} rated`;
     document.getElementById('progress-bar').style.width = `${((currentIdx + 1) / total) * 100}%`;
 
-    // Film card
-    document.getElementById('film-number').textContent = `Film ${film.order}`;
-    document.getElementById('film-title').textContent = film.title;
-    document.getElementById('film-year').textContent = film.year ? `${film.year}${film.creator ? ' · ' + film.creator : ''}` : '';
-    document.getElementById('film-description').textContent = film.description || '';
+    // Item card
+    document.getElementById('film-number').textContent = `${ITEM_LABEL} ${item.order}`;
+    document.getElementById('film-title').textContent = item.title;
+    document.getElementById('film-year').textContent = item.year ? `${item.year}${item.creator ? ' · ' + item.creator : ''}` : '';
+    document.getElementById('film-description').textContent = item.description || '';
 
     const poster = document.getElementById('film-poster');
     const fallback = document.getElementById('film-poster-fallback');
-    if (film.image_url) {
-        poster.src = film.image_url;
+    if (item.image_url) {
+        poster.src = item.image_url;
         poster.classList.remove('hidden');
         fallback.classList.add('hidden');
     } else {
         poster.classList.add('hidden');
         fallback.classList.remove('hidden');
-        document.getElementById('film-poster-initial').textContent = (film.title || '?')[0];
+        document.getElementById('film-poster-initial').textContent = (item.title || '?')[0];
     }
 
     // Back button enable state
     document.getElementById('back-btn').disabled = currentIdx === 0;
 
-    // Show "finish early" link once >= 11 real answers
+    // Show "finish early" link once the minimum is met
     const realAnswered = Object.values(responses).filter(v => v !== null && v !== undefined).length;
     document.getElementById('finish-early-btn').classList.toggle('hidden', realAnswered < QUIZ.min_answered);
 
-    // Highlight the currently-picked button for this film if any
-    const picked = responses[film.order];
+    // Highlight the currently-picked button for this item if any
+    const picked = responses[item.order];
     document.querySelectorAll('[data-value]').forEach(btn => {
         const v = btn.dataset.value;
         const current = picked === null ? 'null' : (picked !== undefined ? String(picked) : null);
@@ -218,15 +222,14 @@ function renderCurrent() {
 }
 
 async function pickResponse(valueStr) {
-    const film = QUIZ.items[currentIdx];
-    if (!film) return;
+    const item = QUIZ.items[currentIdx];
+    if (!item) return;
     const value = valueStr === 'null' ? null : parseInt(valueStr, 10);
-    responses[film.order] = value;
+    responses[item.order] = value;
 
-    // Save to profile inline if non-null — matches how the rest of
-    // the app saves ratings. null = haven't seen, skip the save.
+    // Save to profile inline if non-null — null = haven't seen, skip.
     if (value !== null) {
-        saveFilmRating(film, value);
+        saveItemRating(item, value);
     }
 
     // Auto-advance to the next question
@@ -242,19 +245,19 @@ async function pickResponse(valueStr) {
 }
 
 const RATING_MAP = { 2: 9, 1: 7, 0: 5, '-1': 3 };
-async function saveFilmRating(film, value) {
+async function saveItemRating(item, value) {
     const rating = RATING_MAP[value];
     if (!rating) return;
     const payload = {
-        external_id: film.external_id || '',
-        source: film.source || '',
-        title: film.title,
-        media_type: 'movie',
-        image_url: film.image_url || null,
-        year: film.year,
-        creator: film.creator || null,
-        genres: (film.genres && film.genres.length) ? film.genres.join(', ') : null,
-        description: film.description || null,
+        external_id: item.external_id || '',
+        source: item.source || '',
+        title: item.title,
+        media_type: QUIZ.media_type,
+        image_url: item.image_url || null,
+        year: (typeof item.year === 'number') ? item.year : null,
+        creator: item.creator || null,
+        genres: (item.genres && item.genres.length) ? item.genres.join(', ') : null,
+        description: item.description || null,
         status: 'consumed',
         rating,
     };
@@ -266,7 +269,7 @@ async function saveFilmRating(film, value) {
         });
         if (resp.status === 409) {
             // Already exists — update the rating via PUT
-            const check = await fetch(`/api/profile/check/${encodeURIComponent(film.source || '_')}/${encodeURIComponent(film.external_id || '_')}`);
+            const check = await fetch(`/api/profile/check/${encodeURIComponent(item.source || '_')}/${encodeURIComponent(item.external_id || '_')}`);
             const data = await check.json();
             if (data.entry) {
                 await fetch(`/api/profile/${data.entry.id}`, {
@@ -288,7 +291,7 @@ function prevQuestion() {
 function resumeQuiz() {
     document.getElementById('not-enough').classList.add('hidden');
     document.getElementById('film-card').classList.remove('hidden');
-    // Jump to the first unanswered film
+    // Jump to the first unanswered item
     for (let i = 0; i < QUIZ.items.length; i++) {
         if (responses[QUIZ.items[i].order] === undefined) {
             currentIdx = i;
@@ -306,13 +309,13 @@ async function finishQuiz() {
         })),
     };
 
-    // Hide the film card, show loading
+    // Hide the item card, show loading
     document.getElementById('film-card').classList.add('hidden');
     document.getElementById('quiz-loading').classList.remove('hidden');
     document.getElementById('quiz-loading').innerHTML = '<div class="inline-block w-6 h-6 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div><p class="text-sm text-txt-muted mt-3">Reading your taste...</p>';
 
     try {
-        const resp = await fetch('/api/media/taste-quiz/movies/score', {
+        const resp = await fetch(SCORE_ENDPOINT, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
