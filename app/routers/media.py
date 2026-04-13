@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -207,6 +207,129 @@ def _parse_ai_json(text: str, context: str) -> dict | list | None:
             context, str(je), candidate[:400],
         )
         return None
+
+
+# ---------------------------------------------------------------------------
+# Home-page "resonance" signal
+#
+# The new home page lets the user tap a currently-consuming chip to mark it
+# as "what's resonating most right now". That signal gets stored under a
+# subkey of UserPreferences.quiz_results (a JSON Text column we already have)
+# so we don't need a schema migration, and decays after 14 days so stale
+# signals don't bias future recs forever. The signal is injected into rec
+# prompts via build_resonance_block().
+# ---------------------------------------------------------------------------
+
+_RESONANCE_KEY = "_home_resonance"
+_RESONANCE_MAX_AGE_DAYS = 14
+
+
+def _load_prefs_json(db: Session, user_id: int) -> tuple[object, dict]:
+    """Load UserPreferences row + parsed quiz_results JSON for a user.
+    Returns (prefs_row_or_none, parsed_dict). The parsed dict is always
+    a dict, even if quiz_results is None or malformed, so callers can
+    treat it as safe to mutate before writing back."""
+    import json
+
+    from app.models import UserPreferences
+
+    prefs = db.query(UserPreferences).filter(UserPreferences.user_id == user_id).first()
+    if not prefs or not prefs.quiz_results:
+        return prefs, {}
+    try:
+        data = json.loads(prefs.quiz_results)
+        return prefs, data if isinstance(data, dict) else {}
+    except (ValueError, TypeError):
+        return prefs, {}
+
+
+def get_home_resonance(db: Session, user_id: int) -> dict[str, str]:
+    """Return a dict of {entry_id_str: iso_timestamp} for the user's
+    currently active resonance signals. Expired entries (older than
+    _RESONANCE_MAX_AGE_DAYS) are filtered out."""
+    from datetime import datetime, timedelta
+
+    _, data = _load_prefs_json(db, user_id)
+    resonance = data.get(_RESONANCE_KEY) or {}
+    if not isinstance(resonance, dict):
+        return {}
+    cutoff = datetime.utcnow() - timedelta(days=_RESONANCE_MAX_AGE_DAYS)
+    fresh: dict[str, str] = {}
+    for eid, ts in resonance.items():
+        try:
+            when = datetime.fromisoformat(ts)
+        except (ValueError, TypeError):
+            continue
+        if when >= cutoff:
+            fresh[str(eid)] = ts
+    return fresh
+
+
+def toggle_home_resonance(db: Session, user_id: int, entry_id: int) -> bool:
+    """Toggle a resonance flag for (user, entry_id). Returns the new
+    state (True = resonating, False = off). Writes back to
+    UserPreferences.quiz_results under _RESONANCE_KEY."""
+    import json
+    from datetime import datetime
+
+    from app.models import UserPreferences
+
+    prefs, data = _load_prefs_json(db, user_id)
+    resonance = data.get(_RESONANCE_KEY) or {}
+    if not isinstance(resonance, dict):
+        resonance = {}
+
+    key = str(entry_id)
+    new_state: bool
+    if key in resonance:
+        del resonance[key]
+        new_state = False
+    else:
+        resonance[key] = datetime.utcnow().isoformat()
+        new_state = True
+
+    data[_RESONANCE_KEY] = resonance
+    if prefs is None:
+        prefs = UserPreferences(user_id=user_id, quiz_results=json.dumps(data))
+        db.add(prefs)
+    else:
+        prefs.quiz_results = json.dumps(data)
+    db.commit()
+    return new_state
+
+
+def build_resonance_block(db: Session, user_id: int) -> str:
+    """Return a short prompt block describing which currently-consuming
+    items the user has flagged as 'what's resonating most right now'.
+    Empty string when there's no active signal. Used by home-bundle,
+    best-bet, and recommend prompts to lean recs toward the texture
+    of the flagged items."""
+    from app.models import MediaEntry
+
+    resonance = get_home_resonance(db, user_id)
+    if not resonance:
+        return ""
+    ids = [int(k) for k in resonance.keys() if str(k).isdigit()]
+    if not ids:
+        return ""
+    rows = (
+        db.query(MediaEntry)
+        .filter(MediaEntry.user_id == user_id, MediaEntry.id.in_(ids))
+        .all()
+    )
+    if not rows:
+        return ""
+    lines = []
+    for e in rows:
+        genre_hint = f" [{e.genres}]" if e.genres else ""
+        lines.append(f"  - {e.title} ({e.media_type}){genre_hint}")
+    return (
+        "RESONATING RIGHT NOW (the user has flagged these as what's "
+        "hitting hardest in their current run — lean toward work that "
+        "shares their specific texture, not just the same genre):\n"
+        + "\n".join(lines)
+        + "\n"
+    )
 
 
 @router.get("/trending/{media_type}")
@@ -1621,7 +1744,7 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
     if cached is not None:
         return cached
 
-    empty_bundle = {"top_picks": [], "suggestions": {}, "insights": []}
+    empty_bundle = {"top_picks": [], "suggestions": {}, "themes": {}, "insights": []}
     if not settings.gemini_api_key:
         return empty_bundle
 
@@ -1703,19 +1826,44 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
 
         from app.services.taste_quiz_scoring import build_quiz_signals_block
         quiz_signals = build_quiz_signals_block(db, user.id)
+        resonance_signals = build_resonance_block(db, user.id)
+
+        # Six life-context themes — each resolves to a specific mode of
+        # consumption the user might actually be in. These replace the
+        # old "Patterns in your taste" insights block on the home page.
+        theme_catalog = [
+            ("walking_the_dog", "Something to listen to while walking the dog", "podcast", "podcast: 30-60 min, conversational or narrative, one you can drop in and out of without losing the thread"),
+            ("tonight_binge",    "Tonight's binge",                                 "tv",      "tv: 1-2 hour episodes, propulsive, ending that actually earns the next episode"),
+            ("wind_down",        "Wind down before bed",                            "book",    "book or slow tv: low stakes, not plot-heavy, written or shot with care so it slows your pulse"),
+            ("background_work",  "Background while you work",                       "podcast", "podcast or comfort tv rewatch: familiar or conversational, doesn't demand your attention but rewards it when you lean in"),
+            ("weekend_project",  "Weekend project",                                 "movie",   "movie or long book: immersive, something worth sitting with on a saturday"),
+            ("quick_escape",     "Quick escape",                                    "movie",   "movie or short-form tv: 15-90 min, fun, the thing you'd watch when you have a pocket of time and need out of your own head"),
+        ]
+        theme_schema_lines = [
+            f'    "{slug}": [{{"title": "...", "media_type": "movie|tv|book|podcast", "year": 2020, "reason": "..."}}, ... 4 items]'
+            for (slug, _label, _primary, _guide) in theme_catalog
+        ]
+        theme_schema = "  \"themes\": {\n" + ",\n".join(theme_schema_lines) + "\n  },"
+        theme_guide = "\n".join(
+            f"  - {slug} ({label}) — {guide}"
+            for (slug, label, _primary, guide) in theme_catalog
+        )
 
         prompt = f"""You are a cross-medium taste expert. Find connections between books, TV, movies, and podcasts — fiction AND nonfiction — that share themes, ideas, tone, subject matter, or emotional register.
 
 {quiz_signals}
+{resonance_signals}
 USER'S TASTE PROFILE (across all media types):
 {taste_summary}
 {recent_section}
 
-You are producing THREE outputs in one JSON response — do NOT repeat the same items across sections:
+You are producing FOUR outputs in one JSON response — do NOT repeat the same items across sections:
 
 1. top_picks: 8 recommendations total — 2 movies, 2 TV shows, 2 books, 2 podcasts. List the strongest pick first in each pair. The app will drop anything the user already has and keep the strongest surviving pick per category.
 2. suggestions: 5 items for each of these categories: {', '.join(missing_types_list) if missing_types_list else '(none needed)'}. These should be DIFFERENT from top_picks. The app filters these too and keeps the top 3 survivors per category.
-3. insights: 3 sharp, specific observations about cross-medium patterns in their profile.
+3. themes: 4 picks for EACH of these life-context themes — each theme is framed around a moment in the user's day, not a vibe in the abstract. Pick items that actually match the moment AND the user's taste profile. Don't repeat items across themes or with top_picks / suggestions. Theme slugs + what each is asking for:
+{theme_guide}
+4. insights: 3 sharp, specific observations about cross-medium patterns in their profile.
 
 NONFICTION IS WELCOME:
 - Movies can include documentaries
@@ -1741,6 +1889,7 @@ Return ONLY valid JSON, no markdown:
     {{"title": "...", "media_type": "podcast", "year": 2020, "reason": "..."}}
   ],
 {suggestions_schema}
+{theme_schema}
   "insights": [
     {{"icon": "connection|trend|pattern|shift", "text": "specific cross-medium insight citing real items"}},
     {{"icon": "...", "text": "..."}},
@@ -1756,14 +1905,21 @@ Return ONLY valid JSON, no markdown:
         # Normalize
         raw_top_picks = parsed.get("top_picks", []) or []
         raw_suggestions = parsed.get("suggestions", {}) or {}
+        raw_themes = parsed.get("themes", {}) or {}
         raw_insights = parsed.get("insights", []) or []
 
-        # Drop any pick/suggestion already in the library before enriching.
+        # Drop any pick/suggestion/theme already in the library before enriching.
         raw_top_picks = [p for p in raw_top_picks if not _is_known(p.get("title", ""), known_normalized)]
         for mt in list(raw_suggestions.keys()):
             items = raw_suggestions[mt]
             if isinstance(items, list):
                 raw_suggestions[mt] = [
+                    it for it in items if not _is_known(it.get("title", ""), known_normalized)
+                ]
+        for theme_slug in list(raw_themes.keys()):
+            items = raw_themes[theme_slug]
+            if isinstance(items, list):
+                raw_themes[theme_slug] = [
                     it for it in items if not _is_known(it.get("title", ""), known_normalized)
                 ]
 
@@ -1842,9 +1998,21 @@ Return ONLY valid JSON, no markdown:
                 suggestion_tasks.append(enrich_suggestion(it, mt))
                 suggestion_keys.append(mt)
 
-        all_results = await asyncio.gather(*pick_tasks, *suggestion_tasks)
+        theme_tasks = []
+        theme_keys: list[str] = []
+        for theme_slug, items in raw_themes.items():
+            if not isinstance(items, list):
+                continue
+            for it in items[:4]:  # cap input per theme at 4
+                theme_tasks.append(enrich_pick(it))
+                theme_keys.append(theme_slug)
+
+        all_results = await asyncio.gather(*pick_tasks, *suggestion_tasks, *theme_tasks)
+        pick_end = len(pick_tasks)
+        sugg_end = pick_end + len(suggestion_tasks)
+
         # Keep one top_pick per media type, preferring the AI's ordering.
-        survivors = [r for r in all_results[: len(pick_tasks)] if r is not None]
+        survivors = [r for r in all_results[:pick_end] if r is not None]
         enriched_picks: list[dict] = []
         seen_types: set[str] = set()
         for r in survivors:
@@ -1855,7 +2023,7 @@ Return ONLY valid JSON, no markdown:
             enriched_picks.append(r)
 
         enriched_suggestions: dict[str, list] = {}
-        for key, result in zip(suggestion_keys, all_results[len(pick_tasks):]):
+        for key, result in zip(suggestion_keys, all_results[pick_end:sugg_end]):
             if result is None:
                 continue
             enriched_suggestions.setdefault(key, []).append(result)
@@ -1863,15 +2031,26 @@ Return ONLY valid JSON, no markdown:
         for key in list(enriched_suggestions.keys()):
             enriched_suggestions[key] = enriched_suggestions[key][:3]
 
+        enriched_themes: dict[str, list] = {}
+        for key, result in zip(theme_keys, all_results[sugg_end:]):
+            if result is None:
+                continue
+            enriched_themes.setdefault(key, []).append(result)
+        # Cap at 4 per theme after filtering
+        for key in list(enriched_themes.keys()):
+            enriched_themes[key] = enriched_themes[key][:4]
+
         log.info(
-            "home_bundle [user=%d]: %d top_picks, suggestions=%s, %d insights",
+            "home_bundle [user=%d]: %d top_picks, suggestions=%s, themes=%s, %d insights",
             user.id, len(enriched_picks),
             ", ".join(f"{k}={len(v)}" for k, v in enriched_suggestions.items()) or "none",
+            ", ".join(f"{k}={len(v)}" for k, v in enriched_themes.items()) or "none",
             len(raw_insights),
         )
         bundle = {
             "top_picks": enriched_picks,
             "suggestions": enriched_suggestions,
+            "themes": enriched_themes,
             "insights": raw_insights,
         }
         cache.set(cache_key, bundle, ttl_seconds=21600)  # 6 hours
@@ -1963,8 +2142,10 @@ async def best_bet(
         from app.services.gemini import generate
 
         type_label = {"movie": "movie", "tv": "TV show", "book": "book", "podcast": "podcast"}[media_type]
+        resonance_signals = build_resonance_block(db, user.id)
         prompt = f"""You're picking ONE {type_label} as a hero recommendation for a user based specifically on something they recently rated 9 or 10 out of 10.
 
+{resonance_signals}
 ANCHOR ITEM (the thing they just loved):
 - Title: {anchor.title}
 - Media type: {anchor.media_type}
@@ -2047,6 +2228,141 @@ Return ONLY valid JSON, no markdown:
     except Exception as e:
         log.exception("best_bet failed for %s: %s", media_type, str(e))
         return {"pick": None, "anchor": None}
+
+
+# ---------------------------------------------------------------------------
+# Home "Right Now" block: lightweight, currently-consuming-centered
+# ---------------------------------------------------------------------------
+
+
+class ResonanceRequest(BaseModel):
+    entry_id: int
+
+
+@router.post("/home/resonance")
+async def post_home_resonance(
+    req: ResonanceRequest,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Toggle the 'resonating right now' flag for a currently-consuming
+    entry. Validates the entry belongs to the caller. Busts the cached
+    right-now bundle so the next load reflects the change. Returns the
+    new flag state."""
+    from app.models import MediaEntry
+    from app import cache
+
+    entry = (
+        db.query(MediaEntry)
+        .filter(MediaEntry.id == req.entry_id, MediaEntry.user_id == user.id)
+        .first()
+    )
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+
+    is_on = toggle_home_resonance(db, user.id, req.entry_id)
+    # Bust caches that include resonance hints so the next render
+    # reflects the new signal.
+    cache.invalidate(f"right_now:{user.id}")
+    cache.invalidate(f"home_bundle:{user.id}")
+    return {"entry_id": req.entry_id, "resonating": is_on}
+
+
+@router.get("/home/right-now")
+async def get_home_right_now(
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+    refresh: bool = Query(False),
+):
+    """Return the data for the home page's 'Right Now' block:
+    the user's currently-consuming items + a one-sentence AI
+    commentary on the intersection of what they're in the middle of.
+
+    Cached 12h per user. The cache key includes a hash of the
+    current consuming-entry ids so adding/removing a 'consuming'
+    item busts the cache automatically."""
+    import hashlib
+
+    from app import cache
+    from app.config import settings
+    from app.models import MediaEntry
+
+    consuming = (
+        db.query(MediaEntry)
+        .filter(MediaEntry.user_id == user.id, MediaEntry.status == "consuming")
+        .order_by(MediaEntry.updated_at.desc())
+        .limit(6)
+        .all()
+    )
+
+    resonance = get_home_resonance(db, user.id)
+
+    def _item_dict(e):
+        return {
+            "id": e.id,
+            "title": e.title,
+            "media_type": e.media_type,
+            "year": e.year,
+            "image_url": e.image_url,
+            "external_id": e.external_id,
+            "source": e.source,
+            "is_resonating": str(e.id) in resonance,
+        }
+
+    if not consuming:
+        return {"commentary": "", "items": []}
+
+    # Cache-key hash covers the consuming ids so moving items in or out
+    # of "consuming" automatically yields a fresh commentary.
+    ids_sig = ",".join(str(e.id) for e in consuming)
+    sig = hashlib.md5(ids_sig.encode()).hexdigest()[:8]
+    cache_key = f"right_now:{user.id}:{sig}"
+    if refresh:
+        cache.invalidate(cache_key)
+    else:
+        cached = cache.get(cache_key)
+        if cached is not None:
+            # Re-decorate with fresh resonance state in case the user
+            # toggled a chip; the commentary itself is stable though.
+            cached_items = cached.get("items") or []
+            for ci in cached_items:
+                ci["is_resonating"] = str(ci.get("id")) in resonance
+            return cached
+
+    items = [_item_dict(e) for e in consuming]
+
+    commentary = ""
+    if settings.gemini_api_key and len(consuming) >= 2:
+        try:
+            from app.services.gemini import generate
+
+            lines = [
+                f"  - {e.title} ({e.media_type}, {e.genres or 'unknown genre'})"
+                for e in consuming
+            ]
+            prompt = f"""You are writing ONE sentence — warm, specific, not cute — about the intersection of the media this user is currently in the middle of. The goal is to name, in plain words, the through-line across these items: the tonal register, the idea they keep circling, the kind of emotional territory they're walking through right now. Cite at least ONE of the items by name.
+
+CURRENTLY CONSUMING:
+{chr(10).join(lines)}
+
+RULES:
+- ONE sentence only. 25-40 words.
+- Plain prose. No metaphors piled on metaphors. No "it's almost as if…".
+- Don't hedge — commit to the observation.
+- If the items genuinely don't intersect, say that plainly: "You've got a wide net cast right now — {{pick one}} is the outlier." Don't force a connection.
+
+Return ONLY the sentence, no quotes, no preamble."""
+            text = (await generate(prompt)).strip()
+            # Strip any stray surrounding quotes
+            text = text.strip('"\u201c\u201d ').strip()
+            if text and len(text) <= 400:
+                commentary = text
+        except Exception as e:
+            log.warning("right_now commentary failed: %s", str(e))
+
+    result = {"commentary": commentary, "items": items}
+    cache.set(cache_key, result, ttl_seconds=43200)  # 12 hours
+    return result
 
 
 @router.get("/new-releases/{media_type}")

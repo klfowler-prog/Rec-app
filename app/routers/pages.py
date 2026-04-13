@@ -2,6 +2,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
@@ -60,46 +61,12 @@ def _get_greeting_context(user_name: str) -> dict:
 
 @router.get("/")
 async def home(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
-    # Single query, filter in Python
-    all_entries = db.query(MediaEntry).filter(MediaEntry.user_id == user.id).all()
-    consuming = [e for e in all_entries if e.status == "consuming"]
-    want_to_consume = [e for e in all_entries if e.status == "want_to_consume"]
-    consumed = [e for e in all_entries if e.status == "consumed"]
-    total = len(all_entries)
-
-    queue_by_type: dict[str, list] = {}
-    queue_total: dict[str, int] = {}
-    type_order = ["movie", "tv", "book", "podcast"]
-    for item in want_to_consume:
-        queue_by_type.setdefault(item.media_type, []).append(item)
-    for mt in queue_by_type:
-        queue_total[mt] = len(queue_by_type[mt])
-        queue_by_type[mt] = sorted(
-            queue_by_type[mt],
-            key=lambda e: e.predicted_rating or 0,
-            reverse=True,
-        )[:12]
-
-    needs_predictions = any(
-        item.predicted_rating is None for item in want_to_consume
-    ) if want_to_consume else False
-
-    genre_counts: dict[str, int] = {}
-    ratings = []
-    type_counts: dict[str, int] = {}
-    for e in consumed + consuming + want_to_consume:
-        type_counts[e.media_type] = type_counts.get(e.media_type, 0) + 1
-        if e.rating:
-            ratings.append(e.rating)
-        if e.genres:
-            for g in e.genres.split(","):
-                g = g.strip()
-                if g:
-                    genre_counts[g] = genre_counts.get(g, 0) + 1
-
-    top_genres = sorted(genre_counts, key=genre_counts.get, reverse=True)[:5]
-    avg_rating = round(sum(ratings) / len(ratings), 1) if ratings else None
-    genres_explored = len(genre_counts)
+    # Light query — the new home page is almost entirely client-rendered
+    # from /api/media/home/right-now, /api/media/home-bundle, and
+    # /api/media/best-bet/*. The server only needs to know how many
+    # entries the user has so we can pick between the empty state, the
+    # new-user welcome modal, and the fully populated layout.
+    total = db.query(MediaEntry).filter(MediaEntry.user_id == user.id).count()
 
     greeting_ctx = _get_greeting_context(user.name)
 
@@ -108,20 +75,8 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
         {
             "request": request,
             "user": user,
-            "consuming": consuming,
-            "queue_by_type": queue_by_type,
-            "queue_total": queue_total,
-            "type_order": type_order,
-            "needs_predictions": needs_predictions,
             "total": total,
             "is_new_user": total < 5,
-            "total_consumed": len(consumed),
-            "total_consuming": len(consuming),
-            "total_queue": len(want_to_consume),
-            "genres_explored": genres_explored,
-            "top_genres": top_genres,
-            "avg_rating": avg_rating,
-            "type_counts": type_counts,
             **greeting_ctx,
         },
     )
@@ -244,8 +199,35 @@ async def together_page(request: Request, user: User = Depends(require_user)):
     return templates.TemplateResponse("together.html", {"request": request, "user": user})
 
 
+# Activity-context chip slugs on the home page. Each resolves to a
+# concrete mood query so the existing /recommend page (which already
+# reads ?mood=) can take it from there — no changes required on the
+# recommend side. Keep this dict in sync with the chip row in index.html.
+_CONTEXT_TO_MOOD = {
+    "walking_the_dog": "Suggest a podcast I could listen to while walking the dog — 30-60 minutes, conversational or narrative, something I can drop in and out of.",
+    "tonight_binge":   "Recommend a TV show I can binge tonight — propulsive, 1-2 hour episodes, an ending that earns the next episode.",
+    "wind_down":       "Suggest something to wind down with before bed — a low-stakes book or gentle TV, written or shot with care, slow my pulse.",
+    "background_work": "Recommend something I can have on in the background while I work — familiar or conversational, doesn't demand my attention but rewards it when I lean in.",
+    "weekend_project": "Suggest a weekend project — an immersive movie or long book I can sit with on a saturday.",
+    "quick_escape":    "Recommend a quick escape — a fun movie or short-form TV, 15-90 minutes, something to get me out of my own head.",
+}
+
+
 @router.get("/recommend")
-async def recommend_page(request: Request, user: User = Depends(require_user)):
+async def recommend_page(
+    request: Request,
+    user: User = Depends(require_user),
+    context: str | None = None,
+):
+    """Recommendation freeform page. Accepts an optional ?context=<slug>
+    from the home page's activity-context chip row and redirects to the
+    same page with a prewritten mood query, so the existing recommend
+    flow (which already auto-sends from ?mood=) takes over."""
+    if context and context in _CONTEXT_TO_MOOD:
+        from urllib.parse import urlencode
+
+        target = "/recommend?" + urlencode({"mood": _CONTEXT_TO_MOOD[context]})
+        return RedirectResponse(url=target, status_code=303)
     return templates.TemplateResponse("recommend.html", {"request": request, "user": user})
 
 

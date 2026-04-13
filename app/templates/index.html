@@ -8,10 +8,25 @@
     .swim-lane-item { min-width: 150px; max-width: 150px; }
     .pick-card { min-width: 260px; }
     .section-divider { height: 2px; background: linear-gradient(to right, transparent, rgba(139,158,107,0.3), transparent); }
-    .type-stripe-movie { border-left: 3px solid #2B3A4E; }
-    .type-stripe-tv { border-left: 3px solid #6B5B8A; }
-    .type-stripe-book { border-left: 3px solid #B8A97E; }
-    .type-stripe-podcast { border-left: 3px solid #8B9E6B; }
+    /* Resonance chips in the Right Now block. Flagged chips fill with sage
+       so the user can see at a glance which item is "the one" right now. */
+    .resonance-chip { transition: background-color 0.2s, border-color 0.2s, color 0.2s; }
+    .resonance-chip[data-resonating="true"] {
+        background: rgba(139, 158, 107, 0.28);
+        border-color: rgba(139, 158, 107, 0.8);
+        color: #ffffff;
+    }
+    /* Collapsible theme rows — one row visible by default, unfurls on toggle. */
+    .collapsible.collapsed { max-height: 20rem; overflow: hidden; position: relative; }
+    .collapsible.expanded { max-height: none; overflow: visible; }
+    .collapsible.collapsed::after {
+        content: "";
+        position: absolute;
+        inset: auto 0 0 0;
+        height: 3rem;
+        background: linear-gradient(to bottom, transparent, var(--surface-bg, rgba(255,255,255,0.9)));
+        pointer-events: none;
+    }
 </style>
 {% endblock %}
 
@@ -73,18 +88,19 @@
     </div>
     {% endif %}
 
-    <!-- Greeting + Taste Essence -->
-    <div class="gradient-navy rounded-2xl p-8 text-white relative overflow-hidden">
+    <!-- Right Now: short greeting + AI commentary on the intersection of
+         what the user is currently in the middle of + a chip row for
+         flagging "what's resonating most right now". Populated by
+         loadRightNow() from /api/media/home/right-now. -->
+    <div class="gradient-navy rounded-2xl p-6 text-white relative overflow-hidden">
         <div class="relative z-10">
-            <h2 class="text-3xl font-bold mb-1.5">{{ greeting }}</h2>
-            <p class="text-base text-white/75">{{ suggestion }}</p>
-            <div id="essence-wrap" class="hidden mt-5 pt-5 border-t border-white/15">
-                <p class="text-xs text-white/50 uppercase tracking-wide mb-2">Your taste essence</p>
-                <p id="essence-summary" class="text-sm text-white/90 leading-relaxed"></p>
-                <div id="essence-themes" class="flex flex-wrap gap-1.5 mt-3"></div>
-                <a href="/taste" class="inline-flex items-center gap-1 mt-3 text-xs text-white/70 hover:text-white transition-base">
-                    See your full taste DNA &rarr;
-                </a>
+            <h2 class="text-xl font-semibold mb-1">{{ greeting }}</h2>
+            <p id="right-now-commentary" class="text-sm text-white/80 leading-relaxed min-h-[1.25rem]">{{ suggestion }}</p>
+            <div id="right-now-items" class="hidden mt-4 pt-4 border-t border-white/15">
+                <p class="text-[11px] text-white/55 uppercase tracking-wide mb-2">
+                    Tap what's hitting hardest right now — we'll lean your recs that way.
+                </p>
+                <div id="right-now-chips" class="flex flex-wrap gap-2"></div>
             </div>
         </div>
     </div>
@@ -107,207 +123,66 @@
     </div>
     {% else %}
 
-    <!-- Currently Enjoying -->
-    {% if consuming %}
+    <!-- Activity-context chips. Each routes to /recommend?context=<slug>
+         which redirects to a prewritten mood query. Slugs are defined in
+         app/routers/pages.py _CONTEXT_TO_MOOD and must stay in sync. -->
     <div>
-        <h3 class="text-base font-semibold mb-3">Currently enjoying</h3>
-        <div class="swim-lane flex gap-4 pb-1">
-            {% for item in consuming %}
-            {% set badge_colors = {"movie": "gradient-blue", "tv": "gradient-purple", "book": "gradient-amber", "podcast": "bg-green-500"} %}
-            <a href="/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}" class="swim-lane-item flex-shrink-0">
-                <div class="rounded-lg overflow-hidden transition-base card-hover shadow-sm border border-border-light dark:border-border-dark">
-                    <div class="poster-frame">
-                        {% if item.image_url %}
-                        <img src="{{ item.image_url }}" alt="{{ item.title }}" class="{{ 'poster-contain' if item.media_type == 'podcast' else 'poster-cover' }}" loading="lazy">
-                        {% else %}
-                        <div class="poster-fallback bg-sage/10">
-                            <span class="text-sage text-2xl">{{ item.title[0] }}</span>
-                        </div>
-                        {% endif %}
-                        <span class="absolute top-2 left-2 px-2 py-0.5 {{ badge_colors.get(item.media_type, 'bg-gray-500') }} text-[10px] text-white font-semibold rounded-full capitalize">{{ item.media_type }}</span>
-                    </div>
-                    <div class="bg-surface-light dark:bg-surface-dark p-2.5">
-                        <p class="text-xs font-medium truncate">{{ item.title }}</p>
-                    </div>
-                </div>
-            </a>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Theme buttons — work across all media types -->
-    <div>
-        <p class="text-xs text-txt-muted uppercase tracking-wide mb-2">I'm in the mood for something...</p>
+        <p class="text-xs text-txt-muted uppercase tracking-wide mb-2">What are you up for?</p>
         <div class="flex gap-2 flex-wrap">
-            <a href="/recommend?mood=Recommend+a+slow-burn+story+across+any+medium+%E2%80%94+book%2C+movie%2C+TV%2C+or+podcast+%E2%80%94+that+takes+its+time+with+character+development" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Slow burn</a>
-            <a href="/recommend?mood=Recommend+something+atmospheric+and+immersive+%E2%80%94+a+story+with+a+strong+sense+of+place+and+mood" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Atmospheric</a>
-            <a href="/recommend?mood=Recommend+something+mind-bending+that+will+twist+my+perception+of+reality+or+storytelling" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Mind-bending</a>
-            <a href="/recommend?mood=Recommend+something+character-driven+with+complex%2C+morally+ambiguous+protagonists" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Character-driven</a>
-            <a href="/recommend?mood=Recommend+something+propulsive+and+gripping+that+I+can%27t+stop+consuming" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Propulsive</a>
-            <a href="/recommend?mood=Recommend+something+darkly+comic+that+balances+wit+with+depth" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Darkly comic</a>
-            <a href="/recommend?mood=Recommend+something+hopeful+and+life-affirming" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Hopeful</a>
-            <a href="/recommend?mood=Recommend+something+literary+and+thoughtful+with+beautiful+prose+or+dialogue" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Literary</a>
+            <a href="/recommend?context=tonight_binge" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Tonight's binge</a>
+            <a href="/recommend?context=wind_down" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Wind down before bed</a>
+            <a href="/recommend?context=walking_the_dog" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">While walking the dog</a>
+            <a href="/recommend?context=background_work" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Background while I work</a>
+            <a href="/recommend?context=quick_escape" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Quick escape</a>
+            <a href="/recommend?context=weekend_project" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Weekend project</a>
+            <a href="/recommend" class="px-4 py-2 border border-dashed border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Something else&hellip;</a>
         </div>
     </div>
 
     <div class="section-divider"></div>
 
-    <!-- Tonight hero -->
-    <div>
-        <h2 class="text-xl font-bold mb-1 flex items-center gap-2">
-            <span class="w-8 h-8 rounded-lg gradient-navy flex items-center justify-center">
-                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
-            </span>
-            What's tonight?
-        </h2>
-        <p class="text-sm text-txt-muted mb-3">Pick how much time you have and get one perfect cross-medium recommendation.</p>
-        <div id="tonight-chips" class="flex flex-wrap gap-2 mb-4">
-            <button onclick="getTonight('30 min')" class="tonight-chip px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm hover:border-sage hover:text-sage transition-base">30 min</button>
-            <button onclick="getTonight('1 hour')" class="tonight-chip px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm hover:border-sage hover:text-sage transition-base">1 hour</button>
-            <button onclick="getTonight('2 hours')" class="tonight-chip px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm hover:border-sage hover:text-sage transition-base">2 hours</button>
-            <button onclick="getTonight('evening')" class="tonight-chip px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm hover:border-sage hover:text-sage transition-base">Whole evening</button>
-            <button onclick="getTonight('weekend')" class="tonight-chip px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm hover:border-sage hover:text-sage transition-base">Weekend</button>
-        </div>
-        <div id="tonight-result" class="hidden"></div>
-    </div>
-
-    <div class="section-divider"></div>
-
-    <!-- Top 3 Picks -->
+    <!-- Your best bets — one hero pick per media type, populated from
+         /api/media/best-bet/<type>. Each card says "Because you loved
+         <anchor>..." so the reason is explicit, not just "you might
+         like this". Hidden per-type if the anchor model can't find a
+         9+/10 rating to anchor to. -->
     <div>
         <h2 class="text-xl font-bold mb-1 flex items-center gap-2">
             <span class="w-8 h-8 rounded-lg gradient-coral flex items-center justify-center">
                 <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
             </span>
-            Picked for you
+            Your best bets
         </h2>
-        <div class="flex items-center gap-3 mb-4">
-            <p class="text-sm text-txt-muted">Personalized recommendations based on your taste.</p>
-            <button onclick="refreshRecs()" id="refresh-btn" class="text-xs text-txt-muted hover:text-sage transition-base flex items-center gap-1" title="Get fresh recommendations">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h4.586M20 20v-5h-4.586M4.929 9A8 8 0 0119.07 9M19.071 15A8 8 0 014.93 15"/></svg>
-                Refresh
-            </button>
-        </div>
-        <div id="top-picks" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <p class="text-sm text-txt-muted mb-4">One pick per category, each tied to a specific thing you recently loved.</p>
+        <div id="best-bets" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div class="col-span-full text-center py-8">
                 <div class="inline-block w-5 h-5 border-2 border-coral/30 border-t-coral rounded-full animate-spin"></div>
-                <p class="text-xs text-txt-muted mt-2">Finding your perfect picks...</p>
+                <p class="text-xs text-txt-muted mt-2">Finding your best bets...</p>
             </div>
         </div>
     </div>
 
     <div class="section-divider"></div>
 
-    <!-- NextUp Swim Lanes -->
-    <div>
-        <div class="flex items-center justify-between mb-2">
-            <h2 class="text-xl font-bold flex items-center gap-2">
-                <span class="w-8 h-8 rounded-lg gradient-sage flex items-center justify-center">
-                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
-                </span>
-                NextUp
-            </h2>
-            <a href="/recommend" class="text-sm text-sage hover:underline transition-base">Get AI recs &rarr;</a>
-        </div>
-        <p class="text-sm text-txt-muted mb-5">Your queue — what to watch, read, and listen to next.</p>
-
-        {% set type_labels = {"movie": "Movies", "tv": "TV Shows", "book": "Books", "podcast": "Podcasts"} %}
-
-        <div class="space-y-5">
-        {% for mt in type_order %}
-            <div class="type-stripe-{{ mt }} bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-5">
-                <h4 class="text-sm font-semibold uppercase tracking-wide mb-3 flex items-center gap-2">
-                    {% if mt == "movie" %}
-                    <span class="w-6 h-6 rounded gradient-blue flex items-center justify-center"><svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/></svg></span>
-                    {% elif mt == "tv" %}
-                    <span class="w-6 h-6 rounded gradient-purple flex items-center justify-center"><svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></span>
-                    {% elif mt == "book" %}
-                    <span class="w-6 h-6 rounded gradient-amber flex items-center justify-center"><svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg></span>
-                    {% elif mt == "podcast" %}
-                    <span class="w-6 h-6 rounded bg-green-500 flex items-center justify-center"><svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg></span>
-                    {% endif %}
-                    {{ type_labels.get(mt, mt) }}
-                    {% if queue_by_type.get(mt) %}
-                    <span class="text-[10px] px-1.5 py-0.5 bg-sage/10 text-sage rounded-full font-normal">{{ queue_total.get(mt, queue_by_type[mt] | length) }}</span>
-                    {% endif %}
-                </h4>
-                {% if queue_by_type.get(mt) %}
-                <div class="swim-lane flex gap-4 pb-1">
-                    {% for item in queue_by_type[mt] %}
-                    <div class="swim-lane-item flex-shrink-0">
-                        <div class="rounded-lg overflow-hidden transition-base card-hover shadow-sm border border-border-light dark:border-border-dark relative">
-                            <a href="/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}" class="block relative">
-                                <div class="poster-frame">
-                                {% if item.image_url %}
-                                <img src="{{ item.image_url }}" alt="{{ item.title }}" class="{{ 'poster-contain' if item.media_type == 'podcast' else 'poster-cover' }}" loading="lazy">
-                                {% else %}
-                                <div class="poster-fallback bg-sage/10">
-                                    <span class="text-sage text-2xl">{{ item.title[0] }}</span>
-                                </div>
-                                {% endif %}
-                                </div>
-                                {% if item.predicted_rating %}
-                                {% set pr = item.predicted_rating %}
-                                {% set pr_color = 'bg-emerald-500' if pr >= 8 else ('bg-yellow-500' if pr >= 6 else ('bg-amber-400' if pr >= 4 else 'bg-coral')) %}
-                                <div class="absolute top-2 right-2 px-1.5 py-0.5 {{ pr_color }} rounded-full">
-                                    <span class="text-[10px] font-bold text-white">{{ pr }}</span>
-                                </div>
-                                {% endif %}
-                            </a>
-                            <div class="bg-surface-light dark:bg-surface-dark p-2.5 space-y-1.5">
-                                <a href="/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}" class="block">
-                                    <p class="text-xs font-medium truncate">{{ item.title }}</p>
-                                    {% if item.year %}<p class="text-[10px] text-txt-muted">{{ item.year }}</p>{% endif %}
-                                </a>
-                                <!-- Inline status switcher so the user
-                                     can move items between Later / Now
-                                     / Done / Dropped without leaving
-                                     the home page. -->
-                                <div class="queue-status-mount" data-entry-id="{{ item.id }}" data-current-status="{{ item.status }}" data-media-type="{{ item.media_type }}"></div>
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <div class="swim-lane flex gap-4 pb-1" id="suggestions-{{ mt }}">
-                    <div class="flex items-center gap-2 py-4 px-2 text-sm text-txt-muted">
-                        <div class="w-4 h-4 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
-                        Finding suggestions...
-                    </div>
-                </div>
-                {% endif %}
-            </div>
-        {% endfor %}
-        </div>
-    </div>
-
-    <div class="section-divider"></div>
-
-    <!-- AI Insights — cross-medium patterns discovered from your taste -->
-    {% if total > 4 %}
+    <!-- Life-context themes — each themed row matches a moment in the
+         user's day (walking the dog, winding down, weekend project…).
+         Populated from /api/media/home-bundle `themes` dict. Each row
+         uses .collapsible to cap visible items until the user unfurls. -->
     <div>
         <h2 class="text-xl font-bold mb-1 flex items-center gap-2">
             <span class="w-8 h-8 rounded-lg gradient-sage flex items-center justify-center">
-                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             </span>
-            Patterns in your taste
+            For your day
         </h2>
-        <p class="text-sm text-txt-muted mb-4">AI-discovered cross-medium connections.</p>
-        <div id="insights-list" class="space-y-3">
-            <div class="text-center py-6 text-sm text-txt-muted">
-                <div class="inline-block w-4 h-4 border-2 border-sage/30 border-t-sage rounded-full animate-spin mr-2"></div>
-                Finding patterns...
+        <p class="text-sm text-txt-muted mb-5">Picks framed around moments — not just vibes. Tap through to save or skip.</p>
+        <div id="themes-wrap" class="space-y-6">
+            <div class="text-center py-8 text-sm text-txt-muted">
+                <div class="inline-block w-5 h-5 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
+                <p class="mt-2">Picking the right things for each moment&hellip;</p>
             </div>
         </div>
-        <!-- Compact stats footer -->
-        <div class="mt-4 pt-4 border-t border-border-light dark:border-border-dark flex items-center justify-between text-xs text-txt-muted">
-            <span>{{ total_consumed }} consumed · {{ total_consuming }} in progress · {{ genres_explored }} genres · avg {{ avg_rating or "—" }}/10</span>
-            <a href="/profile" class="text-sage hover:underline">View profile &rarr;</a>
-        </div>
     </div>
-    {% endif %}
 
     {% endif %}
 </div>
@@ -316,425 +191,39 @@
 {% block scripts %}
 <script src="/static/js/card_actions.js"></script>
 <script>
+// Small local helper; the card helpers (quickAdd, saveForLater,
+// dismissItem, escapeAttr, buildActionBar, buildStatusSwitcher) all
+// live in card_actions.js, which is loaded above.
 function escapeHtml(text) {
     const div = document.createElement('div');
-    div.textContent = text;
+    div.textContent = (text == null ? '' : text);
     return div.innerHTML;
 }
 
-const typeColors = {
-    movie: 'gradient-blue',
-    tv: 'gradient-purple',
-    book: 'gradient-amber',
-    podcast: 'bg-green-500',
-};
-const typeBadgeColors = {
+const TYPE_BADGE = {
     movie: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
     tv: 'bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400',
     book: 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
     podcast: 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400',
 };
-
-// Quick add: add item to profile with one click, then show rating dots
-async function quickAdd(btn, data) {
-    btn.disabled = true;
-    btn.innerHTML = '...';
-    try {
-        const resp = await fetch('/api/profile/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
-        });
-
-        let entryId = null;
-        if (resp.ok) {
-            const created = await resp.json();
-            entryId = created.id;
-        } else if (resp.status === 409) {
-            // Already exists — try to find it
-            try {
-                const checkResp = await fetch(`/api/profile/check/${encodeURIComponent(data.source || '_')}/${encodeURIComponent(data.external_id || '_')}`);
-                const checkData = await checkResp.json();
-                entryId = checkData.entry ? checkData.entry.id : null;
-            } catch {}
-        }
-
-        const container = btn.parentElement;
-        if (entryId) {
-            showRatingDots(container, entryId);
-        } else {
-            // Even without an ID, show success — they can rate from profile
-            container.innerHTML = '<span class="text-xs font-medium text-sage">✓ Added — rate from profile</span>';
-        }
-    } catch {
-        btn.textContent = 'Error';
-    }
-}
-
-function showRatingDots(container, entryId) {
-    container.innerHTML = `
-        <div class="flex items-center gap-0.5">
-            <button onclick="rateItem(this,${entryId},1)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-coral transition-base text-[8px] font-bold text-transparent hover:text-white" title="1/10">1</button>
-            <button onclick="rateItem(this,${entryId},2)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-coral transition-base text-[8px] font-bold text-transparent hover:text-white" title="2/10">2</button>
-            <button onclick="rateItem(this,${entryId},3)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-coral transition-base text-[8px] font-bold text-transparent hover:text-white" title="3/10">3</button>
-            <button onclick="rateItem(this,${entryId},4)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-amber-400 transition-base text-[8px] font-bold text-transparent hover:text-white" title="4/10">4</button>
-            <button onclick="rateItem(this,${entryId},5)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-amber-400 transition-base text-[8px] font-bold text-transparent hover:text-white" title="5/10">5</button>
-            <button onclick="rateItem(this,${entryId},6)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-yellow-500 transition-base text-[8px] font-bold text-transparent hover:text-white" title="6/10">6</button>
-            <button onclick="rateItem(this,${entryId},7)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-yellow-500 transition-base text-[8px] font-bold text-transparent hover:text-white" title="7/10">7</button>
-            <button onclick="rateItem(this,${entryId},8)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-emerald-400 transition-base text-[8px] font-bold text-transparent hover:text-white" title="8/10">8</button>
-            <button onclick="rateItem(this,${entryId},9)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-emerald-400 transition-base text-[8px] font-bold text-transparent hover:text-white" title="9/10">9</button>
-            <button onclick="rateItem(this,${entryId},10)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-emerald-500 transition-base text-[8px] font-bold text-transparent hover:text-white" title="10/10">10</button>
-        </div>
-    `;
-}
-
-async function rateItem(btn, entryId, rating) {
-    if (!entryId) return;
-    await fetch(`/api/profile/${entryId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rating }),
-    });
-    // Show confirmation
-    const container = btn.parentElement;
-    const ratingColor = rating <= 3 ? 'text-coral' : rating <= 5 ? 'text-amber-500' : rating <= 7 ? 'text-yellow-600' : 'text-emerald-500';
-    container.innerHTML = `<span class="text-xs font-semibold ${ratingColor}">${rating}/10 ✓</span>`;
-    // Gray out the card to show it's been rated
-    const card = container.closest('[data-rec-card]') || container.closest('.swim-lane-item') || container.closest('.rounded-lg');
-    if (card) {
-        card.style.transition = 'opacity 0.5s, filter 0.5s';
-        card.style.opacity = '0.4';
-        card.style.filter = 'grayscale(50%)';
-    }
-    // Trigger post-rating discovery panel
-    if (typeof showPostRatingPanel === 'function') {
-        showPostRatingPanel(entryId);
-    }
-}
-
-async function saveForLater(btn, data) {
-    btn.disabled = true;
-    try {
-        const resp = await fetch('/api/profile/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
-        });
-        if (resp.ok || resp.status === 409) {
-            const container = btn.closest('.quick-add-area');
-            container.innerHTML = '<span class="text-xs font-medium text-sage">✓ Saved to queue</span>';
-        }
-    } catch {
-        btn.disabled = false;
-    }
-}
-
-async function dismissItem(btn, data) {
-    btn.disabled = true;
-    try {
-        await fetch('/api/profile/dismiss', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
-        });
-        const card = btn.closest('[data-rec-card]') || btn.closest('.swim-lane-item') || btn.closest('.rounded-lg');
-        if (card) {
-            card.style.transition = 'opacity 0.4s, transform 0.4s';
-            card.style.opacity = '0';
-            card.style.transform = 'scale(0.95)';
-            setTimeout(() => card.remove(), 400);
-        }
-    } catch {
-        btn.disabled = false;
-    }
-}
-
-function recCard(item, reason, profileEntry) {
-    const badgeClass = typeBadgeColors[item.media_type] || typeBadgeColors.movie;
-    const gradClass = typeColors[item.media_type] || typeColors.movie;
-    // Unified 2:3 poster frame — podcast square art sits inside the same
-    // slot via object-contain so all four picks align perfectly in a row.
-    const fit = item.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
-    const image = item.image_url
-        ? `<div class="poster-frame"><img src="${item.image_url}" alt="" class="${fit}"></div>`
-        : `<div class="poster-frame"><div class="poster-fallback ${gradClass}"><span class="text-white text-3xl font-bold">${escapeHtml((item.title || '?')[0])}</span></div></div>`;
-    const link = item.external_id ? `/media/${item.media_type}/${item.external_id}?source=${item.source}` : '#';
-    const consumeData = escapeAttr(JSON.stringify({
-        external_id: item.external_id, source: item.source, title: item.title,
-        media_type: item.media_type, image_url: item.image_url, year: item.year,
-        creator: item.creator || null, genres: item.genres ? item.genres.join(', ') : null,
-        description: item.description || null, status: 'consumed',
-    }));
-    const saveData = escapeAttr(JSON.stringify({
-        external_id: item.external_id, source: item.source, title: item.title,
-        media_type: item.media_type, image_url: item.image_url, year: item.year,
-        creator: item.creator || null, genres: item.genres ? item.genres.join(', ') : null,
-        description: item.description || null, status: 'want_to_consume',
-    }));
-    const dismissData = escapeAttr(JSON.stringify({
-        external_id: item.external_id || '', source: item.source || '',
-        title: item.title, media_type: item.media_type,
-    }));
-    const verb = {movie:'Watched',tv:'Watched',book:'Read',podcast:'Listened'}[item.media_type] || 'Done';
-
-    const isConsumed = profileEntry && profileEntry.status === 'consumed';
-    const isInProfile = profileEntry != null;
-    const cardStyle = isConsumed ? 'opacity: 0.4; filter: grayscale(50%);' : '';
-    let actionArea;
-    if (isConsumed && profileEntry.rating) {
-        const rc = profileEntry.rating <= 3 ? 'text-coral' : profileEntry.rating <= 5 ? 'text-amber-500' : profileEntry.rating <= 7 ? 'text-yellow-600' : 'text-emerald-500';
-        actionArea = `<span class="text-xs font-semibold ${rc}">${profileEntry.rating}/10 ✓</span>`;
-    } else if (isInProfile) {
-        actionArea = `<span class="text-xs text-txt-muted">✓ In your profile</span>`;
-    } else {
-        actionArea = `
-            <div class="flex items-center gap-1.5">
-                <button onclick="saveForLater(this, ${saveData})" class="p-1.5 bg-sage/10 hover:bg-sage hover:text-white text-sage rounded-lg transition-base" title="Save for later">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
-                </button>
-                <button onclick="quickAdd(this, ${consumeData})" class="px-2.5 py-1.5 bg-sage/10 hover:bg-sage hover:text-white text-sage text-xs font-medium rounded-lg transition-base">${verb} it</button>
-                <button onclick="dismissItem(this, ${dismissData})" class="p-1.5 bg-gray-100 dark:bg-gray-800 hover:bg-coral hover:text-white text-txt-muted rounded-lg transition-base" title="Not interested">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
-            </div>
-        `;
-    }
-
-    return `
-        <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm" data-rec-card style="${cardStyle}">
-            <a href="${link}">
-                ${image}
-            </a>
-            <div class="p-4">
-                <div class="flex items-center gap-2 mb-1.5">
-                    <span class="px-2 py-0.5 ${badgeClass} text-[10px] font-semibold rounded-full capitalize">${item.media_type}</span>
-                    ${item.year ? `<span class="text-xs text-txt-muted">${item.year}</span>` : ''}
-                </div>
-                <a href="${link}" class="text-sm font-semibold hover:text-sage transition-base">${escapeHtml(item.title)}</a>
-                ${reason ? `<p class="text-xs text-txt-muted leading-relaxed mt-1">${escapeHtml(reason)}</p>` : ''}
-                <div class="mt-3 quick-add-area">
-                    ${actionArea}
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-function escapeAttr(str) {
-    return str.replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
+const TYPE_ACCENT = {
+    movie: 'gradient-blue',
+    tv: 'gradient-purple',
+    book: 'gradient-amber',
+    podcast: 'bg-green-500',
+};
+const TYPE_LABEL = {
+    movie: 'Movies',
+    tv: 'TV Shows',
+    book: 'Books',
+    podcast: 'Podcasts',
+};
 
 {% if total > 0 %}
-async function refreshRecs() {
-    const btn = document.getElementById('refresh-btn');
-    btn.innerHTML = '<span class="w-3 h-3 border-2 border-sage/30 border-t-sage rounded-full animate-spin inline-block"></span> Refreshing...';
-    btn.disabled = true;
-    try {
-        await fetch('/api/media/refresh-recommendations', { method: 'POST' });
-        // Clear the in-memory bundle so the renderers fetch fresh data.
-        _homeBundle = null;
-        _homeProfile = null;
-        _bundlePromise = null;
-        await Promise.all([loadTopPicks(), loadSuggestions(), loadInsights()]);
-    } catch {}
-    btn.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h4.586M20 20v-5h-4.586M4.929 9A8 8 0 0119.07 9M19.071 15A8 8 0 014.93 15"/></svg> Refresh';
-    btn.disabled = false;
-}
-
-// Cached across the three renderers so we only fetch the bundle once.
-// _bundlePromise holds the in-flight fetch so concurrent callers share it.
-let _homeBundle = null;
-let _homeProfile = null;
-let _bundlePromise = null;
-
-async function ensureBundle() {
-    if (_homeBundle !== null) return;
-    if (_bundlePromise) return _bundlePromise;
-    _bundlePromise = (async () => {
-        const [bundleResp, profileResp] = await Promise.all([
-            fetch('/api/media/home-bundle'),
-            fetch('/api/profile/'),
-        ]);
-        _homeBundle = bundleResp.ok ? await bundleResp.json() : { top_picks: [], suggestions: {}, insights: [] };
-        _homeProfile = profileResp.ok ? await profileResp.json() : [];
-    })();
-    try {
-        await _bundlePromise;
-    } finally {
-        _bundlePromise = null;
-    }
-}
-
-async function loadTopPicks() {
-    const container = document.getElementById('top-picks');
-    try {
-        await ensureBundle();
-        const picks = _homeBundle.top_picks || [];
-
-        if (!picks || picks.length === 0) {
-            container.innerHTML = `<p class="col-span-full text-center text-sm text-txt-muted py-6">Add more rated items to get personalized picks.</p>`;
-            return;
-        }
-
-        // Build a lookup of consumed titles
-        const consumed = {};
-        for (const entry of _homeProfile) {
-            consumed[entry.title.toLowerCase()] = entry;
-        }
-
-        container.innerHTML = picks.map(pick => {
-            const match = consumed[pick.title.toLowerCase()];
-            return recCard(pick, pick.reason, match);
-        }).join('');
-    } catch {
-        container.innerHTML = `<p class="col-span-full text-center text-sm text-txt-muted py-6">Couldn't load picks right now.</p>`;
-    }
-}
-
-async function loadSuggestions() {
-    try {
-        await ensureBundle();
-        const suggestions = _homeBundle.suggestions || {};
-
-        for (const [type, items] of Object.entries(suggestions)) {
-            const lane = document.getElementById(`suggestions-${type}`);
-            if (lane && items && items.length > 0) {
-                lane.innerHTML = items.map(item => {
-                    const mt2 = item.media_type || type;
-                    const fit = mt2 === 'podcast' ? 'poster-contain' : 'poster-cover';
-                    const image = item.image_url
-                        ? `<div class="poster-frame"><img src="${item.image_url}" alt="" class="${fit}" loading="lazy"></div>`
-                        : `<div class="poster-frame"><div class="poster-fallback bg-sage/10"><span class="text-sage text-xl">${escapeHtml((item.title || '?')[0])}</span></div></div>`;
-                    const link = item.external_id ? `/media/${item.media_type || type}/${item.external_id}?source=${item.source}` : `/search`;
-                    const mt = item.media_type || type;
-                    const consumeAttr = escapeAttr(JSON.stringify({
-                        external_id: item.external_id || '', source: item.source || '', title: item.title,
-                        media_type: mt, image_url: item.image_url || null,
-                        year: item.year || null, creator: null, genres: null,
-                        description: null, status: 'consumed',
-                    }));
-                    const saveAttr = escapeAttr(JSON.stringify({
-                        external_id: item.external_id || '', source: item.source || '', title: item.title,
-                        media_type: mt, image_url: item.image_url || null,
-                        year: item.year || null, creator: null, genres: null,
-                        description: null, status: 'want_to_consume',
-                    }));
-                    const dismissAttr = escapeAttr(JSON.stringify({
-                        external_id: item.external_id || '', source: item.source || '',
-                        title: item.title, media_type: mt,
-                    }));
-                    const verb = {movie:'Watched',tv:'Watched',book:'Read',podcast:'Listened'}[mt] || 'Done';
-                    const pr = item.predicted_rating;
-                    const prBadge = pr ? `<div class="absolute top-2 right-2 px-1.5 py-0.5 ${pr >= 8 ? 'bg-emerald-500' : pr >= 6 ? 'bg-yellow-500' : pr >= 4 ? 'bg-amber-400' : 'bg-coral'} rounded-full"><span class="text-[10px] font-bold text-white">${pr}</span></div>` : '';
-                    return `
-                        <div class="swim-lane-item flex-shrink-0">
-                            <div class="rounded-lg overflow-hidden shadow-sm border border-border-light dark:border-border-dark border-dashed" data-rec-card>
-                                <a href="${link}" class="relative block">${image}${prBadge}</a>
-                                <div class="bg-surface-light dark:bg-surface-dark p-2.5">
-                                    <p class="text-xs font-medium truncate">${escapeHtml(item.title)}</p>
-                                    <div class="mt-1.5 quick-add-area">
-                                        <div class="flex items-center gap-1">
-                                            <button onclick="saveForLater(this, ${saveAttr})" class="p-1 bg-sage/10 hover:bg-sage hover:text-white text-sage rounded transition-base" title="Save for later">
-                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
-                                            </button>
-                                            <button onclick="quickAdd(this, ${consumeAttr})" class="px-2 py-1 bg-sage/10 hover:bg-sage hover:text-white text-sage text-[10px] font-medium rounded transition-base">${verb} it</button>
-                                            <button onclick="dismissItem(this, ${dismissAttr})" class="p-1 bg-gray-100 dark:bg-gray-800 hover:bg-coral hover:text-white text-txt-muted rounded transition-base" title="Not interested">
-                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-            } else if (lane) {
-                lane.innerHTML = `<p class="text-sm text-txt-muted py-3 px-1">Search to add items &rarr;</p>`;
-            }
-        }
-    } catch {
-        document.querySelectorAll('[id^="suggestions-"]').forEach(el => {
-            el.innerHTML = `<p class="text-sm text-txt-muted py-3 px-1">Search to add items &rarr;</p>`;
-        });
-    }
-}
-
-async function loadEssence() {
-    try {
-        const resp = await fetch('/api/media/taste-dna');
-        const data = await resp.json();
-        if (data.summary && data.themes && data.themes.length) {
-            document.getElementById('essence-summary').textContent = data.summary;
-            document.getElementById('essence-themes').innerHTML = data.themes.slice(0, 5).map(t => {
-                // themes can be objects ({name, description, examples}) or strings
-                const label = typeof t === 'string' ? t : (t.name || '');
-                return `<span class="px-2.5 py-1 bg-white/15 text-white text-xs rounded-full">${escapeHtml(label)}</span>`;
-            }).join('');
-            document.getElementById('essence-wrap').classList.remove('hidden');
-        }
-    } catch {}
-}
-
-async function loadInsights() {
-    const list = document.getElementById('insights-list');
-    if (!list) return;
-    try {
-        await ensureBundle();
-        const data = { insights: _homeBundle.insights || [] };
-        if (data.insights && data.insights.length) {
-            const iconMap = {
-                connection: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>`,
-                trend: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>`,
-                pattern: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>`,
-                shift: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>`,
-            };
-            list.innerHTML = data.insights.map(ins => {
-                const icon = iconMap[ins.icon] || iconMap.pattern;
-                const colorMap = {
-                    connection: 'bg-sage/10 text-sage-dark dark:text-sage-light',
-                    trend: 'bg-coral/10 text-coral',
-                    pattern: 'bg-gold/10 text-gold',
-                    shift: 'bg-navy/10 text-navy dark:text-cream',
-                };
-                const color = colorMap[ins.icon] || colorMap.pattern;
-                return `
-                    <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-4 flex items-start gap-3">
-                        <span class="w-8 h-8 rounded-lg ${color} flex items-center justify-center flex-shrink-0 mt-0.5">${icon}</span>
-                        <p class="text-sm leading-relaxed flex-1">${escapeHtml(ins.text)}</p>
-                    </div>
-                `;
-            }).join('');
-        } else {
-            list.innerHTML = `<p class="text-sm text-txt-muted py-4 text-center">Rate a few more items to unlock pattern insights.</p>`;
-        }
-    } catch {
-        list.innerHTML = `<p class="text-sm text-txt-muted py-4 text-center">Couldn't load insights right now.</p>`;
-    }
-}
-
-// Load everything in parallel
-Promise.all([loadTopPicks(), loadSuggestions(), loadEssence(), loadInsights()]);
-
-// Mount the status switcher on every queue swim lane card. The card
-// HTML is server-rendered with data-entry-id / data-current-status /
-// data-media-type; we read those and inject the shared switcher
-// component so the user can change status from the home page.
-(function mountQueueStatusSwitchers() {
-    if (typeof buildStatusSwitcher !== 'function') return;
-    document.querySelectorAll('.queue-status-mount').forEach(el => {
-        const id = parseInt(el.dataset.entryId, 10);
-        const status = el.dataset.currentStatus || 'want_to_consume';
-        const mt = el.dataset.mediaType || null;
-        if (!id) return;
-        el.innerHTML = buildStatusSwitcher(id, status, mt);
-    });
-})();
-
 // -----------------------------------------------------------------
-// New-user welcome modal. Single-screen, pushes straight to the
-// taste quizzes. Shown once per browser for users with fewer than
-// 5 profile items; dismissing sets a localStorage flag so it never
-// comes back.
+// New-user welcome modal (kept from the previous design). Shown once
+// per browser for users with <5 items; dismissing sets a localStorage
+// flag so it never reappears.
 // -----------------------------------------------------------------
 function dismissWelcome() {
     const modal = document.getElementById('welcome-modal');
@@ -747,7 +236,7 @@ function dismissWelcome() {
 
 (function initWelcome() {
     const modal = document.getElementById('welcome-modal');
-    if (!modal) return;  // Jinja skipped the markup — not a new user
+    if (!modal) return;
     let welcomed = false;
     try { welcomed = localStorage.getItem('nextup_welcomed') === '1'; } catch {}
     if (welcomed) return;
@@ -755,117 +244,309 @@ function dismissWelcome() {
     modal.classList.add('flex');
 })();
 
-async function getTonight(availableTime) {
-    // Highlight the active chip
-    document.querySelectorAll('.tonight-chip').forEach(c => c.classList.remove('border-sage', 'bg-sage/10', 'text-sage'));
-    if (typeof event !== 'undefined' && event && event.currentTarget) {
-        event.currentTarget.classList.add('border-sage', 'bg-sage/10', 'text-sage');
-    } else {
-        // Programmatic call (e.g. from "Try another" button) — highlight the matching chip
-        document.querySelectorAll('.tonight-chip').forEach(c => {
-            if (c.textContent.trim().toLowerCase().includes(availableTime.toLowerCase())) {
-                c.classList.add('border-sage', 'bg-sage/10', 'text-sage');
-            }
-        });
-    }
+// -----------------------------------------------------------------
+// Shared bundle fetch. /api/media/home-bundle carries both top_picks
+// (unused now) and the themes dict for section 4 — we share the
+// response across callers so we only hit it once per page load.
+// -----------------------------------------------------------------
+let _homeBundle = null;
+let _homeBundlePromise = null;
 
-    const result = document.getElementById('tonight-result');
-    result.classList.remove('hidden');
-    result.innerHTML = `
-        <div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-2xl p-8 text-center">
-            <div class="inline-block w-6 h-6 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
-            <p class="text-sm text-txt-muted mt-3">Finding your perfect pick for ${availableTime}...</p>
-        </div>
-    `;
-
-    try {
-        const resp = await fetch('/api/media/tonight', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ available_time: availableTime }),
-        });
-        if (!resp.ok) {
-            result.innerHTML = `<p class="text-sm text-txt-muted text-center py-6">Couldn't find a pick right now. Try another time window.</p>`;
-            document.querySelectorAll('.tonight-chip').forEach(c => c.classList.remove('border-sage', 'bg-sage/10', 'text-sage'));
-            return;
+async function ensureHomeBundle() {
+    if (_homeBundle !== null) return _homeBundle;
+    if (_homeBundlePromise) return _homeBundlePromise;
+    _homeBundlePromise = (async () => {
+        try {
+            const resp = await fetch('/api/media/home-bundle');
+            _homeBundle = resp.ok ? await resp.json() : { top_picks: [], suggestions: {}, themes: {}, insights: [] };
+        } catch {
+            _homeBundle = { top_picks: [], suggestions: {}, themes: {}, insights: [] };
         }
-        const pick = await resp.json();
-
-        if (!pick || !pick.title) {
-            result.innerHTML = `<p class="text-sm text-txt-muted text-center py-6">Couldn't find a pick right now. Try another time window.</p>`;
-            document.querySelectorAll('.tonight-chip').forEach(c => c.classList.remove('border-sage', 'bg-sage/10', 'text-sage'));
-            return;
-        }
-
-        const typeBadge = {
-            movie: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
-            tv: 'bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400',
-            book: 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
-            podcast: 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400',
-        }[pick.media_type] || '';
-
-        const aspect = pick.media_type === 'podcast' ? 'aspect-square' : 'aspect-[2/3]';
-        const link = pick.external_id ? `/media/${pick.media_type}/${pick.external_id}?source=${pick.source}` : '#';
-        const image = pick.image_url
-            ? `<a href="${link}"><img src="${pick.image_url}" alt="" class="w-40 md:w-48 ${aspect} object-cover rounded-xl shadow-lg"></a>`
-            : `<div class="w-40 md:w-48 ${aspect} bg-sage/10 rounded-xl flex items-center justify-center"><span class="text-sage text-4xl font-bold">${escapeHtml(pick.title[0] || '?')}</span></div>`;
-
-        const saveData = (typeof escapeAttr === 'function' ? escapeAttr : (s => s.replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')))(JSON.stringify({
-            external_id: pick.external_id || '', source: pick.source || '', title: pick.title,
-            media_type: pick.media_type, image_url: pick.image_url || null, year: pick.year || null,
-            creator: pick.creator || null,
-            genres: pick.genres && Array.isArray(pick.genres) ? pick.genres.join(', ') : null,
-            description: pick.description || null, status: 'want_to_consume',
-        }));
-
-        result.innerHTML = `
-            <div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-2xl p-6 md:p-8 shadow-sm" data-rec-card>
-                <div class="flex flex-col md:flex-row gap-6 items-start">
-                    <div class="flex-shrink-0 mx-auto md:mx-0">${image}</div>
-                    <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2 mb-2 flex-wrap">
-                            <span class="px-2 py-0.5 ${typeBadge} text-xs font-semibold rounded-full capitalize">${pick.media_type}</span>
-                            ${pick.year ? `<span class="text-sm text-txt-muted">${pick.year}</span>` : ''}
-                            ${pick.runtime_note ? `<span class="text-xs text-txt-muted">· ${escapeHtml(pick.runtime_note)}</span>` : ''}
-                        </div>
-                        <h3 class="text-2xl font-bold mb-1"><a href="${link}" class="hover:text-sage transition-base">${escapeHtml(pick.title)}</a></h3>
-                        ${pick.creator ? `<p class="text-sm text-txt-muted mb-3">${escapeHtml(pick.creator)}</p>` : ''}
-                        <p class="text-sm leading-relaxed mb-4">${escapeHtml(pick.reason || '')}</p>
-                        <div class="flex flex-wrap gap-2 quick-add-area">
-                            <button onclick="saveForLater(this, ${saveData})" class="px-4 py-2 bg-sage text-white hover:bg-sage-dark rounded-lg text-sm font-medium transition-base flex items-center gap-2">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
-                                Save for later
-                            </button>
-                            <a href="${link}" class="px-4 py-2 border border-border-light dark:border-border-dark rounded-lg text-sm text-txt-muted hover:text-txt transition-base">View details</a>
-                            <button onclick="getTonight('${availableTime}')" class="px-4 py-2 text-sm text-txt-muted hover:text-sage transition-base flex items-center gap-1">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h4.586M20 20v-5h-4.586M4.929 9A8 8 0 0119.07 9M19.071 15A8 8 0 014.93 15"/></svg>
-                                Try another
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-    } catch {
-        result.innerHTML = `<p class="text-sm text-txt-muted text-center py-6">Something went wrong. Please try again.</p>`;
-        document.querySelectorAll('.tonight-chip').forEach(c => c.classList.remove('border-sage', 'bg-sage/10', 'text-sage'));
-    }
+        return _homeBundle;
+    })();
+    return _homeBundlePromise;
 }
 
-{% if needs_predictions %}
-// Auto-generate predicted ratings for queue items that don't have them yet
-async function generatePredictions() {
+// -----------------------------------------------------------------
+// Section 1: Right Now block. Fetches AI commentary + the user's
+// currently-consuming items, renders a chip per item, and toggles
+// the "resonating right now" signal when a chip is tapped.
+// -----------------------------------------------------------------
+async function loadRightNow() {
+    const commentaryEl = document.getElementById('right-now-commentary');
+    const wrap = document.getElementById('right-now-items');
+    const chipsEl = document.getElementById('right-now-chips');
     try {
-        await fetch('/api/profile/predict-ratings', { method: 'POST' });
-        // Soft reload after predictions are done — show a refresh prompt
-        const banner = document.createElement('div');
-        banner.className = 'fixed bottom-4 right-4 bg-sage text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium flex items-center gap-3 z-50';
-        banner.innerHTML = 'Predicted ratings ready! <button onclick="location.reload()" class="underline">Refresh</button>';
-        document.body.appendChild(banner);
+        const resp = await fetch('/api/media/home/right-now');
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (data.commentary) {
+            commentaryEl.textContent = data.commentary;
+        }
+        const items = data.items || [];
+        if (items.length === 0) {
+            wrap.classList.add('hidden');
+            return;
+        }
+        chipsEl.innerHTML = items.map(renderResonanceChip).join('');
+        wrap.classList.remove('hidden');
     } catch {}
 }
-generatePredictions();
-{% endif %}
+
+function renderResonanceChip(item) {
+    const fit = item.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
+    const poster = item.image_url
+        ? `<img src="${item.image_url}" alt="" class="w-8 h-10 object-cover rounded ${item.media_type === 'podcast' ? 'object-contain' : ''}">`
+        : `<span class="w-8 h-10 flex items-center justify-center rounded bg-white/15 text-white text-xs font-bold">${escapeHtml((item.title || '?')[0])}</span>`;
+    const check = item.is_resonating
+        ? '<svg class="w-3.5 h-3.5 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>'
+        : '';
+    return `
+        <button type="button" onclick="toggleResonance(this, ${item.id})"
+                data-resonating="${item.is_resonating ? 'true' : 'false'}"
+                data-entry-id="${item.id}"
+                class="resonance-chip flex items-center gap-2 pl-1 pr-3 py-1 border border-white/25 rounded-full text-xs text-white/85 hover:bg-white/10">
+            ${poster}
+            <span class="truncate max-w-[11rem]">${escapeHtml(item.title)}</span>
+            ${check}
+        </button>`;
+}
+
+async function toggleResonance(btn, entryId) {
+    btn.disabled = true;
+    try {
+        const resp = await fetch('/api/media/home/resonance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ entry_id: entryId }),
+        });
+        if (!resp.ok) { btn.disabled = false; return; }
+        const data = await resp.json();
+        btn.dataset.resonating = data.resonating ? 'true' : 'false';
+        // Re-render just this chip so the checkmark flips
+        const item = {
+            id: entryId,
+            title: btn.querySelector('span').textContent,
+            media_type: 'movie',   // cosmetic only — we only use poster styling
+            image_url: null,
+            is_resonating: data.resonating,
+        };
+        // Rather than rebuild the chip we just flip the checkmark node.
+        const existingCheck = btn.querySelector('svg');
+        if (data.resonating && !existingCheck) {
+            btn.insertAdjacentHTML('beforeend', '<svg class="w-3.5 h-3.5 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>');
+        } else if (!data.resonating && existingCheck) {
+            existingCheck.remove();
+        }
+    } catch {}
+    btn.disabled = false;
+}
+
+// -----------------------------------------------------------------
+// Section 3: Your best bets — one hero card per media type from
+// /api/media/best-bet/<type>. Rendered as a 1/2/4-col grid; any
+// type that doesn't have a valid anchor is silently dropped.
+// -----------------------------------------------------------------
+const MEDIA_TYPES = ['movie', 'tv', 'book', 'podcast'];
+
+async function loadBestBets() {
+    const container = document.getElementById('best-bets');
+    try {
+        const results = await Promise.all(
+            MEDIA_TYPES.map(mt => fetch(`/api/media/best-bet/${mt}`).then(r => r.ok ? r.json() : null).catch(() => null))
+        );
+        const cards = [];
+        for (let i = 0; i < MEDIA_TYPES.length; i++) {
+            const mt = MEDIA_TYPES[i];
+            const data = results[i];
+            if (!data || !data.pick) continue;
+            cards.push(renderBestBetCard(mt, data.pick, data.anchor));
+        }
+        if (cards.length === 0) {
+            container.innerHTML = `
+                <div class="col-span-full bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-6 text-center">
+                    <p class="text-sm text-txt-muted">Rate a few items 9 or 10 out of 10 to unlock a best bet anchored to something you loved.</p>
+                </div>`;
+            return;
+        }
+        container.innerHTML = cards.join('');
+    } catch {
+        container.innerHTML = `<p class="col-span-full text-center text-sm text-txt-muted py-6">Couldn't load best bets right now.</p>`;
+    }
+}
+
+function renderBestBetCard(mediaType, pick, anchor) {
+    const badge = TYPE_BADGE[mediaType] || TYPE_BADGE.movie;
+    const accent = TYPE_ACCENT[mediaType] || TYPE_ACCENT.movie;
+    const label = TYPE_LABEL[mediaType] || mediaType;
+    const fit = mediaType === 'podcast' ? 'poster-contain' : 'poster-cover';
+    const image = pick.image_url
+        ? `<div class="poster-frame"><img src="${pick.image_url}" alt="" class="${fit}"></div>`
+        : `<div class="poster-frame"><div class="poster-fallback ${accent}"><span class="text-white text-3xl font-bold">${escapeHtml((pick.title || '?')[0])}</span></div></div>`;
+    const link = pick.external_id ? `/media/${pick.media_type || mediaType}/${pick.external_id}?source=${pick.source}` : '#';
+    const itemForCard = {
+        external_id: pick.external_id || '',
+        source: pick.source || '',
+        title: pick.title,
+        media_type: pick.media_type || mediaType,
+        image_url: pick.image_url || null,
+        year: pick.year || null,
+        creator: pick.creator || null,
+        genres: Array.isArray(pick.genres) ? pick.genres.join(', ') : (pick.genres || null),
+        description: pick.description || null,
+    };
+    const actions = typeof buildActionBar === 'function' ? buildActionBar(itemForCard, 'sm') : '';
+    const anchorLine = anchor && anchor.title
+        ? `<p class="text-[11px] text-txt-muted uppercase tracking-wide mt-2">${label} · because you loved ${escapeHtml(anchor.title)}</p>`
+        : `<p class="text-[11px] text-txt-muted uppercase tracking-wide mt-2">${label}</p>`;
+    return `
+        <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm" data-rec-card>
+            <a href="${link}">${image}</a>
+            <div class="p-4">
+                <div class="flex items-center gap-2 mb-1.5">
+                    <span class="px-2 py-0.5 ${badge} text-[10px] font-semibold rounded-full capitalize">${pick.media_type || mediaType}</span>
+                    ${pick.year ? `<span class="text-xs text-txt-muted">${pick.year}</span>` : ''}
+                </div>
+                <a href="${link}" class="text-sm font-semibold hover:text-sage transition-base block">${escapeHtml(pick.title)}</a>
+                ${pick.reason ? `<p class="text-xs text-txt-muted leading-relaxed mt-1">${escapeHtml(pick.reason)}</p>` : ''}
+                ${anchorLine}
+                <div class="mt-3 quick-add-area">${actions}</div>
+            </div>
+        </div>`;
+}
+
+// -----------------------------------------------------------------
+// Section 4: Life-context themes. Reads `themes` from the shared
+// home-bundle response. Each theme renders as a swim-lane row wrapped
+// in a .collapsible container so long rows unfurl.
+// -----------------------------------------------------------------
+const THEME_META = {
+    walking_the_dog:  { label: "While walking the dog",    blurb: "Podcasts you can drop in and out of.",               accent: 'text-green-500' },
+    tonight_binge:    { label: "Tonight's binge",          blurb: "TV that actually earns the next episode.",          accent: 'text-purple-500' },
+    wind_down:        { label: "Wind down before bed",     blurb: "Low-stakes, slow your pulse.",                      accent: 'text-amber-500' },
+    background_work:  { label: "Background while you work", blurb: "Familiar and conversational, half-attention-safe.", accent: 'text-sky-500' },
+    weekend_project:  { label: "Weekend project",          blurb: "Something to sit with on a Saturday.",              accent: 'text-coral' },
+    quick_escape:     { label: "Quick escape",             blurb: "15-90 minutes, out of your own head.",              accent: 'text-rose-500' },
+};
+const THEME_ORDER = ['tonight_binge', 'wind_down', 'walking_the_dog', 'background_work', 'weekend_project', 'quick_escape'];
+
+async function loadThemes() {
+    const wrap = document.getElementById('themes-wrap');
+    try {
+        const bundle = await ensureHomeBundle();
+        const themes = bundle.themes || {};
+        const rendered = [];
+        for (const slug of THEME_ORDER) {
+            const items = themes[slug];
+            if (!Array.isArray(items) || items.length === 0) continue;
+            rendered.push(renderThemeRow(slug, items));
+        }
+        if (rendered.length === 0) {
+            wrap.innerHTML = `<p class="text-sm text-txt-muted py-6 text-center">We'll build these out once you've rated a few items.</p>`;
+            return;
+        }
+        wrap.innerHTML = rendered.join('');
+        // Apply collapsible behavior to each row (capping at 4 visible items
+        // on the first pass — the CSS max-height handles the overflow).
+        wrap.querySelectorAll('.collapsible').forEach(el => applyCollapsible(el, 4));
+    } catch {
+        wrap.innerHTML = `<p class="text-sm text-txt-muted py-6 text-center">Couldn't load themed picks right now.</p>`;
+    }
+}
+
+function renderThemeRow(slug, items) {
+    const meta = THEME_META[slug] || { label: slug, blurb: '', accent: 'text-sage' };
+    const cards = items.map(renderThemeCard).join('');
+    const containerId = `theme-row-${slug}`;
+    return `
+        <div>
+            <div class="flex items-center justify-between mb-2">
+                <div>
+                    <h3 class="text-base font-semibold ${meta.accent}">${escapeHtml(meta.label)}</h3>
+                    <p class="text-xs text-txt-muted">${escapeHtml(meta.blurb)}</p>
+                </div>
+                <button type="button" onclick="toggleCollapsible('${containerId}', this)" class="hidden text-xs text-sage hover:underline" data-role="theme-toggle">Show all</button>
+            </div>
+            <div id="${containerId}" class="collapsible collapsed grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                ${cards}
+            </div>
+        </div>`;
+}
+
+function renderThemeCard(item) {
+    const mt = item.media_type || 'movie';
+    const accent = TYPE_ACCENT[mt] || TYPE_ACCENT.movie;
+    const badge = TYPE_BADGE[mt] || TYPE_BADGE.movie;
+    const fit = mt === 'podcast' ? 'poster-contain' : 'poster-cover';
+    const image = item.image_url
+        ? `<div class="poster-frame"><img src="${item.image_url}" alt="" class="${fit}"></div>`
+        : `<div class="poster-frame"><div class="poster-fallback ${accent}"><span class="text-white text-3xl font-bold">${escapeHtml((item.title || '?')[0])}</span></div></div>`;
+    const link = item.external_id ? `/media/${mt}/${item.external_id}?source=${item.source}` : '#';
+    const itemForCard = {
+        external_id: item.external_id || '',
+        source: item.source || '',
+        title: item.title,
+        media_type: mt,
+        image_url: item.image_url || null,
+        year: item.year || null,
+        creator: item.creator || null,
+        genres: Array.isArray(item.genres) ? item.genres.join(', ') : (item.genres || null),
+        description: item.description || null,
+    };
+    const actions = typeof buildActionBar === 'function' ? buildActionBar(itemForCard, 'sm') : '';
+    return `
+        <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm" data-rec-card>
+            <a href="${link}">${image}</a>
+            <div class="p-3">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="px-2 py-0.5 ${badge} text-[10px] font-semibold rounded-full capitalize">${mt}</span>
+                    ${item.year ? `<span class="text-[11px] text-txt-muted">${item.year}</span>` : ''}
+                </div>
+                <a href="${link}" class="text-xs font-semibold hover:text-sage transition-base block truncate">${escapeHtml(item.title)}</a>
+                ${item.reason ? `<p class="text-[11px] text-txt-muted leading-snug mt-1 line-clamp-2">${escapeHtml(item.reason)}</p>` : ''}
+                <div class="mt-2 quick-add-area">${actions}</div>
+            </div>
+        </div>`;
+}
+
+// -----------------------------------------------------------------
+// Collapsible row helper. If a row has more children than `visibleCount`,
+// wire up its "Show all" button. Otherwise leave it collapsed-off so no
+// toggle is shown.
+// -----------------------------------------------------------------
+function applyCollapsible(container, visibleCount) {
+    const count = container.children.length;
+    const row = container.closest('div');
+    const toggleBtn = row ? row.querySelector('[data-role="theme-toggle"]') : null;
+    if (count <= visibleCount) {
+        container.classList.remove('collapsed');
+        container.classList.add('expanded');
+        if (toggleBtn) toggleBtn.classList.add('hidden');
+        return;
+    }
+    container.classList.add('collapsed');
+    if (toggleBtn) {
+        toggleBtn.textContent = `Show all ${count}`;
+        toggleBtn.classList.remove('hidden');
+    }
+}
+
+function toggleCollapsible(containerId, btn) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    if (el.classList.contains('collapsed')) {
+        el.classList.remove('collapsed');
+        el.classList.add('expanded');
+        btn.textContent = 'Show less';
+    } else {
+        el.classList.remove('expanded');
+        el.classList.add('collapsed');
+        btn.textContent = `Show all ${el.children.length}`;
+    }
+}
+
+// Kick everything off in parallel.
+Promise.all([loadRightNow(), loadBestBets(), loadThemes()]);
 {% endif %}
 </script>
 {% endblock %}
