@@ -362,7 +362,7 @@ async def backfill_posters(user: User = Depends(require_user), db: Session = Dep
     image_url, and update them in place. Used to clean up items that
     were imported before the poster-matching improvements landed."""
     from app.services.itunes import search as search_podcasts
-    from app.services.open_library import search as search_books
+    from app.services.unified_search import search_books
     from app.services.tmdb import search as search_tmdb
 
     missing = (
@@ -421,7 +421,7 @@ async def backfill_posters(user: User = Depends(require_user), db: Session = Dep
 
 @router.post("/import/goodreads")
 async def import_goodreads(file: UploadFile = File(...), user: User = Depends(require_user), db: Session = Depends(get_db)):
-    from app.services.open_library import search as search_books
+    from app.services.unified_search import search_books
 
     content = await file.read()
     text = content.decode("utf-8-sig")

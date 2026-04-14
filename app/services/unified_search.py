@@ -53,6 +53,51 @@ async def unified_search(query: str, media_type: str | None = None) -> list[Medi
     return all_results
 
 
+async def search_books(query: str) -> list[MediaResult]:
+    """Search for books across Open Library + Google Books. Tries OL
+    first, falls back to GB if OL fails or returns no results with
+    covers. This is the single entry point all book-cover-needing
+    callers should use instead of importing open_library.search directly."""
+    results: list[MediaResult] = []
+    try:
+        results = await open_library.search(query)
+    except Exception:
+        pass
+
+    # If OL returned results but none have covers, or OL failed entirely,
+    # try Google Books
+    has_covers = any(r.image_url for r in results)
+    if not has_covers:
+        try:
+            gb = await google_books.search(query)
+            if gb:
+                # If OL returned nothing, use GB entirely.
+                # If OL returned coverless results, merge GB covers in.
+                if not results:
+                    results = gb
+                else:
+                    # Build a map of GB covers by normalized title
+                    gb_covers = {}
+                    for r in gb:
+                        if r.image_url:
+                            gb_covers[r.title.lower().strip()] = r.image_url
+                    # Patch OL results with GB covers
+                    for r in results:
+                        if not r.image_url:
+                            gb_url = gb_covers.get(r.title.lower().strip())
+                            if gb_url:
+                                r.image_url = gb_url
+                    # Also append any GB results not in OL
+                    ol_titles = {r.title.lower().strip() for r in results}
+                    for r in gb:
+                        if r.title.lower().strip() not in ol_titles:
+                            results.append(r)
+        except Exception:
+            pass
+
+    return results
+
+
 async def get_detail(media_type: str, external_id: str, source: str) -> MediaResult | None:
     """Get detailed info from the appropriate API."""
     if source == "tmdb" or (media_type in ("movie", "tv") and source not in ("open_library", "google_books", "itunes")):
