@@ -69,22 +69,24 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
 
     total = db.query(MediaEntry).filter(MediaEntry.user_id == user.id).count()
 
-    # "Just finished something?" — items the user actively moved to
-    # consumed (not bulk imports). We detect this by checking that
-    # updated_at differs from created_at by more than 10 seconds,
-    # meaning the user interacted with the item after it was added.
-    # Bulk imports and quick-adds land with updated_at == created_at
-    # and should not nag the user for a rating.
-    from datetime import timedelta
+    # "Sharpen your recs" — a small batch of unrated consumed items.
+    # We show 4 at a time (not every unrated item) so it feels like a
+    # quick action, not homework. The total count lets us show "12 more
+    # to rate" so the user knows there's a backlog without being
+    # overwhelmed. We randomize so repeat visits surface different items.
     from sqlalchemy import func
-    unrated_recent = (
+    unrated_query = db.query(MediaEntry).filter(
+        MediaEntry.user_id == user.id,
+        MediaEntry.status == "consumed",
+        MediaEntry.rating.is_(None),
+    )
+    unrated_total = unrated_query.count()
+    unrated_batch = unrated_query.order_by(func.random()).limit(4).all() if unrated_total > 0 else []
+
+    # Currently engaging — what the user is actively in the middle of
+    currently = (
         db.query(MediaEntry)
-        .filter(
-            MediaEntry.user_id == user.id,
-            MediaEntry.status == "consumed",
-            MediaEntry.rating.is_(None),
-            func.abs(func.extract('epoch', MediaEntry.updated_at) - func.extract('epoch', MediaEntry.created_at)) > 10,
-        )
+        .filter(MediaEntry.user_id == user.id, MediaEntry.status == "consuming")
         .order_by(MediaEntry.updated_at.desc())
         .limit(6)
         .all()
@@ -122,7 +124,9 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
             "user": user,
             "total": total,
             "is_new_user": total < 5,
-            "unrated_recent": unrated_recent,
+            "currently": currently,
+            "unrated_batch": unrated_batch,
+            "unrated_total": unrated_total,
             "up_next": up_next,
             "best_bet_media_type": best_bet_media_type,
             **greeting_ctx,

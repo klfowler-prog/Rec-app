@@ -3,42 +3,17 @@
 
 {% block head %}
 <style>
+    .section-divider { height: 2px; background: linear-gradient(to right, transparent, rgba(139,158,107,0.3), transparent); }
     .swim-lane { overflow-x: auto; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
     .swim-lane::-webkit-scrollbar { display: none; }
-    .swim-lane-item { min-width: 150px; max-width: 150px; }
-    .pick-card { min-width: 260px; }
-    .section-divider { height: 2px; background: linear-gradient(to right, transparent, rgba(139,158,107,0.3), transparent); }
-    /* Resonance chips in the Right Now block. Flagged chips fill with sage
-       so the user can see at a glance which item is "the one" right now. */
-    .resonance-chip { transition: background-color 0.2s, border-color 0.2s, color 0.2s; }
-    .resonance-chip[data-resonating="true"] {
-        background: rgba(139, 158, 107, 0.28);
-        border-color: rgba(139, 158, 107, 0.8);
-        color: #ffffff;
-    }
-    /* Collapsible theme rows — one row visible by default, unfurls on toggle. */
-    .collapsible.collapsed { max-height: 20rem; overflow: hidden; position: relative; }
-    .collapsible.expanded { max-height: none; overflow: visible; }
-    .collapsible.collapsed::after {
-        content: "";
-        position: absolute;
-        inset: auto 0 0 0;
-        height: 3rem;
-        background: linear-gradient(to bottom, transparent, var(--surface-bg, rgba(255,255,255,0.9)));
-        pointer-events: none;
-    }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="space-y-10">
+<div class="space-y-8">
 
     {% if is_new_user %}
-    <!-- New-user welcome modal — shown once per browser. Nudges new
-         users into the onboarding wizard, which captures their media
-         mix + era + scenes and routes them into the first relevant
-         quiz. Dismissing sets a localStorage flag so it never
-         reappears. -->
+    <!-- New-user welcome modal -->
     <div id="welcome-modal" class="fixed inset-0 bg-black/60 z-50 hidden items-center justify-center p-4" onclick="if(event.target===this)dismissWelcome()">
         <div class="bg-surface-light dark:bg-surface-dark rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-border-light dark:border-border-dark">
             <div class="rounded-t-2xl p-6 text-white relative" style="background: linear-gradient(135deg, #2B3A4E 0%, #1E2A3A 100%);">
@@ -47,103 +22,116 @@
                 </button>
                 <p class="text-[11px] text-white/60 uppercase tracking-widest mb-2 font-semibold">Welcome to NextUp</p>
                 <h2 class="text-2xl font-bold mb-2">Build your taste profile</h2>
-                <p class="text-sm text-white/85 leading-relaxed">Three quick questions — which media types, which era, which kinds of stories you're into — then a short quiz on each medium you picked. Everything maps into one profile so a show you loved can surface a book you'll love too.</p>
+                <p class="text-sm text-white/85 leading-relaxed">Three quick questions and a short quiz on each medium. NextUp learns how you engage with stories, then recommends across movies, TV, books, and podcasts.</p>
             </div>
             <div class="p-6 space-y-3">
                 <a href="/onboarding" class="flex items-center gap-3 px-5 py-4 bg-sage text-white rounded-xl hover:bg-sage-dark transition-base group shadow-sm">
                     <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                     <div class="flex-1 min-w-0">
                         <p class="text-sm font-semibold">Start the wizard</p>
-                        <p class="text-[11px] text-white/80">~2 minutes of questions, then a short quiz on each medium</p>
+                        <p class="text-[11px] text-white/80">~2 minutes, then a short quiz on each medium</p>
                     </div>
                     <svg class="w-4 h-4 flex-shrink-0 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                 </a>
-                <p class="text-[11px] text-txt-muted text-center">Or jump straight to a specific quiz:</p>
-                <div class="grid grid-cols-2 gap-2">
-                    <a href="/quick-start/movies" class="px-3 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg text-xs text-txt-muted hover:border-sage hover:text-sage text-center transition-base">Movies</a>
-                    <a href="/quick-start/tv" class="px-3 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg text-xs text-txt-muted hover:border-sage hover:text-sage text-center transition-base">TV</a>
-                    <a href="/quick-start/books/fiction" class="px-3 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg text-xs text-txt-muted hover:border-sage hover:text-sage text-center transition-base">Fiction</a>
-                    <a href="/quick-start/books/nonfiction" class="px-3 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg text-xs text-txt-muted hover:border-sage hover:text-sage text-center transition-base">Nonfiction</a>
-                </div>
                 <div class="text-center pt-2">
-                    <button onclick="dismissWelcome()" class="text-xs text-txt-muted hover:text-txt transition-base">Skip for now — I'll find my way</button>
+                    <button onclick="dismissWelcome()" class="text-xs text-txt-muted hover:text-txt transition-base">Skip for now</button>
                 </div>
             </div>
         </div>
     </div>
     {% endif %}
 
-    <!-- Right Now: short greeting + AI commentary on the intersection of
-         what the user is currently in the middle of + a chip row for
-         flagging "what's resonating most right now". Populated by
-         loadRightNow() from /api/media/home/right-now. -->
-    <div class="gradient-navy rounded-2xl p-6 text-white relative overflow-hidden">
-        <div class="relative z-10">
-            <h2 class="text-xl font-semibold mb-1">{{ greeting }}</h2>
-            <p id="right-now-commentary" class="text-sm text-white/80 leading-relaxed min-h-[1.25rem]">{{ suggestion }}</p>
-            <div id="right-now-items" class="hidden mt-4 pt-4 border-t border-white/15">
-                <p class="text-[11px] text-white/55 uppercase tracking-wide mb-2">
-                    Tap what's hitting hardest right now — we'll lean your recs that way.
-                </p>
-                <div id="right-now-chips" class="flex flex-wrap gap-2"></div>
-            </div>
-        </div>
+    <!-- Greeting — light, warm, not a hero block -->
+    <div>
+        <h1 class="text-2xl font-bold">{{ greeting }}</h1>
+        <p class="text-txt-muted text-sm">{{ suggestion }}</p>
     </div>
 
-    <!-- Empty state for brand new users. Primary CTA is the onboarding
-         wizard — the secondary Add link is there for users who already
-         know what they want to log and don't need a taste profile. -->
     {% if total == 0 %}
+    <!-- Empty state -->
     <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-8 text-center">
         <div class="w-16 h-16 bg-sage/10 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg class="w-8 h-8 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
         </div>
         <h3 class="text-lg font-semibold mb-2">Build your taste profile</h3>
-        <p class="text-txt-muted mb-6 max-w-md mx-auto">Three quick questions and a short quiz on each medium you pick. NextUp learns how you actually engage with stuff, then uses it to recommend across movies, TV, books, and podcasts.</p>
+        <p class="text-txt-muted mb-6 max-w-md mx-auto">Take a quick quiz or add some titles to get started.</p>
         <div class="flex gap-3 justify-center">
-            <a href="/onboarding" class="inline-flex items-center gap-2 px-5 py-2.5 bg-sage text-white rounded-lg text-sm font-medium transition-base hover:bg-sage-dark">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                Start the wizard
-            </a>
-            <a href="/add" class="inline-flex items-center gap-2 px-5 py-2.5 border border-border-light dark:border-border-dark rounded-lg text-sm text-txt-muted hover:text-txt transition-base">Add items manually</a>
+            <a href="/onboarding" class="inline-flex items-center gap-2 px-5 py-2.5 bg-sage text-white rounded-lg text-sm font-medium transition-base hover:bg-sage-dark">Start the wizard</a>
+            <a href="/add" class="inline-flex items-center gap-2 px-5 py-2.5 border border-border-light dark:border-border-dark rounded-lg text-sm text-txt-muted hover:text-txt transition-base">Add items</a>
         </div>
     </div>
     {% else %}
 
     <!-- ============================================================
-         Section 2: "Just finished something?" — items the user added
-         or marked as done but never rated. Tapping a rating dot is
-         one click to close the loop on something they consumed.
-         Hidden entirely if everything has a rating.
+         Section 1: Currently engaging — what you're in the middle of
          ============================================================ -->
-    {% if unrated_recent %}
+    {% if currently %}
     <div>
-        <h2 class="text-xl font-bold mb-1 flex items-center gap-2">
-            <span class="w-8 h-8 rounded-lg gradient-coral flex items-center justify-center">
-                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 13l4 4L19 7"/></svg>
+        <h2 class="text-lg font-bold mb-3 flex items-center gap-2">
+            <span class="w-7 h-7 rounded-lg gradient-coral flex items-center justify-center">
+                <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             </span>
-            Just finished something?
+            In progress
         </h2>
-        <p class="text-sm text-txt-muted mb-4">Rate what you watched, read, or listened to — one tap and it's done.</p>
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {% for item in unrated_recent %}
-            <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm flex" data-rec-card>
-                <div class="w-20 flex-shrink-0">
-                    <div class="poster-frame">
+        <div class="flex gap-3 swim-lane pb-2">
+            {% for item in currently %}
+            <a href="{% if item.external_id %}/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}{% else %}/profile{% endif %}"
+               class="flex items-center gap-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl p-3 min-w-[260px] max-w-[320px] flex-shrink-0 hover:border-sage/40 transition-base">
+                <div class="w-12 h-16 flex-shrink-0 rounded overflow-hidden">
                     {% if item.image_url %}
-                        <img src="{{ item.image_url }}" alt="" class="{% if item.media_type == 'podcast' %}poster-contain{% else %}poster-cover{% endif %}">
+                        <img src="{{ item.image_url }}" alt="" class="w-full h-full {% if item.media_type == 'podcast' %}object-contain{% else %}object-cover{% endif %}">
                     {% else %}
-                        <div class="poster-fallback {% if item.media_type == 'tv' %}gradient-purple{% elif item.media_type == 'book' %}gradient-amber{% elif item.media_type == 'podcast' %}bg-green-500{% else %}gradient-blue{% endif %}">
-                            <span class="text-white text-2xl font-bold">{{ (item.title or '?')[0] }}</span>
+                        <div class="w-full h-full flex items-center justify-center {% if item.media_type == 'tv' %}gradient-purple{% elif item.media_type == 'book' %}gradient-amber{% elif item.media_type == 'podcast' %}bg-green-500{% else %}gradient-blue{% endif %}">
+                            <span class="text-white text-lg font-bold">{{ (item.title or '?')[0] }}</span>
                         </div>
                     {% endif %}
-                    </div>
                 </div>
-                <div class="flex-1 min-w-0 p-3 flex flex-col">
-                    <p class="text-[10px] uppercase tracking-wide text-txt-muted mb-0.5">{{ {'movie':'Movie','tv':'TV','book':'Book','podcast':'Podcast'}.get(item.media_type, item.media_type) }}{% if item.year %} · {{ item.year }}{% endif %}</p>
-                    <p class="text-sm font-semibold leading-tight mb-2 line-clamp-2">{{ item.title }}</p>
-                    <div class="mt-auto" data-home-rate-slot data-entry-id="{{ item.id }}"></div>
-                    <div class="flex gap-1.5 mt-1.5">
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-semibold leading-tight line-clamp-2">{{ item.title }}</p>
+                    <p class="text-[10px] uppercase tracking-wide text-txt-muted mt-0.5">{{ {'movie':'Movie','tv':'TV','book':'Book','podcast':'Podcast'}.get(item.media_type, item.media_type) }}{% if item.year %} · {{ item.year }}{% endif %}</p>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ============================================================
+         Section 2: Sharpen your recs — rate a small batch (4 items)
+         ============================================================ -->
+    {% if unrated_batch %}
+    <div id="rate-section" class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-2xl p-5">
+        <div class="flex items-start justify-between mb-4">
+            <div>
+                <h2 class="text-lg font-bold flex items-center gap-2">
+                    <span class="w-7 h-7 rounded-lg gradient-sage flex items-center justify-center">
+                        <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    </span>
+                    Sharpen your recs
+                </h2>
+                <p class="text-xs text-txt-muted mt-0.5">Rate a few and we'll learn your taste faster. {% if unrated_total > 4 %}<span class="text-sage">{{ unrated_total - 4 }} more after these.</span>{% endif %}</p>
+            </div>
+            <button onclick="document.getElementById('rate-section').style.display='none'" class="text-txt-muted hover:text-txt text-xs px-2 py-1 rounded hover:bg-bg-light dark:hover:bg-bg-dark transition-base">Skip</button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {% for item in unrated_batch %}
+            <div class="flex items-center gap-3 p-3 rounded-xl bg-bg-light dark:bg-bg-dark border border-border-light/50 dark:border-border-dark/50" data-rec-card>
+                <div class="w-12 h-16 flex-shrink-0 rounded overflow-hidden">
+                    {% if item.image_url %}
+                        <img src="{{ item.image_url }}" alt="" class="w-full h-full {% if item.media_type == 'podcast' %}object-contain{% else %}object-cover{% endif %}">
+                    {% else %}
+                        <div class="w-full h-full flex items-center justify-center {% if item.media_type == 'tv' %}gradient-purple{% elif item.media_type == 'book' %}gradient-amber{% elif item.media_type == 'podcast' %}bg-green-500{% else %}gradient-blue{% endif %}">
+                            <span class="text-white text-lg font-bold">{{ (item.title or '?')[0] }}</span>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-semibold leading-tight line-clamp-1">{{ item.title }}</p>
+                    <p class="text-[10px] uppercase tracking-wide text-txt-muted">{{ {'movie':'Movie','tv':'TV','book':'Book','podcast':'Podcast'}.get(item.media_type, item.media_type) }}{% if item.year %} · {{ item.year }}{% endif %}</p>
+                    <div class="mt-1.5 flex items-center gap-2">
+                        <div data-home-rate-slot data-entry-id="{{ item.id }}"></div>
+                    </div>
+                    <div class="flex gap-1.5 mt-1">
                         <button onclick="homeQuickStatus({{ item.id }}, 'abandoned', this)" class="text-[10px] px-2 py-0.5 rounded border border-border-light dark:border-border-dark text-txt-muted hover:bg-gray-100 dark:hover:bg-gray-800 transition-base">Didn't finish</button>
                         <button onclick="homeQuickStatus({{ item.id }}, 'want_to_consume', this)" class="text-[10px] px-2 py-0.5 rounded border border-border-light dark:border-border-dark text-txt-muted hover:bg-sage/10 transition-base">Later</button>
                     </div>
@@ -155,23 +143,20 @@
     {% endif %}
 
     <!-- ============================================================
-         Section 3: "Up next on your list" — the queue, sorted so the
-         items the model thinks you'll love most are first. Hidden
-         entirely if the queue is empty.
+         Section 3: Up next — queue sorted by predicted rating
          ============================================================ -->
     {% if up_next %}
     <div>
-        <div class="flex items-end justify-between mb-1">
-            <h2 class="text-xl font-bold flex items-center gap-2">
-                <span class="w-8 h-8 rounded-lg gradient-sage flex items-center justify-center">
-                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5l7 7-7 7"/></svg>
+        <div class="flex items-end justify-between mb-3">
+            <h2 class="text-lg font-bold flex items-center gap-2">
+                <span class="w-7 h-7 rounded-lg gradient-navy flex items-center justify-center">
+                    <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5l7 7-7 7"/></svg>
                 </span>
-                Up next on your list
+                Up next
             </h2>
-            <a href="/profile" class="text-sm text-sage hover:underline">See all &rarr;</a>
+            <a href="/profile" class="text-xs text-sage hover:underline">See all &rarr;</a>
         </div>
-        <p class="text-sm text-txt-muted mb-4">Your queue, with the highest-confidence picks first.</p>
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div class="grid grid-cols-3 md:grid-cols-6 gap-3">
             {% for item in up_next %}
             <a href="{% if item.external_id %}/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}{% else %}/profile{% endif %}"
                class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm card-hover transition-base block">
@@ -184,14 +169,13 @@
                         </div>
                     {% endif %}
                     {% if item.predicted_rating and item.predicted_rating >= 6 %}
-                    <div class="absolute top-2 right-2 px-2 py-0.5 {% if item.predicted_rating >= 8.5 %}bg-emerald-500{% elif item.predicted_rating >= 7.5 %}bg-emerald-400{% elif item.predicted_rating >= 6.5 %}bg-yellow-500{% else %}bg-amber-400{% endif %} rounded-full shadow">
-                        <span class="text-[10px] font-bold text-white">{{ "%.1f"|format(item.predicted_rating) }}</span>
+                    <div class="absolute top-1.5 right-1.5 px-1.5 py-0.5 {% if item.predicted_rating >= 8.5 %}bg-emerald-500{% elif item.predicted_rating >= 7.5 %}bg-emerald-400{% elif item.predicted_rating >= 6.5 %}bg-yellow-500{% else %}bg-amber-400{% endif %} rounded-full shadow">
+                        <span class="text-[9px] font-bold text-white">{{ "%.1f"|format(item.predicted_rating) }}</span>
                     </div>
                     {% endif %}
                 </div>
                 <div class="p-2">
-                    <p class="text-xs font-semibold leading-tight line-clamp-2">{{ item.title }}</p>
-                    {% if item.year %}<p class="text-[10px] text-txt-muted mt-0.5">{{ item.year }}</p>{% endif %}
+                    <p class="text-[11px] font-semibold leading-tight line-clamp-2">{{ item.title }}</p>
                 </div>
             </a>
             {% endfor %}
@@ -199,27 +183,39 @@
     </div>
     {% endif %}
 
+    <div class="section-divider"></div>
+
     <!-- ============================================================
-         Section 4: "Your best bet this week" — single hero card. The
-         media type rotates day-by-day so the user gets a fresh push
-         on each visit. The /api/media/best-bet/<type> response is
-         cached 7 days per (user, type) so the typical visit is a hit.
+         Section 4: Jump back in — context-aware navigation nudges
          ============================================================ -->
-    <div>
-        <h2 class="text-xl font-bold mb-1 flex items-center gap-2">
-            <span class="w-8 h-8 rounded-lg gradient-amber flex items-center justify-center">
-                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <a href="/discover" class="flex items-center gap-3 p-4 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl hover:border-sage/40 transition-base group">
+            <span class="w-10 h-10 rounded-lg gradient-sage flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16zM11 8v6M8 11h6"/></svg>
             </span>
-            Your best bet this week
-        </h2>
-        <p class="text-sm text-txt-muted mb-4">One pick we think you'll love — fresh each day, anchored to something you've recently rated highly.</p>
-        <div id="best-bet-hero" data-media-type="{{ best_bet_media_type }}" class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-2xl shadow-sm overflow-hidden">
-            <div class="text-center py-12">
-                <div class="inline-block w-5 h-5 border-2 border-amber-400/30 border-t-amber-500 rounded-full animate-spin"></div>
-                <p class="text-xs text-txt-muted mt-2">Picking the one for you...</p>
+            <div>
+                <p class="text-sm font-semibold group-hover:text-sage transition-base">Discover something new</p>
+                <p class="text-[11px] text-txt-muted">Best bets, moods, and AI recs</p>
             </div>
-        </div>
-        <p class="text-right mt-3"><a href="/discover" class="text-sm text-sage hover:underline">More picks in Discover &rarr;</a></p>
+        </a>
+        <a href="/taste" class="flex items-center gap-3 p-4 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl hover:border-sage/40 transition-base group">
+            <span class="w-10 h-10 rounded-lg gradient-coral flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+            </span>
+            <div>
+                <p class="text-sm font-semibold group-hover:text-sage transition-base">Your taste profile</p>
+                <p class="text-[11px] text-txt-muted">See what makes your taste tick</p>
+            </div>
+        </a>
+        <a href="/add" class="flex items-center gap-3 p-4 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl hover:border-sage/40 transition-base group">
+            <span class="w-10 h-10 rounded-lg gradient-navy flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            </span>
+            <div>
+                <p class="text-sm font-semibold group-hover:text-sage transition-base">Add to your library</p>
+                <p class="text-[11px] text-txt-muted">Bulk add, import, or search</p>
+            </div>
+        </a>
     </div>
 
     {% endif %}
@@ -229,9 +225,6 @@
 {% block scripts %}
 <script src="/static/js/card_actions.js"></script>
 <script>
-// Home is intentionally lean now — no chips, no best-bets grid, no themes
-// (those all live on /discover via discover_widgets.js). The only AI calls
-// here are loadRightNow (top of page) and loadBestBetHero (single hero card).
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = (text == null ? '' : text);
@@ -239,20 +232,12 @@ function escapeHtml(text) {
 }
 
 {% if total > 0 %}
-// -----------------------------------------------------------------
-// New-user welcome modal (kept from the previous design). Shown once
-// per browser for users with <5 items; dismissing sets a localStorage
-// flag so it never reappears.
-// -----------------------------------------------------------------
+// Welcome modal
 function dismissWelcome() {
     const modal = document.getElementById('welcome-modal');
-    if (modal) {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-    }
+    if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
     try { localStorage.setItem('nextup_welcomed', '1'); } catch {}
 }
-
 (function initWelcome() {
     const modal = document.getElementById('welcome-modal');
     if (!modal) return;
@@ -263,88 +248,7 @@ function dismissWelcome() {
     modal.classList.add('flex');
 })();
 
-// -----------------------------------------------------------------
-// Section 1: Right Now block. Fetches AI commentary + the user's
-// currently-consuming items, renders a chip per item, and toggles
-// the "resonating right now" signal when a chip is tapped.
-// -----------------------------------------------------------------
-async function loadRightNow() {
-    const commentaryEl = document.getElementById('right-now-commentary');
-    const wrap = document.getElementById('right-now-items');
-    const chipsEl = document.getElementById('right-now-chips');
-    try {
-        const resp = await fetch('/api/media/home/right-now');
-        if (!resp.ok) return;
-        const data = await resp.json();
-        if (data.commentary) {
-            commentaryEl.textContent = data.commentary;
-        }
-        const items = data.items || [];
-        if (items.length === 0) {
-            wrap.classList.add('hidden');
-            return;
-        }
-        chipsEl.innerHTML = items.map(renderResonanceChip).join('');
-        wrap.classList.remove('hidden');
-    } catch {}
-}
-
-function renderResonanceChip(item) {
-    const fit = item.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
-    const poster = item.image_url
-        ? `<img src="${item.image_url}" alt="" class="w-8 h-10 object-cover rounded ${item.media_type === 'podcast' ? 'object-contain' : ''}">`
-        : `<span class="w-8 h-10 flex items-center justify-center rounded bg-white/15 text-white text-xs font-bold">${escapeHtml((item.title || '?')[0])}</span>`;
-    const check = item.is_resonating
-        ? '<svg class="w-3.5 h-3.5 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>'
-        : '';
-    return `
-        <button type="button" onclick="toggleResonance(this, ${item.id})"
-                data-resonating="${item.is_resonating ? 'true' : 'false'}"
-                data-entry-id="${item.id}"
-                class="resonance-chip flex items-center gap-2 pl-1 pr-3 py-1 border border-white/25 rounded-full text-xs text-white/85 hover:bg-white/10">
-            ${poster}
-            <span class="truncate max-w-[11rem]">${escapeHtml(item.title)}</span>
-            ${check}
-        </button>`;
-}
-
-async function toggleResonance(btn, entryId) {
-    btn.disabled = true;
-    try {
-        const resp = await fetch('/api/media/home/resonance', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ entry_id: entryId }),
-        });
-        if (!resp.ok) { btn.disabled = false; return; }
-        const data = await resp.json();
-        btn.dataset.resonating = data.resonating ? 'true' : 'false';
-        // Re-render just this chip so the checkmark flips
-        const item = {
-            id: entryId,
-            title: btn.querySelector('span').textContent,
-            media_type: 'movie',   // cosmetic only — we only use poster styling
-            image_url: null,
-            is_resonating: data.resonating,
-        };
-        // Rather than rebuild the chip we just flip the checkmark node.
-        const existingCheck = btn.querySelector('svg');
-        if (data.resonating && !existingCheck) {
-            btn.insertAdjacentHTML('beforeend', '<svg class="w-3.5 h-3.5 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>');
-        } else if (!data.resonating && existingCheck) {
-            existingCheck.remove();
-        }
-    } catch {}
-    btn.disabled = false;
-}
-
-// -----------------------------------------------------------------
-// "Just finished something?" — wire showRatingDots into each
-// data-home-rate-slot. The actual rate handler lives in
-// card_actions.js (rateItem), which already PUTs the rating to
-// /api/profile/<id> and fades the card. We just have to populate
-// the slots on page load.
-// -----------------------------------------------------------------
+// Wire rating dots
 function wireRatingSlots() {
     document.querySelectorAll('[data-home-rate-slot]').forEach(slot => {
         const entryId = parseInt(slot.dataset.entryId, 10);
@@ -353,7 +257,7 @@ function wireRatingSlots() {
     });
 }
 
-// "Didn't finish" / "Later" quick-status buttons on unrated cards
+// Quick status buttons
 async function homeQuickStatus(entryId, newStatus, btn) {
     if (!entryId) return;
     btn.disabled = true;
@@ -364,7 +268,6 @@ async function homeQuickStatus(entryId, newStatus, btn) {
             body: JSON.stringify({ status: newStatus }),
         });
         if (!resp.ok) { btn.disabled = false; return; }
-        // Fade out the card
         const card = btn.closest('[data-rec-card]');
         if (card) {
             card.style.transition = 'opacity 0.3s, transform 0.3s';
@@ -375,78 +278,7 @@ async function homeQuickStatus(entryId, newStatus, btn) {
     } catch { btn.disabled = false; }
 }
 
-// -----------------------------------------------------------------
-// "Your best bet this week" — single hero card, anchored to a
-// recent 9+/10 rating. The media type is rotated server-side via
-// data-media-type. Renders into #best-bet-hero.
-// -----------------------------------------------------------------
-const TYPE_LABEL = { movie: 'Movie', tv: 'TV', book: 'Book', podcast: 'Podcast' };
-const TYPE_ACCENT = { movie: 'gradient-blue', tv: 'gradient-purple', book: 'gradient-amber', podcast: 'bg-green-500' };
-
-async function loadBestBetHero() {
-    const slot = document.getElementById('best-bet-hero');
-    if (!slot) return;
-    const mediaType = slot.dataset.mediaType || 'movie';
-    try {
-        const resp = await fetch(`/api/media/best-bet/${mediaType}`);
-        if (!resp.ok) {
-            slot.innerHTML = `<div class="text-center py-8 text-sm text-txt-muted">Couldn't load this week's pick.</div>`;
-            return;
-        }
-        const data = await resp.json();
-        if (!data || !data.pick) {
-            slot.innerHTML = `<div class="text-center py-8 text-sm text-txt-muted">${escapeHtml(data && data.message ? data.message : 'Rate a few things you loved to unlock your best bet.')}</div>`;
-            return;
-        }
-        slot.innerHTML = renderHeroCard(mediaType, data.pick, data.anchor);
-    } catch {
-        slot.innerHTML = `<div class="text-center py-8 text-sm text-txt-muted">Couldn't load this week's pick.</div>`;
-    }
-}
-
-function renderHeroCard(mediaType, pick, anchor) {
-    const accent = TYPE_ACCENT[pick.media_type || mediaType] || TYPE_ACCENT.movie;
-    const fit = (pick.media_type || mediaType) === 'podcast' ? 'poster-contain' : 'poster-cover';
-    const imageInner = pick.image_url
-        ? `<img src="${pick.image_url}" alt="" class="${fit}">`
-        : `<div class="poster-fallback ${accent}"><span class="text-white text-4xl font-bold">${escapeHtml((pick.title || '?')[0])}</span></div>`;
-    const link = pick.external_id ? `/media/${pick.media_type || mediaType}/${pick.external_id}?source=${pick.source}` : '#';
-    const itemForCard = {
-        external_id: pick.external_id || '',
-        source: pick.source || '',
-        title: pick.title,
-        media_type: pick.media_type || mediaType,
-        image_url: pick.image_url || null,
-        year: pick.year || null,
-        creator: pick.creator || null,
-        genres: Array.isArray(pick.genres) ? pick.genres.join(', ') : (pick.genres || null),
-        description: pick.description || null,
-    };
-    const actions = typeof buildActionBar === 'function' ? buildActionBar(itemForCard, 'md') : '';
-    const anchorLine = anchor && anchor.title
-        ? `<p class="text-xs text-txt-muted uppercase tracking-wide">Because you loved <span class="text-sage normal-case font-semibold">${escapeHtml(anchor.title)}</span></p>`
-        : `<p class="text-xs text-txt-muted uppercase tracking-wide">${escapeHtml(TYPE_LABEL[pick.media_type || mediaType] || 'Pick')} of the day</p>`;
-    return `
-        <div class="flex flex-col md:flex-row" data-rec-card>
-            <a href="${link}" class="md:w-48 md:flex-shrink-0">
-                <div class="poster-frame relative">${imageInner}</div>
-            </a>
-            <div class="p-5 md:p-6 flex-1 flex flex-col">
-                ${anchorLine}
-                <a href="${link}" class="text-xl md:text-2xl font-bold mt-1 mb-1 hover:text-sage transition-base block">${escapeHtml(pick.title)}</a>
-                ${pick.year ? `<p class="text-xs text-txt-muted mb-3">${pick.year}</p>` : ''}
-                ${pick.reason ? `<p class="text-sm text-txt dark:text-txt-light leading-relaxed mb-4">${escapeHtml(pick.reason)}</p>` : ''}
-                <div class="mt-auto quick-add-area">${actions}</div>
-            </div>
-        </div>`;
-}
-
-// Kick off the dynamic sections. The Just Finished and Up Next data
-// is server-rendered, so we only need JS for Right Now + the hero card
-// + wiring the rating dots into the static markup.
 wireRatingSlots();
-loadRightNow();
-loadBestBetHero();
 {% endif %}
 </script>
 {% endblock %}
