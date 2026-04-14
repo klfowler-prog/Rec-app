@@ -209,6 +209,46 @@ SHOWS: list[dict] = [
      "weights": {"genre": 2, "darkness": 1, "irony": 1, "serialization": 1},
      "generation": ["gen_z"],
      "scenes": ["gaming_culture", "scifi_fantasy", "action_thriller"]},
+    # Action + thrillers (Phase D3b) — husband's primary TV scene.
+    # The existing pool had Breaking Bad, The Sopranos, The Wire,
+    # and Squid Game but was thin on contemporary thriller series.
+    {"order": 39, "title": "Reacher",                    "tmdb_year": 2022, "years": "2022–",
+     "weights": {"genre": 1, "darkness": 1},
+     "generation": ["gen_z"],
+     "scenes": ["action_thriller"]},
+    {"order": 40, "title": "Slow Horses",                "tmdb_year": 2022, "years": "2022–",
+     "weights": {"genre": 1, "darkness": 1, "moral_ambiguity": 1, "serialization": 1},
+     "generation": ["gen_z"],
+     "scenes": ["action_thriller", "prestige_drama"]},
+    {"order": 41, "title": "Jack Ryan",                  "tmdb_year": 2018, "years": "2018–2023",
+     "weights": {"genre": 1, "serialization": 1},
+     "generation": ["millennial", "gen_z"],
+     "scenes": ["action_thriller"]},
+    {"order": 42, "title": "The Boys",                   "tmdb_year": 2019, "years": "2019–",
+     "weights": {"genre": 2, "darkness": 2, "moral_ambiguity": 2, "irony": 2},
+     "generation": ["gen_z"],
+     "scenes": ["action_thriller", "scifi_fantasy", "comedy"]},
+    # Comedies (Phase D3b) — workplace + absurdist + ensemble.
+    # The existing pool had The Office, Schitt's Creek, Abbott
+    # Elementary, Seinfeld, and Brooklyn Nine-Nine but was missing
+    # the key absurdist + horror-comedy + Parks-and-Rec-style
+    # ensemble anchors.
+    {"order": 43, "title": "Parks and Recreation",       "tmdb_year": 2009, "years": "2009–2015",
+     "weights": {"comedy": 1, "emotional": 2, "irony": -1, "darkness": -2},
+     "generation": ["millennial", "gen_z", "universal"],
+     "scenes": ["comedy"]},
+    {"order": 44, "title": "What We Do in the Shadows",  "tmdb_year": 2019, "years": "2019–2024",
+     "weights": {"comedy": 2, "irony": 2, "genre": 1},
+     "generation": ["gen_z"],
+     "scenes": ["comedy", "horror"]},
+    {"order": 45, "title": "It's Always Sunny in Philadelphia", "tmdb_year": 2005, "years": "2005–",
+     "weights": {"comedy": 2, "irony": 2, "moral_ambiguity": 2, "darkness": 1, "emotional": -2},
+     "generation": ["millennial", "gen_z", "universal"],
+     "scenes": ["comedy"]},
+    {"order": 46, "title": "30 Rock",                    "tmdb_year": 2006, "years": "2006–2013",
+     "weights": {"comedy": 2, "irony": 2, "emotional": 1},
+     "generation": ["millennial"],
+     "scenes": ["comedy"]},
 ]
 
 

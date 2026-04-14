@@ -209,6 +209,63 @@ FILMS: list[dict] = [
      "weights": {"genre": 1, "emotional": 1, "comedy": 1, "darkness": -1},
      "generation": ["gen_z", "millennial"],
      "scenes": ["gaming_culture", "kids_family", "action_thriller"]},
+    # Action / thrillers (Phase D3b) — mainstream genre cinema, the
+    # husband's primary scene. The existing pool had some strong
+    # action anchors (Dark Knight, John Wick, Mad Max, Parasite)
+    # but lacked the spy thriller + buddy-cop + old-school action
+    # canon a genre fan would actually recognize.
+    {"order": 37, "title": "Mission: Impossible - Fallout",           "year": 2018,
+     "weights": {"genre": 1, "pace": -1, "darkness": 0},
+     "generation": ["millennial", "gen_z", "universal"],
+     "scenes": ["action_thriller"]},
+    {"order": 38, "title": "Heat",                                    "year": 1995,
+     "weights": {"genre": 1, "darkness": 1, "moral_ambiguity": 1, "emotional": 1, "pace": 1},
+     "generation": ["classic", "millennial", "universal"],
+     "scenes": ["action_thriller", "prestige_drama"]},
+    {"order": 39, "title": "Die Hard",                                "year": 1988,
+     "weights": {"genre": 1, "pace": -1, "irony": 1},
+     "generation": ["classic", "universal"],
+     "scenes": ["action_thriller"]},
+    {"order": 40, "title": "Lethal Weapon",                           "year": 1987,
+     "weights": {"genre": 1, "comedy": 1, "pace": -1, "emotional": 1},
+     "generation": ["classic"],
+     "scenes": ["action_thriller", "comedy"]},
+    {"order": 41, "title": "Top Gun: Maverick",                       "year": 2022,
+     "weights": {"genre": 1, "emotional": 1, "pace": -1, "darkness": -1},
+     "generation": ["gen_z", "universal"],
+     "scenes": ["action_thriller"]},
+    {"order": 42, "title": "Casino Royale",                           "year": 2006,
+     "weights": {"genre": 1, "darkness": 1, "moral_ambiguity": 1, "pace": 0},
+     "generation": ["millennial", "universal"],
+     "scenes": ["action_thriller"]},
+    # Comedies (Phase D3b) — mainstream + buddy + smart comedy.
+    # The existing pool had Annie Hall, Airplane!, Big Lebowski,
+    # and Groundhog Day but needed buddy-comedy / romcom / gross-out
+    # anchors the husband's scene actually cares about.
+    {"order": 43, "title": "Hot Fuzz",                                "year": 2007,
+     "weights": {"comedy": 2, "irony": 2, "genre": 1},
+     "generation": ["millennial"],
+     "scenes": ["comedy", "action_thriller"]},
+    {"order": 44, "title": "21 Jump Street",                          "year": 2012,
+     "weights": {"comedy": 2, "irony": 1, "genre": 1},
+     "generation": ["millennial", "gen_z"],
+     "scenes": ["comedy", "action_thriller"]},
+    {"order": 45, "title": "Superbad",                                "year": 2007,
+     "weights": {"comedy": 2, "emotional": 1, "irony": 1},
+     "generation": ["millennial", "gen_z"],
+     "scenes": ["comedy"]},
+    {"order": 46, "title": "Tropic Thunder",                          "year": 2008,
+     "weights": {"comedy": 2, "irony": 2, "genre": 1},
+     "generation": ["millennial"],
+     "scenes": ["comedy", "action_thriller"]},
+    {"order": 47, "title": "Knives Out",                              "year": 2019,
+     "weights": {"comedy": 1, "irony": 1, "genre": 1, "ambiguity": 1},
+     "generation": ["gen_z", "millennial", "universal"],
+     "scenes": ["comedy", "action_thriller", "true_crime"]},
+    {"order": 48, "title": "Bridesmaids",                             "year": 2011,
+     "weights": {"comedy": 2, "emotional": 1, "irony": 1},
+     "generation": ["millennial", "gen_z", "universal"],
+     "scenes": ["comedy", "romance"]},
 ]
 
 
