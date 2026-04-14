@@ -6,32 +6,55 @@
     .section-divider { height: 2px; background: linear-gradient(to right, transparent, rgba(139,158,107,0.3), transparent); }
     .swim-lane { overflow-x: auto; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
     .swim-lane::-webkit-scrollbar { display: none; }
-    /* In-progress cards — poster-forward with a dark overlay for text */
+
+    /* Hero — greeting + AI insight merged into one cinematic block */
+    .home-hero {
+        background: linear-gradient(135deg, #2B3A4E 0%, #1E2A3A 100%);
+        border-radius: 1.5rem; padding: 2rem; position: relative; overflow: hidden; color: white;
+    }
+    .home-hero::before {
+        content: ""; position: absolute; top: -4rem; right: -3rem;
+        width: 14rem; height: 14rem; border-radius: 50%;
+        background: radial-gradient(circle, rgba(139,158,107,0.3) 0%, transparent 70%);
+    }
+    .home-hero::after {
+        content: ""; position: absolute; bottom: -5rem; left: 15%;
+        width: 10rem; height: 10rem; border-radius: 50%;
+        background: radial-gradient(circle, rgba(232,115,74,0.2) 0%, transparent 70%);
+    }
+    .home-hero > * { position: relative; z-index: 1; }
+
+    /* In-progress — tall poster cards */
     .progress-card {
         position: relative; border-radius: 1rem; overflow: hidden;
-        min-height: 8rem; display: flex; align-items: flex-end;
+        min-height: 12rem; display: flex; align-items: flex-end;
         transition: transform 0.2s, box-shadow 0.2s;
     }
-    .progress-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
-    .dark .progress-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.35); }
-    .progress-card .progress-bg {
-        position: absolute; inset: 0; background-size: cover; background-position: center;
-    }
+    .progress-card:hover { transform: translateY(-3px); box-shadow: 0 12px 30px rgba(0,0,0,0.15); }
+    .dark .progress-card:hover { box-shadow: 0 12px 30px rgba(0,0,0,0.4); }
+    .progress-card .progress-bg { position: absolute; inset: 0; background-size: cover; background-position: center top; }
     .progress-card .progress-overlay {
         position: absolute; inset: 0;
-        background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.2) 60%, rgba(0,0,0,0.05) 100%);
+        background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.05) 100%);
     }
-    .progress-card .progress-label {
-        position: relative; z-index: 1; padding: 1rem; color: white; width: 100%;
-    }
-    /* Rate section — warm sage tint */
-    .rate-card {
-        background: linear-gradient(135deg, rgba(139,158,107,0.08) 0%, rgba(139,158,107,0.02) 100%);
+    .progress-card .progress-label { position: relative; z-index: 1; padding: 1.25rem; color: white; width: 100%; }
+
+    /* Best bet hero — cinematic poster + text */
+    .best-bet-hero {
+        background: linear-gradient(135deg, #EFEAE0 0%, #FAF5EC 100%);
+        border-radius: 1.25rem; overflow: hidden;
         border: 1px solid rgba(139,158,107,0.2);
     }
-    .dark .rate-card {
-        background: linear-gradient(135deg, rgba(139,158,107,0.12) 0%, rgba(139,158,107,0.04) 100%);
-        border-color: rgba(139,158,107,0.25);
+    .dark .best-bet-hero {
+        background: linear-gradient(135deg, #252830 0%, #1A1D23 100%);
+        border-color: rgba(139,158,107,0.15);
+    }
+
+    /* Rate section — playful, not clinical */
+    .rate-section {
+        background: linear-gradient(135deg, rgba(232,115,74,0.06) 0%, rgba(139,158,107,0.06) 100%);
+        border: 1px solid rgba(139,158,107,0.15);
+        border-radius: 1.25rem;
     }
 </style>
 {% endblock %}
@@ -40,79 +63,58 @@
 <div class="space-y-8">
 
     {% if is_new_user %}
-    <!-- New-user welcome modal -->
     <div id="welcome-modal" class="fixed inset-0 bg-black/60 z-50 hidden items-center justify-center p-4" onclick="if(event.target===this)dismissWelcome()">
         <div class="bg-surface-light dark:bg-surface-dark rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-border-light dark:border-border-dark">
             <div class="rounded-t-2xl p-6 text-white relative" style="background: linear-gradient(135deg, #2B3A4E 0%, #1E2A3A 100%);">
-                <button onclick="dismissWelcome()" class="absolute top-4 right-4 text-white/60 hover:text-white transition-base" aria-label="Close">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
+                <button onclick="dismissWelcome()" class="absolute top-4 right-4 text-white/60 hover:text-white transition-base"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
                 <p class="text-[11px] text-white/60 uppercase tracking-widest mb-2 font-semibold">Welcome to NextUp</p>
                 <h2 class="text-2xl font-bold mb-2">Build your taste profile</h2>
-                <p class="text-sm text-white/85 leading-relaxed">Three quick questions and a short quiz on each medium. NextUp learns how you engage with stories, then recommends across movies, TV, books, and podcasts.</p>
+                <p class="text-sm text-white/85 leading-relaxed">Three quick questions and a short quiz. We'll learn how you engage with stories, then recommend across movies, TV, books, and podcasts.</p>
             </div>
             <div class="p-6 space-y-3">
                 <a href="/onboarding" class="flex items-center gap-3 px-5 py-4 bg-sage text-white rounded-xl hover:bg-sage-dark transition-base group shadow-sm">
-                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-sm font-semibold">Start the wizard</p>
-                        <p class="text-[11px] text-white/80">~2 minutes, then a short quiz on each medium</p>
-                    </div>
-                    <svg class="w-4 h-4 flex-shrink-0 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    <div class="flex-1"><p class="text-sm font-semibold">Start the wizard</p><p class="text-[11px] text-white/80">~2 minutes</p></div>
+                    <svg class="w-4 h-4 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                 </a>
-                <div class="text-center pt-2">
-                    <button onclick="dismissWelcome()" class="text-xs text-txt-muted hover:text-txt transition-base">Skip for now</button>
-                </div>
+                <div class="text-center pt-2"><button onclick="dismissWelcome()" class="text-xs text-txt-muted hover:text-txt transition-base">Skip for now</button></div>
             </div>
         </div>
     </div>
     {% endif %}
 
-    <!-- Greeting — light, warm, not a hero block -->
-    <div>
-        <h1 class="text-2xl font-bold">{{ greeting }}</h1>
-        <p class="text-txt-muted text-sm">{{ suggestion }}</p>
-    </div>
-
     {% if total == 0 %}
-    <!-- Empty state -->
-    <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-8 text-center">
-        <div class="w-16 h-16 bg-sage/10 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg class="w-8 h-8 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-        </div>
-        <h3 class="text-lg font-semibold mb-2">Build your taste profile</h3>
-        <p class="text-txt-muted mb-6 max-w-md mx-auto">Take a quick quiz or add some titles to get started.</p>
+    <div class="home-hero text-center py-12">
+        <h1 class="text-3xl font-bold mb-3">Welcome to NextUp</h1>
+        <p class="text-white/80 mb-6 max-w-md mx-auto">Take a quick quiz or add some titles — we'll learn your taste and start recommending.</p>
         <div class="flex gap-3 justify-center">
-            <a href="/onboarding" class="inline-flex items-center gap-2 px-5 py-2.5 bg-sage text-white rounded-lg text-sm font-medium transition-base hover:bg-sage-dark">Start the wizard</a>
-            <a href="/add" class="inline-flex items-center gap-2 px-5 py-2.5 border border-border-light dark:border-border-dark rounded-lg text-sm text-txt-muted hover:text-txt transition-base">Add items</a>
+            <a href="/onboarding" class="px-5 py-2.5 bg-sage text-white rounded-lg text-sm font-medium hover:bg-sage-dark transition-base">Start the wizard</a>
+            <a href="/add" class="px-5 py-2.5 bg-white/10 text-white rounded-lg text-sm hover:bg-white/20 transition-base">Add items</a>
         </div>
     </div>
     {% else %}
 
     <!-- ============================================================
-         Right Now: AI commentary on what your current items say about
-         you + resonance chips to flag what's hitting hardest.
+         Hero: greeting + AI insight + resonance chips
          ============================================================ -->
-    <div class="gradient-navy rounded-2xl p-5 text-white relative overflow-hidden">
-        <div class="relative z-10">
-            <p id="right-now-commentary" class="text-sm text-white/80 leading-relaxed min-h-[1.25rem]">Thinking about what you're into right now...</p>
-            <div id="right-now-items" class="hidden mt-3 pt-3 border-t border-white/15">
-                <p class="text-[11px] text-white/55 uppercase tracking-wide mb-2">Tap what's hitting hardest — we'll lean your recs that way.</p>
-                <div id="right-now-chips" class="flex flex-wrap gap-2"></div>
-            </div>
+    <div class="home-hero">
+        <h1 class="text-2xl md:text-3xl font-bold mb-1">{{ greeting }}</h1>
+        <p id="right-now-commentary" class="text-sm md:text-base text-white/75 leading-relaxed max-w-2xl">{{ suggestion }}</p>
+        <div id="right-now-items" class="hidden mt-4 pt-4 border-t border-white/15">
+            <p class="text-[11px] text-white/50 uppercase tracking-wide mb-2">Tap what's hitting hardest — we'll lean your recs that way</p>
+            <div id="right-now-chips" class="flex flex-wrap gap-2"></div>
         </div>
     </div>
 
     <!-- ============================================================
-         Section 1: Currently engaging — poster-backed visual cards
+         In progress — tall cinematic poster cards
          ============================================================ -->
     {% if currently %}
     <div>
-        <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold mb-3">In progress</p>
+        <p class="text-[11px] text-coral uppercase tracking-[0.18em] font-bold mb-3">Currently into</p>
         <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
             {% for item in currently %}
-            <a href="{% if item.external_id %}/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}{% else %}/profile{% endif %}"
-               class="progress-card">
+            <a href="{% if item.external_id %}/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}{% else %}/profile{% endif %}" class="progress-card">
                 {% if item.image_url %}
                 <div class="progress-bg" style="background-image: url('{{ item.image_url }}')"></div>
                 {% else %}
@@ -120,8 +122,8 @@
                 {% endif %}
                 <div class="progress-overlay"></div>
                 <div class="progress-label">
-                    <p class="text-[10px] uppercase tracking-wide opacity-70 mb-0.5">{{ {'movie':'Movie','tv':'TV','book':'Book','podcast':'Podcast'}.get(item.media_type, item.media_type) }}{% if item.year %} · {{ item.year }}{% endif %}</p>
-                    <p class="text-sm font-bold leading-tight line-clamp-2">{{ item.title }}</p>
+                    <p class="text-[10px] uppercase tracking-wide opacity-60 mb-0.5">{{ {'movie':'Movie','tv':'TV Show','book':'Book','podcast':'Podcast'}.get(item.media_type, item.media_type) }}</p>
+                    <p class="text-base font-bold leading-tight line-clamp-2">{{ item.title }}</p>
                 </div>
             </a>
             {% endfor %}
@@ -130,40 +132,42 @@
     {% endif %}
 
     <!-- ============================================================
-         Section 2: Sharpen your recs — rate a small batch (4 items)
+         Your best bet — one big visual pick, loaded async
+         ============================================================ -->
+    <div id="best-bet-section" class="hidden">
+        <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold mb-3">We think you'll love this</p>
+        <div id="best-bet-card" class="best-bet-hero"></div>
+    </div>
+
+    <!-- ============================================================
+         Quick rate — 4 random unrated items, feels like a mini-game
          ============================================================ -->
     {% if unrated_batch %}
-    <div id="rate-section" class="rate-card rounded-2xl p-5">
+    <div id="rate-section" class="rate-section p-5">
         <div class="flex items-start justify-between mb-4">
             <div>
-                <h2 class="text-lg font-bold flex items-center gap-2">
-                    <span class="w-7 h-7 rounded-lg gradient-sage flex items-center justify-center">
-                        <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                    </span>
-                    Sharpen your recs
-                </h2>
-                <p class="text-xs text-txt-muted mt-0.5">Rate a few and we'll learn your taste faster. {% if unrated_total > 4 %}<span class="text-sage">{{ unrated_total - 4 }} more after these.</span>{% endif %}</p>
+                <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold mb-1">Quick ratings</p>
+                <p class="text-sm text-txt dark:text-txt-light font-semibold">How'd you feel about these?</p>
+                <p class="text-xs text-txt-muted mt-0.5">{% if unrated_total > 4 %}{{ unrated_total }} unrated — here are 4 to start.{% else %}Rate these to sharpen your recommendations.{% endif %}</p>
             </div>
-            <button onclick="document.getElementById('rate-section').style.display='none'" class="text-txt-muted hover:text-txt text-xs px-2 py-1 rounded hover:bg-bg-light dark:hover:bg-bg-dark transition-base">Skip</button>
+            <button onclick="document.getElementById('rate-section').style.display='none'" class="text-txt-muted hover:text-txt text-xs px-2 py-1 rounded hover:bg-white/50 dark:hover:bg-white/10 transition-base">Skip</button>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             {% for item in unrated_batch %}
-            <div class="flex items-center gap-3 p-3 rounded-xl bg-bg-light dark:bg-bg-dark border border-border-light/50 dark:border-border-dark/50" data-rec-card>
-                <a href="{% if item.external_id %}/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}{% else %}/profile{% endif %}" class="w-12 h-16 flex-shrink-0 rounded overflow-hidden block hover:opacity-80 transition-base">
+            <div class="flex items-center gap-3 p-3 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light/50 dark:border-border-dark/50 shadow-sm" data-rec-card>
+                <a href="{% if item.external_id %}/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}{% else %}/profile{% endif %}" class="w-14 h-20 flex-shrink-0 rounded-lg overflow-hidden block hover:opacity-80 transition-base shadow-sm">
                     {% if item.image_url %}
                         <img src="{{ item.image_url }}" alt="" class="w-full h-full {% if item.media_type == 'podcast' %}object-contain{% else %}object-cover{% endif %}">
                     {% else %}
                         <div class="w-full h-full flex items-center justify-center {% if item.media_type == 'tv' %}gradient-purple{% elif item.media_type == 'book' %}gradient-amber{% elif item.media_type == 'podcast' %}bg-green-500{% else %}gradient-blue{% endif %}">
-                            <span class="text-white text-lg font-bold">{{ (item.title or '?')[0] }}</span>
+                            <span class="text-white text-xl font-bold">{{ (item.title or '?')[0] }}</span>
                         </div>
                     {% endif %}
                 </a>
                 <div class="flex-1 min-w-0">
                     <a href="{% if item.external_id %}/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}{% else %}/profile{% endif %}" class="text-sm font-semibold leading-tight line-clamp-1 hover:text-sage transition-base block">{{ item.title }}</a>
                     <p class="text-[10px] uppercase tracking-wide text-txt-muted">{{ {'movie':'Movie','tv':'TV','book':'Book','podcast':'Podcast'}.get(item.media_type, item.media_type) }}{% if item.year %} · {{ item.year }}{% endif %}</p>
-                    <div class="mt-1.5 flex items-center gap-2">
-                        <div data-home-rate-slot data-entry-id="{{ item.id }}"></div>
-                    </div>
+                    <div class="mt-1.5" data-home-rate-slot data-entry-id="{{ item.id }}"></div>
                     <div class="flex gap-1.5 mt-1">
                         <button onclick="homeQuickStatus({{ item.id }}, 'abandoned', this)" class="text-[10px] px-2 py-0.5 rounded border border-border-light dark:border-border-dark text-txt-muted hover:bg-gray-100 dark:hover:bg-gray-800 transition-base">Didn't finish</button>
                         <button onclick="homeQuickStatus({{ item.id }}, 'want_to_consume', this)" class="text-[10px] px-2 py-0.5 rounded border border-border-light dark:border-border-dark text-txt-muted hover:bg-sage/10 transition-base">Later</button>
@@ -176,17 +180,12 @@
     {% endif %}
 
     <!-- ============================================================
-         Section 3: Up next — queue sorted by predicted rating
+         Up next — queue with poster grid
          ============================================================ -->
     {% if up_next %}
     <div>
         <div class="flex items-end justify-between mb-3">
-            <h2 class="text-lg font-bold flex items-center gap-2">
-                <span class="w-7 h-7 rounded-lg gradient-navy flex items-center justify-center">
-                    <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5l7 7-7 7"/></svg>
-                </span>
-                Up next
-            </h2>
+            <p class="text-[11px] text-navy dark:text-txt-light uppercase tracking-[0.18em] font-bold">Up next</p>
             <a href="/profile" class="text-xs text-sage hover:underline">See all &rarr;</a>
         </div>
         <div class="grid grid-cols-3 md:grid-cols-6 gap-3">
@@ -218,27 +217,22 @@
 
     <div class="section-divider"></div>
 
-    <!-- ============================================================
-         Section 4: Jump back in — bold, colorful navigation cards
-         ============================================================ -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <a href="/discover" class="relative overflow-hidden rounded-xl p-5 text-white group transition-all hover:scale-[1.02] hover:shadow-lg" style="background: linear-gradient(135deg, #8B9E6B 0%, #5A7040 100%);">
-            <div class="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -translate-y-8 translate-x-8"></div>
-            <svg class="w-6 h-6 mb-2 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16zM11 8v6M8 11h6"/></svg>
-            <p class="text-sm font-bold">Discover</p>
-            <p class="text-[11px] text-white/75">Best bets, moods, AI recs</p>
+    <!-- Navigation cards — compact row -->
+    <div class="grid grid-cols-3 gap-3">
+        <a href="/discover" class="relative overflow-hidden rounded-xl p-4 text-white transition-all hover:scale-[1.02] hover:shadow-lg" style="background: linear-gradient(135deg, #8B9E6B 0%, #5A7040 100%);">
+            <div class="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full -translate-y-6 translate-x-6"></div>
+            <svg class="w-5 h-5 mb-1.5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16zM11 8v6M8 11h6"/></svg>
+            <p class="text-xs font-bold">Discover</p>
         </a>
-        <a href="/taste" class="relative overflow-hidden rounded-xl p-5 text-white group transition-all hover:scale-[1.02] hover:shadow-lg" style="background: linear-gradient(135deg, #E8734A 0%, #C55A34 100%);">
-            <div class="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -translate-y-8 translate-x-8"></div>
-            <svg class="w-6 h-6 mb-2 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-            <p class="text-sm font-bold">My Taste</p>
-            <p class="text-[11px] text-white/75">See what makes you tick</p>
+        <a href="/taste" class="relative overflow-hidden rounded-xl p-4 text-white transition-all hover:scale-[1.02] hover:shadow-lg" style="background: linear-gradient(135deg, #E8734A 0%, #C55A34 100%);">
+            <div class="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full -translate-y-6 translate-x-6"></div>
+            <svg class="w-5 h-5 mb-1.5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+            <p class="text-xs font-bold">My Taste</p>
         </a>
-        <a href="/add" class="relative overflow-hidden rounded-xl p-5 text-white group transition-all hover:scale-[1.02] hover:shadow-lg" style="background: linear-gradient(135deg, #2B3A4E 0%, #1E2A3A 100%);">
-            <div class="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -translate-y-8 translate-x-8"></div>
-            <svg class="w-6 h-6 mb-2 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-            <p class="text-sm font-bold">Add</p>
-            <p class="text-[11px] text-white/75">Bulk add, import, or search</p>
+        <a href="/add" class="relative overflow-hidden rounded-xl p-4 text-white transition-all hover:scale-[1.02] hover:shadow-lg" style="background: linear-gradient(135deg, #2B3A4E 0%, #1E2A3A 100%);">
+            <div class="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full -translate-y-6 translate-x-6"></div>
+            <svg class="w-5 h-5 mb-1.5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            <p class="text-xs font-bold">Add</p>
         </a>
     </div>
 
@@ -256,7 +250,6 @@ function escapeHtml(text) {
 }
 
 {% if total > 0 %}
-// Welcome modal
 function dismissWelcome() {
     const modal = document.getElementById('welcome-modal');
     if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
@@ -265,14 +258,11 @@ function dismissWelcome() {
 (function initWelcome() {
     const modal = document.getElementById('welcome-modal');
     if (!modal) return;
-    let welcomed = false;
-    try { welcomed = localStorage.getItem('nextup_welcomed') === '1'; } catch {}
-    if (welcomed) return;
+    try { if (localStorage.getItem('nextup_welcomed') === '1') return; } catch {}
     modal.classList.remove('hidden');
     modal.classList.add('flex');
 })();
 
-// Wire rating dots
 function wireRatingSlots() {
     document.querySelectorAll('[data-home-rate-slot]').forEach(slot => {
         const entryId = parseInt(slot.dataset.entryId, 10);
@@ -281,7 +271,6 @@ function wireRatingSlots() {
     });
 }
 
-// Quick status buttons
 async function homeQuickStatus(entryId, newStatus, btn) {
     if (!entryId) return;
     btn.disabled = true;
@@ -302,67 +291,91 @@ async function homeQuickStatus(entryId, newStatus, btn) {
     } catch { btn.disabled = false; }
 }
 
-// Right Now — AI commentary + resonance chips
+// Right Now — AI insight + resonance chips
 async function loadRightNow() {
-    const commentaryEl = document.getElementById('right-now-commentary');
+    const el = document.getElementById('right-now-commentary');
     const wrap = document.getElementById('right-now-items');
-    const chipsEl = document.getElementById('right-now-chips');
-    if (!commentaryEl) return;
+    const chips = document.getElementById('right-now-chips');
+    if (!el) return;
     try {
         const resp = await fetch('/api/media/home/right-now');
         if (!resp.ok) return;
         const data = await resp.json();
-        if (data.commentary) commentaryEl.textContent = data.commentary;
+        if (data.commentary) el.textContent = data.commentary;
         const items = data.items || [];
-        if (items.length === 0) { wrap.classList.add('hidden'); return; }
-        chipsEl.innerHTML = items.map(renderResonanceChip).join('');
+        if (!items.length) { wrap.classList.add('hidden'); return; }
+        chips.innerHTML = items.map(renderChip).join('');
         wrap.classList.remove('hidden');
     } catch {}
 }
 
-function renderResonanceChip(item) {
+function renderChip(item) {
     const poster = item.image_url
         ? `<img src="${item.image_url}" alt="" class="w-8 h-10 object-cover rounded ${item.media_type === 'podcast' ? 'object-contain' : ''}">`
         : `<span class="w-8 h-10 flex items-center justify-center rounded bg-white/15 text-white text-xs font-bold">${escapeHtml((item.title || '?')[0])}</span>`;
-    const check = item.is_resonating
-        ? '<svg class="w-3.5 h-3.5 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>'
-        : '';
-    return `
-        <button type="button" onclick="toggleResonance(this, ${item.id})"
-                data-resonating="${item.is_resonating ? 'true' : 'false'}"
-                class="flex items-center gap-2 pl-1 pr-3 py-1 border border-white/25 rounded-full text-xs text-white/85 hover:bg-white/10 transition-base"
-                style="transition: background-color 0.2s, border-color 0.2s; ${item.is_resonating ? 'background: rgba(139,158,107,0.28); border-color: rgba(139,158,107,0.8);' : ''}">
-            ${poster}
-            <span class="truncate max-w-[11rem]">${escapeHtml(item.title)}</span>
-            ${check}
-        </button>`;
+    const check = item.is_resonating ? '<svg class="w-3.5 h-3.5 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>' : '';
+    return `<button type="button" onclick="toggleResonance(this, ${item.id})" data-resonating="${item.is_resonating ? 'true' : 'false'}"
+        class="flex items-center gap-2 pl-1 pr-3 py-1 border border-white/25 rounded-full text-xs text-white/85 hover:bg-white/10 transition-base"
+        style="transition: background-color 0.2s, border-color 0.2s; ${item.is_resonating ? 'background:rgba(139,158,107,0.28);border-color:rgba(139,158,107,0.8);' : ''}">${poster}<span class="truncate max-w-[11rem]">${escapeHtml(item.title)}</span>${check}</button>`;
 }
 
 async function toggleResonance(btn, entryId) {
     btn.disabled = true;
     try {
-        const resp = await fetch('/api/media/home/resonance', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ entry_id: entryId }),
-        });
+        const resp = await fetch('/api/media/home/resonance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entry_id: entryId }) });
         if (!resp.ok) { btn.disabled = false; return; }
         const data = await resp.json();
         btn.dataset.resonating = data.resonating ? 'true' : 'false';
         btn.style.background = data.resonating ? 'rgba(139,158,107,0.28)' : '';
         btn.style.borderColor = data.resonating ? 'rgba(139,158,107,0.8)' : '';
-        const existingCheck = btn.querySelector('svg');
-        if (data.resonating && !existingCheck) {
-            btn.insertAdjacentHTML('beforeend', '<svg class="w-3.5 h-3.5 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>');
-        } else if (!data.resonating && existingCheck) {
-            existingCheck.remove();
-        }
+        const svg = btn.querySelector('svg');
+        if (data.resonating && !svg) btn.insertAdjacentHTML('beforeend', '<svg class="w-3.5 h-3.5 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>');
+        else if (!data.resonating && svg) svg.remove();
     } catch {}
     btn.disabled = false;
 }
 
+// Best bet hero — one big visual pick
+const TYPE_ACCENT = { movie: 'gradient-blue', tv: 'gradient-purple', book: 'gradient-amber', podcast: 'bg-green-500' };
+async function loadBestBet() {
+    const section = document.getElementById('best-bet-section');
+    const card = document.getElementById('best-bet-card');
+    try {
+        const resp = await fetch('/api/media/best-bet/{{ best_bet_media_type }}');
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (!data || !data.pick) return;
+        const pick = data.pick;
+        const anchor = data.anchor;
+        const mt = pick.media_type || '{{ best_bet_media_type }}';
+        const fit = mt === 'podcast' ? 'poster-contain' : 'poster-cover';
+        const accent = TYPE_ACCENT[mt] || TYPE_ACCENT.movie;
+        const image = pick.image_url
+            ? `<div class="poster-frame"><img src="${pick.image_url}" alt="" class="${fit}"></div>`
+            : `<div class="poster-frame"><div class="poster-fallback ${accent}"><span class="text-white text-4xl font-bold">${escapeHtml((pick.title || '?')[0])}</span></div></div>`;
+        const link = pick.external_id ? `/media/${mt}/${pick.external_id}?source=${pick.source}` : '#';
+        const actions = typeof buildActionBar === 'function' ? buildActionBar(pick, 'md') : '';
+        const anchorLine = anchor && anchor.title
+            ? `<p class="text-[10px] text-txt-muted uppercase tracking-widest font-semibold mb-1">Because you loved <span class="text-sage font-bold normal-case">${escapeHtml(anchor.title)}</span></p>`
+            : '';
+        card.innerHTML = `
+            <div class="flex flex-col sm:flex-row" data-rec-card>
+                <a href="${link}" class="sm:w-44 md:w-52 flex-shrink-0">${image}</a>
+                <div class="p-5 md:p-6 flex-1 flex flex-col">
+                    ${anchorLine}
+                    <a href="${link}" class="text-xl md:text-2xl font-bold hover:text-sage transition-base block leading-tight">${escapeHtml(pick.title)}</a>
+                    ${pick.year ? `<p class="text-xs text-txt-muted mt-1">${pick.year}${pick.creator ? ' · ' + escapeHtml(pick.creator) : ''}</p>` : ''}
+                    ${pick.reason ? `<p class="text-sm text-txt dark:text-txt-light leading-relaxed mt-3 mb-4">${escapeHtml(pick.reason)}</p>` : '<div class="mt-3"></div>'}
+                    <div class="mt-auto quick-add-area">${actions}</div>
+                </div>
+            </div>`;
+        section.classList.remove('hidden');
+    } catch {}
+}
+
 wireRatingSlots();
 loadRightNow();
+loadBestBet();
 {% endif %}
 </script>
 {% endblock %}
