@@ -285,6 +285,30 @@ PROFILES: list[dict] = [
         "vector": {"ideas": 1.0, "emotional": -0.5, "nonfiction_register": 1.0},
         "description": "Books are for changing how you think at scale. A great argument matters more than a great story. You read to rewire your mental model of something big.",
     },
+    # Scene-driven profile signatures (Phase E3). Previously the
+    # books profile list leaned prestige-literary — a reader of
+    # Normal People + Seven Husbands + The Hunger Games got back
+    # descriptions that didn't describe them. These three fill in
+    # the romance, genre escape, and true-crime slices that the
+    # plan's 'edge-case media diets' section identified.
+    {
+        "id": "romance_reader",
+        "name": "The Romance Reader",
+        "vector": {"emotional": 1.0, "plot": 1.0, "darkness": -0.5, "irony": -0.3},
+        "description": "Love stories are the point, whether they're contemporary romcoms, period drama, or literary romance. You want books that take feeling seriously — earned emotional beats, relationships that matter, and an ending that pays off the buildup.",
+    },
+    {
+        "id": "genre_escapist",
+        "name": "The Genre Escapist",
+        "vector": {"plot": 1.0, "commitment": 0.5, "prose": -0.3, "ideas": 0.3},
+        "description": "Dune, Harry Potter, Hunger Games, Gone Girl — you read to be pulled into a world bigger than yours and stay until you've finished the series. Plot is the contract; stakes and pacing are what keep you turning pages.",
+    },
+    {
+        "id": "true_crime_reader",
+        "name": "The True Crime Reader",
+        "vector": {"plot": 1.0, "darkness": 1.0, "moral_ambiguity": 1.0, "nonfiction_register": -0.3},
+        "description": "Say Nothing, In Cold Blood, Bad Blood, Just Mercy — you want true stories with the pacing and moral weight of a great thriller, and you're comfortable sitting with how dark reality actually is.",
+    },
 ]
 
 
