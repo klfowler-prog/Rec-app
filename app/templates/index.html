@@ -63,6 +63,20 @@
     {% else %}
 
     <!-- ============================================================
+         Right Now: AI commentary on what your current items say about
+         you + resonance chips to flag what's hitting hardest.
+         ============================================================ -->
+    <div class="gradient-navy rounded-2xl p-5 text-white relative overflow-hidden">
+        <div class="relative z-10">
+            <p id="right-now-commentary" class="text-sm text-white/80 leading-relaxed min-h-[1.25rem]">Thinking about what you're into right now...</p>
+            <div id="right-now-items" class="hidden mt-3 pt-3 border-t border-white/15">
+                <p class="text-[11px] text-white/55 uppercase tracking-wide mb-2">Tap what's hitting hardest — we'll lean your recs that way.</p>
+                <div id="right-now-chips" class="flex flex-wrap gap-2"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
          Section 1: Currently engaging — what you're in the middle of
          ============================================================ -->
     {% if currently %}
@@ -278,7 +292,67 @@ async function homeQuickStatus(entryId, newStatus, btn) {
     } catch { btn.disabled = false; }
 }
 
+// Right Now — AI commentary + resonance chips
+async function loadRightNow() {
+    const commentaryEl = document.getElementById('right-now-commentary');
+    const wrap = document.getElementById('right-now-items');
+    const chipsEl = document.getElementById('right-now-chips');
+    if (!commentaryEl) return;
+    try {
+        const resp = await fetch('/api/media/home/right-now');
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (data.commentary) commentaryEl.textContent = data.commentary;
+        const items = data.items || [];
+        if (items.length === 0) { wrap.classList.add('hidden'); return; }
+        chipsEl.innerHTML = items.map(renderResonanceChip).join('');
+        wrap.classList.remove('hidden');
+    } catch {}
+}
+
+function renderResonanceChip(item) {
+    const poster = item.image_url
+        ? `<img src="${item.image_url}" alt="" class="w-8 h-10 object-cover rounded ${item.media_type === 'podcast' ? 'object-contain' : ''}">`
+        : `<span class="w-8 h-10 flex items-center justify-center rounded bg-white/15 text-white text-xs font-bold">${escapeHtml((item.title || '?')[0])}</span>`;
+    const check = item.is_resonating
+        ? '<svg class="w-3.5 h-3.5 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>'
+        : '';
+    return `
+        <button type="button" onclick="toggleResonance(this, ${item.id})"
+                data-resonating="${item.is_resonating ? 'true' : 'false'}"
+                class="flex items-center gap-2 pl-1 pr-3 py-1 border border-white/25 rounded-full text-xs text-white/85 hover:bg-white/10 transition-base"
+                style="transition: background-color 0.2s, border-color 0.2s; ${item.is_resonating ? 'background: rgba(139,158,107,0.28); border-color: rgba(139,158,107,0.8);' : ''}">
+            ${poster}
+            <span class="truncate max-w-[11rem]">${escapeHtml(item.title)}</span>
+            ${check}
+        </button>`;
+}
+
+async function toggleResonance(btn, entryId) {
+    btn.disabled = true;
+    try {
+        const resp = await fetch('/api/media/home/resonance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ entry_id: entryId }),
+        });
+        if (!resp.ok) { btn.disabled = false; return; }
+        const data = await resp.json();
+        btn.dataset.resonating = data.resonating ? 'true' : 'false';
+        btn.style.background = data.resonating ? 'rgba(139,158,107,0.28)' : '';
+        btn.style.borderColor = data.resonating ? 'rgba(139,158,107,0.8)' : '';
+        const existingCheck = btn.querySelector('svg');
+        if (data.resonating && !existingCheck) {
+            btn.insertAdjacentHTML('beforeend', '<svg class="w-3.5 h-3.5 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>');
+        } else if (!data.resonating && existingCheck) {
+            existingCheck.remove();
+        }
+    } catch {}
+    btn.disabled = false;
+}
+
 wireRatingSlots();
+loadRightNow();
 {% endif %}
 </script>
 {% endblock %}
