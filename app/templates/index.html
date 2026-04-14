@@ -6,6 +6,33 @@
     .section-divider { height: 2px; background: linear-gradient(to right, transparent, rgba(139,158,107,0.3), transparent); }
     .swim-lane { overflow-x: auto; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
     .swim-lane::-webkit-scrollbar { display: none; }
+    /* In-progress cards — poster-forward with a dark overlay for text */
+    .progress-card {
+        position: relative; border-radius: 1rem; overflow: hidden;
+        min-height: 8rem; display: flex; align-items: flex-end;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .progress-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+    .dark .progress-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.35); }
+    .progress-card .progress-bg {
+        position: absolute; inset: 0; background-size: cover; background-position: center;
+    }
+    .progress-card .progress-overlay {
+        position: absolute; inset: 0;
+        background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.2) 60%, rgba(0,0,0,0.05) 100%);
+    }
+    .progress-card .progress-label {
+        position: relative; z-index: 1; padding: 1rem; color: white; width: 100%;
+    }
+    /* Rate section — warm sage tint */
+    .rate-card {
+        background: linear-gradient(135deg, rgba(139,158,107,0.08) 0%, rgba(139,158,107,0.02) 100%);
+        border: 1px solid rgba(139,158,107,0.2);
+    }
+    .dark .rate-card {
+        background: linear-gradient(135deg, rgba(139,158,107,0.12) 0%, rgba(139,158,107,0.04) 100%);
+        border-color: rgba(139,158,107,0.25);
+    }
 </style>
 {% endblock %}
 
@@ -77,32 +104,24 @@
     </div>
 
     <!-- ============================================================
-         Section 1: Currently engaging — what you're in the middle of
+         Section 1: Currently engaging — poster-backed visual cards
          ============================================================ -->
     {% if currently %}
     <div>
-        <h2 class="text-lg font-bold mb-3 flex items-center gap-2">
-            <span class="w-7 h-7 rounded-lg gradient-coral flex items-center justify-center">
-                <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            </span>
-            In progress
-        </h2>
-        <div class="flex gap-3 swim-lane pb-2">
+        <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold mb-3">In progress</p>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
             {% for item in currently %}
             <a href="{% if item.external_id %}/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}{% else %}/profile{% endif %}"
-               class="flex items-center gap-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl p-3 min-w-[260px] max-w-[320px] flex-shrink-0 hover:border-sage/40 transition-base">
-                <div class="w-12 h-16 flex-shrink-0 rounded overflow-hidden">
-                    {% if item.image_url %}
-                        <img src="{{ item.image_url }}" alt="" class="w-full h-full {% if item.media_type == 'podcast' %}object-contain{% else %}object-cover{% endif %}">
-                    {% else %}
-                        <div class="w-full h-full flex items-center justify-center {% if item.media_type == 'tv' %}gradient-purple{% elif item.media_type == 'book' %}gradient-amber{% elif item.media_type == 'podcast' %}bg-green-500{% else %}gradient-blue{% endif %}">
-                            <span class="text-white text-lg font-bold">{{ (item.title or '?')[0] }}</span>
-                        </div>
-                    {% endif %}
-                </div>
-                <div class="flex-1 min-w-0">
-                    <p class="text-sm font-semibold leading-tight line-clamp-2">{{ item.title }}</p>
-                    <p class="text-[10px] uppercase tracking-wide text-txt-muted mt-0.5">{{ {'movie':'Movie','tv':'TV','book':'Book','podcast':'Podcast'}.get(item.media_type, item.media_type) }}{% if item.year %} · {{ item.year }}{% endif %}</p>
+               class="progress-card">
+                {% if item.image_url %}
+                <div class="progress-bg" style="background-image: url('{{ item.image_url }}')"></div>
+                {% else %}
+                <div class="progress-bg {% if item.media_type == 'tv' %}gradient-purple{% elif item.media_type == 'book' %}gradient-amber{% elif item.media_type == 'podcast' %}bg-green-500{% else %}gradient-blue{% endif %}"></div>
+                {% endif %}
+                <div class="progress-overlay"></div>
+                <div class="progress-label">
+                    <p class="text-[10px] uppercase tracking-wide opacity-70 mb-0.5">{{ {'movie':'Movie','tv':'TV','book':'Book','podcast':'Podcast'}.get(item.media_type, item.media_type) }}{% if item.year %} · {{ item.year }}{% endif %}</p>
+                    <p class="text-sm font-bold leading-tight line-clamp-2">{{ item.title }}</p>
                 </div>
             </a>
             {% endfor %}
@@ -114,7 +133,7 @@
          Section 2: Sharpen your recs — rate a small batch (4 items)
          ============================================================ -->
     {% if unrated_batch %}
-    <div id="rate-section" class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-2xl p-5">
+    <div id="rate-section" class="rate-card rounded-2xl p-5">
         <div class="flex items-start justify-between mb-4">
             <div>
                 <h2 class="text-lg font-bold flex items-center gap-2">
@@ -200,35 +219,26 @@
     <div class="section-divider"></div>
 
     <!-- ============================================================
-         Section 4: Jump back in — context-aware navigation nudges
+         Section 4: Jump back in — bold, colorful navigation cards
          ============================================================ -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <a href="/discover" class="flex items-center gap-3 p-4 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl hover:border-sage/40 transition-base group">
-            <span class="w-10 h-10 rounded-lg gradient-sage flex items-center justify-center flex-shrink-0">
-                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16zM11 8v6M8 11h6"/></svg>
-            </span>
-            <div>
-                <p class="text-sm font-semibold group-hover:text-sage transition-base">Discover something new</p>
-                <p class="text-[11px] text-txt-muted">Best bets, moods, and AI recs</p>
-            </div>
+        <a href="/discover" class="relative overflow-hidden rounded-xl p-5 text-white group transition-all hover:scale-[1.02] hover:shadow-lg" style="background: linear-gradient(135deg, #8B9E6B 0%, #5A7040 100%);">
+            <div class="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -translate-y-8 translate-x-8"></div>
+            <svg class="w-6 h-6 mb-2 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16zM11 8v6M8 11h6"/></svg>
+            <p class="text-sm font-bold">Discover</p>
+            <p class="text-[11px] text-white/75">Best bets, moods, AI recs</p>
         </a>
-        <a href="/taste" class="flex items-center gap-3 p-4 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl hover:border-sage/40 transition-base group">
-            <span class="w-10 h-10 rounded-lg gradient-coral flex items-center justify-center flex-shrink-0">
-                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-            </span>
-            <div>
-                <p class="text-sm font-semibold group-hover:text-sage transition-base">Your taste profile</p>
-                <p class="text-[11px] text-txt-muted">See what makes your taste tick</p>
-            </div>
+        <a href="/taste" class="relative overflow-hidden rounded-xl p-5 text-white group transition-all hover:scale-[1.02] hover:shadow-lg" style="background: linear-gradient(135deg, #E8734A 0%, #C55A34 100%);">
+            <div class="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -translate-y-8 translate-x-8"></div>
+            <svg class="w-6 h-6 mb-2 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+            <p class="text-sm font-bold">My Taste</p>
+            <p class="text-[11px] text-white/75">See what makes you tick</p>
         </a>
-        <a href="/add" class="flex items-center gap-3 p-4 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl hover:border-sage/40 transition-base group">
-            <span class="w-10 h-10 rounded-lg gradient-navy flex items-center justify-center flex-shrink-0">
-                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-            </span>
-            <div>
-                <p class="text-sm font-semibold group-hover:text-sage transition-base">Add to your library</p>
-                <p class="text-[11px] text-txt-muted">Bulk add, import, or search</p>
-            </div>
+        <a href="/add" class="relative overflow-hidden rounded-xl p-5 text-white group transition-all hover:scale-[1.02] hover:shadow-lg" style="background: linear-gradient(135deg, #2B3A4E 0%, #1E2A3A 100%);">
+            <div class="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -translate-y-8 translate-x-8"></div>
+            <svg class="w-6 h-6 mb-2 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            <p class="text-sm font-bold">Add</p>
+            <p class="text-[11px] text-white/75">Bulk add, import, or search</p>
         </a>
     </div>
 
