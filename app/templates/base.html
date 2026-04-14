@@ -139,20 +139,10 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
                     Add
                 </a>
-                {% set more_active = request.url.path == '/together' %}
-                <div class="nav-group">
-                    <button type="button" onclick="toggleMoreGroup()" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-base hover:bg-sage/10 {% if more_active %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z"/></svg>
-                        More
-                        <svg id="more-chevron" class="w-4 h-4 ml-auto transition-transform {% if more_active %}rotate-180{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                    </button>
-                    <div id="more-submenu" class="{% if not more_active %}hidden {% endif %}mt-1 ml-6 space-y-0.5 border-l border-border-light dark:border-border-dark pl-3">
-                        <a href="/together" onclick="closeSidebar()" class="nav-link flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-base hover:bg-sage/10 {% if request.url.path == '/together' %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                            Together
-                        </a>
-                    </div>
-                </div>
+                <a href="/together" onclick="closeSidebar()" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-base hover:bg-sage/10 {% if request.url.path == '/together' %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                    Together
+                </a>
             </div>
             <div class="p-4 border-t border-border-light dark:border-border-dark space-y-2">
                 {% if user is defined and user and admin_email and user.email|lower == admin_email %}
@@ -227,13 +217,6 @@
         function toggleLibraryGroup() {
             const submenu = document.getElementById('library-submenu');
             const chevron = document.getElementById('library-chevron');
-            submenu.classList.toggle('hidden');
-            chevron.classList.toggle('rotate-180');
-        }
-
-        function toggleMoreGroup() {
-            const submenu = document.getElementById('more-submenu');
-            const chevron = document.getElementById('more-chevron');
             submenu.classList.toggle('hidden');
             chevron.classList.toggle('rotate-180');
         }
