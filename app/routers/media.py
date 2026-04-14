@@ -589,6 +589,10 @@ async def _enrich_quiz_items_via_tmdb(items: list[dict], media_type: str) -> lis
             "year": item.get("year") or item.get("years"),
             "weights": item["weights"],
             "media_type": media_type,
+            # Carry the D2 pool tags through enrichment so the quiz-load
+            # filter can match them against the user's onboarding picks.
+            "generation": item.get("generation") or [],
+            "scenes": item.get("scenes") or [],
             "image_url": best.image_url if best else None,
             "external_id": best.external_id if best else "",
             "source": best.source if best else "",
@@ -602,30 +606,39 @@ async def _enrich_quiz_items_via_tmdb(items: list[dict], media_type: str) -> lis
 
 
 @router.get("/taste-quiz/movies")
-async def taste_quiz_movies_items():
-    """Return the 20 films for the movie taste quiz, enriched with
-    TMDB metadata. Fixed order (accessible → challenging), shared
-    across all users, cached 7 days."""
+async def taste_quiz_movies_items(
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Return the films for the movie taste quiz, enriched with TMDB
+    metadata and filtered against the user's saved onboarding picks
+    (generation + scenes). The full enriched pool is cached globally
+    for 7 days so the TMDB lookups only run once — the per-user
+    filter step is a cheap list comprehension applied on top of the
+    cached pool."""
     from app import cache
     from app.services.movie_taste_quiz import FILMS, RESPONSE_OPTIONS, AXES, MIN_ANSWERED
+    from app.services.taste_quiz_scoring import filter_quiz_items_by_onboarding, load_onboarding
 
-    cached = cache.get("movie_taste_quiz_items")
-    if cached is not None:
-        return cached
-    enriched = await _enrich_quiz_items_via_tmdb(FILMS, "movie")
-    result = {
-        "items": enriched,
+    enriched = cache.get("movie_taste_quiz_items_enriched")
+    if enriched is None:
+        enriched = await _enrich_quiz_items_via_tmdb(FILMS, "movie")
+        cache.set("movie_taste_quiz_items_enriched", enriched, ttl_seconds=86400 * 7)
+
+    onboarding = load_onboarding(db, user.id)
+    items = filter_quiz_items_by_onboarding(enriched, onboarding)
+
+    return {
+        "items": items,
         "options": RESPONSE_OPTIONS,
         "axes": AXES,
         "min_answered": MIN_ANSWERED,
-        "total_questions": len(FILMS),
+        "total_questions": len(items),
         "media_type": "movie",
         "media_label": "film",
         "media_label_plural": "films",
         "verb": "watched",
     }
-    cache.set("movie_taste_quiz_items", result, ttl_seconds=86400 * 7)
-    return result
 
 
 @router.get("/taste-quiz/tv")
@@ -751,6 +764,9 @@ async def _enrich_books_via_open_library(items: list[dict]) -> list[dict]:
             "note_in_ui": item.get("note_in_ui"),
             "weights": item["weights"],
             "media_type": "book",
+            # Phase D2 pool tags carried through for the quiz-load filter.
+            "generation": item.get("generation") or [],
+            "scenes": item.get("scenes") or [],
             "image_url": best.image_url if best else None,
             "external_id": best.external_id if best else "",
             "source": best.source if best else "",

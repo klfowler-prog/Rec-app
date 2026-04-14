@@ -175,6 +175,94 @@ def load_onboarding(db, user_id: int) -> dict | None:
     return load_quiz_results(db, user_id).get("onboarding")
 
 
+def filter_quiz_items_by_onboarding(
+    items: list[dict],
+    onboarding: dict | None,
+    min_items: int = 15,
+    max_items: int = 25,
+) -> list[dict]:
+    """Filter a tagged quiz item pool against the user's saved
+    onboarding picks (generation + scenes). Items are expected to
+    carry both 'generation' (list) and 'scenes' (list) keys — Phase
+    D2a-c tagged the existing pools.
+
+    Algorithm (from Part 4 of the plan):
+    1. Generation filter: keep items where the user's generation is
+       in the item's generation[] OR the item is tagged 'universal'.
+       If the user picked 'mix' or has no onboarding saved, every
+       item passes this step.
+    2. Scene filter: from the generation-pass set, keep items where
+       the user's scenes[] list has any overlap with the item's
+       scenes[] list. If the user picked no scenes, every item
+       passes this step.
+    3. Back-fill if the filtered set is < min_items:
+       - First from the generation-pass set that didn't match any
+         scene (they're at least in the right era).
+       - Then from the full pool (last-resort catch-all).
+       Never return fewer than min_items if the pool contains that
+       many — undershooting the minimum is what breaks the current
+       quiz experience for users outside the prestige-canon slice.
+    4. Sort: scene-overlap-count desc (best matches first), then
+       by original item.order asc for stable presentation.
+    5. Cap at max_items.
+
+    When the user has no onboarding saved, returns the first
+    max_items of the pool unchanged — preserving today's behavior
+    for users who skipped the wizard.
+    """
+    if not onboarding:
+        return items[:max_items]
+
+    user_gen = onboarding.get("generation") or "mix"
+    user_scenes = set(onboarding.get("scenes") or [])
+
+    def passes_gen(item: dict) -> bool:
+        if user_gen == "mix":
+            return True
+        item_gens = set(item.get("generation") or [])
+        # 'universal' items always pass the generation filter — they're
+        # cross-generational hits that should anchor any user's quiz.
+        return user_gen in item_gens or "universal" in item_gens
+
+    def scene_overlap(item: dict) -> int:
+        if not user_scenes:
+            return 0
+        return len(user_scenes & set(item.get("scenes") or []))
+
+    gen_pass = [it for it in items if passes_gen(it)]
+
+    if not user_scenes:
+        # Scene step is a no-op when the user picked nothing.
+        filtered = list(gen_pass)
+    else:
+        filtered = [it for it in gen_pass if scene_overlap(it) > 0]
+
+    # Back-fill pass 1: items that passed the generation filter but not
+    # the scene filter. They're at least in the right era.
+    if len(filtered) < min_items and user_scenes:
+        seen_orders = {it.get("order") for it in filtered}
+        for it in gen_pass:
+            if it.get("order") not in seen_orders:
+                filtered.append(it)
+                seen_orders.add(it.get("order"))
+            if len(filtered) >= min_items:
+                break
+
+    # Back-fill pass 2: the full pool, for users with an era that has
+    # almost no tagged items (e.g. classic + anime).
+    if len(filtered) < min_items:
+        seen_orders = {it.get("order") for it in filtered}
+        for it in items:
+            if it.get("order") not in seen_orders:
+                filtered.append(it)
+                seen_orders.add(it.get("order"))
+            if len(filtered) >= min_items:
+                break
+
+    filtered.sort(key=lambda it: (-scene_overlap(it), it.get("order", 9999)))
+    return filtered[:max_items]
+
+
 def format_quiz_signals_for_prompt(quiz_results: dict) -> str:
     """Format the user's quiz results into a compact block the AI
     can read as taste signals. Returns an empty string if there are
