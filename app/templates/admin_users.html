@@ -28,6 +28,44 @@
         </form>
     </div>
 
+    <!-- Registered users -->
+    <div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl overflow-hidden">
+        <div class="px-5 py-3 border-b border-border-light dark:border-border-dark">
+            <p class="text-sm font-semibold">Registered users <span class="text-txt-muted font-normal">({{ all_users | length }})</span></p>
+        </div>
+        {% if all_users %}
+            <ul class="divide-y divide-border-light dark:divide-border-dark">
+                {% for u in all_users %}
+                <li class="flex items-center justify-between px-5 py-3 gap-4">
+                    <div class="flex items-center gap-3 min-w-0">
+                        {% if u.picture %}
+                        <img src="{{ u.picture }}" alt="" class="w-8 h-8 rounded-full flex-shrink-0">
+                        {% else %}
+                        <div class="w-8 h-8 rounded-full bg-sage/20 flex items-center justify-center text-xs font-bold text-sage flex-shrink-0">{{ u.name[0] }}</div>
+                        {% endif %}
+                        <div class="min-w-0">
+                            <p class="text-sm font-medium truncate">{{ u.name }}</p>
+                            <p class="text-xs text-txt-muted truncate">{{ u.email }}</p>
+                        </div>
+                    </div>
+                    {% if u.email.lower() != user.email.lower() %}
+                    <form method="POST" action="/admin/users/delete" onsubmit="return confirm('Delete {{ u.name }} and all their data? This cannot be undone.')" class="flex-shrink-0">
+                        <input type="hidden" name="user_id" value="{{ u.id }}" />
+                        <button type="submit" class="text-xs text-txt-muted hover:text-coral transition-base px-2 py-1 rounded hover:bg-coral/10">
+                            Delete
+                        </button>
+                    </form>
+                    {% else %}
+                    <span class="text-[10px] text-sage font-medium uppercase tracking-wide">You</span>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="text-sm text-txt-muted text-center py-8">No users yet.</p>
+        {% endif %}
+    </div>
+
     <!-- Allowed list -->
     <div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl overflow-hidden">
         <div class="px-5 py-3 border-b border-border-light dark:border-border-dark">

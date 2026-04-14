@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.auth import require_user
 from app.config import settings
 from app.database import get_db
-from app.models import AllowedEmail, User
+from app.models import AllowedEmail, Collection, CollectionItem, DismissedItem, MediaEntry, Recommendation, User, UserPreferences
 
 router = APIRouter()
 
@@ -17,10 +17,12 @@ async def admin_users(request: Request, user: User = Depends(require_user), db: 
     if not settings.admin_email or user.email.lower() != settings.admin_email.lower():
         return RedirectResponse("/")
     allowed = db.query(AllowedEmail).order_by(AllowedEmail.created_at.desc()).all()
+    all_users = db.query(User).order_by(User.created_at.desc()).all()
     return templates.TemplateResponse("admin_users.html", {
         "request": request,
         "user": user,
         "allowed": allowed,
+        "all_users": all_users,
         "invite_only": settings.invite_only,
     })
 
@@ -52,5 +54,32 @@ async def admin_remove_user(
     if not settings.admin_email or user.email.lower() != settings.admin_email.lower():
         return RedirectResponse("/")
     db.query(AllowedEmail).filter(AllowedEmail.email == email.lower().strip()).delete()
+    db.commit()
+    return RedirectResponse("/admin/users", status_code=303)
+
+
+@router.post("/users/delete")
+async def admin_delete_user(
+    request: Request,
+    user_id: int = Form(...),
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Delete a user and all their data. Admin only. Cannot delete yourself."""
+    if not settings.admin_email or user.email.lower() != settings.admin_email.lower():
+        return RedirectResponse("/")
+    if user_id == user.id:
+        return RedirectResponse("/admin/users", status_code=303)
+
+    # Delete all user data in dependency order
+    collection_ids = [c.id for c in db.query(Collection).filter(Collection.user_id == user_id).all()]
+    if collection_ids:
+        db.query(CollectionItem).filter(CollectionItem.collection_id.in_(collection_ids)).delete(synchronize_session=False)
+    db.query(Collection).filter(Collection.user_id == user_id).delete()
+    db.query(DismissedItem).filter(DismissedItem.user_id == user_id).delete()
+    db.query(Recommendation).filter(Recommendation.user_id == user_id).delete()
+    db.query(UserPreferences).filter(UserPreferences.user_id == user_id).delete()
+    db.query(MediaEntry).filter(MediaEntry.user_id == user_id).delete()
+    db.query(User).filter(User.id == user_id).delete()
     db.commit()
     return RedirectResponse("/admin/users", status_code=303)
