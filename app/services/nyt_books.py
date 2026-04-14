@@ -115,7 +115,7 @@ async def get_bestsellers(limit_per_list: int = 15) -> list[tuple[str, list[Medi
         _fetch_list("combined-print-and-e-book-fiction", limit=limit_per_list),
         _fetch_list("combined-print-and-e-book-nonfiction", limit=limit_per_list),
         _fetch_list("trade-fiction-paperback", limit=limit_per_list),
-        _fetch_list("paperback-nonfiction", limit=limit_per_list),
+        _fetch_list("advice-how-to-and-miscellaneous", limit=limit_per_list),
     )
 
     # Merge fiction and nonfiction pools, deduping by (title, author).
