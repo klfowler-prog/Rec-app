@@ -268,32 +268,15 @@
     // ---------------------------------------------------------------
     const chatMessagesEl = document.getElementById('chat-messages');
     const chatPanel = document.getElementById('chat-panel');
-    const recInput = document.getElementById('rec-input');
+    // recInput is already declared by recommend.js — reuse it
 
     function revealChatMessages() {
         chatMessagesEl.classList.remove('hidden');
     }
 
-    // Auto-grow the textarea as the user types
-    recInput.addEventListener('input', () => {
-        recInput.style.height = 'auto';
-        recInput.style.height = Math.min(recInput.scrollHeight, 120) + 'px';
-    });
-
-    // Enter sends, shift+enter newlines
-    recInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            if (typeof sendMessage === 'function') {
-                revealChatMessages();
-                sendMessage();
-            }
-        }
-    });
-
-    // Intercept send so we can reveal the messages area first
-    const origRecSend = document.getElementById('rec-send');
-    origRecSend.addEventListener('click', revealChatMessages);
+    // recommend.js already wires input auto-grow and Enter-to-send.
+    // We just need to reveal the chat messages area before sending.
+    document.getElementById('rec-send').addEventListener('click', revealChatMessages);
 
     // ---------------------------------------------------------------
     // Mad Lib → fire as a chat message
