@@ -745,35 +745,54 @@ async def score_tv_quiz(
 
 
 async def _enrich_books_via_open_library(items: list[dict]) -> list[dict]:
-    """Enrich book items with Open Library metadata. Items carry a
-    title + author, which we combine into a query so the right work
-    comes back instead of a random edition or study guide."""
+    """Enrich book items with cover images. Tries Open Library first,
+    falls back to Google Books for covers — OL covers fail ~80% of the
+    time due to zero-byte responses and missing ISBNs."""
     import asyncio
 
+    from app.services.google_books import search as search_google_books
     from app.services.open_library import search as search_books
 
     _JUNK = ("study guide", "summary of", "cliffsnotes", "sparknotes", "analysis of", "workbook", "companion to")
 
-    async def enrich(item: dict) -> dict:
-        query = f"{item['title']} {item.get('author', '')}".strip()
-        try:
-            results = await search_books(query)
-        except Exception:
-            results = []
-        # Reject study guides
+    def _pick_best(results, title_lower):
+        """Pick the best result: prefer title match with cover, then any with cover."""
         results = [r for r in results if not any(j in (r.title or "").lower() for j in _JUNK)]
-        best = None
-        t_lower = item["title"].lower().strip()
         for r in results[:10]:
             r_lower = (r.title or "").lower().strip()
-            if (r_lower == t_lower or r_lower.startswith(t_lower) or t_lower.startswith(r_lower)) and r.image_url:
-                best = r
-                break
-        if not best:
-            for r in results[:10]:
-                if r.image_url:
-                    best = r
-                    break
+            if (r_lower == title_lower or r_lower.startswith(title_lower) or title_lower.startswith(r_lower)) and r.image_url:
+                return r
+        for r in results[:10]:
+            if r.image_url:
+                return r
+        return results[0] if results else None
+
+    async def enrich(item: dict) -> dict:
+        query = f"{item['title']} {item.get('author', '')}".strip()
+        t_lower = item["title"].lower().strip()
+
+        # Try Open Library first
+        best = None
+        try:
+            results = await search_books(query)
+            best = _pick_best(results, t_lower)
+        except Exception:
+            pass
+
+        # If no cover from OL, try Google Books
+        if not best or not best.image_url:
+            try:
+                gb_results = await search_google_books(query)
+                gb_pick = _pick_best(gb_results, t_lower)
+                if gb_pick and gb_pick.image_url:
+                    # Prefer GB if it has a cover and OL didn't
+                    if not best or not best.image_url:
+                        best = gb_pick
+                    elif not best.image_url:
+                        best = gb_pick
+            except Exception:
+                pass
+
         if not best and results:
             best = results[0]
         return {
