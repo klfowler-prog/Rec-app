@@ -118,70 +118,117 @@
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
                 Add Media
             </a>
-            <a href="/search" class="inline-flex items-center gap-2 px-5 py-2.5 border border-border-light dark:border-border-dark rounded-lg text-sm text-txt-muted hover:text-txt transition-base">Search</a>
+            <a href="/discover" class="inline-flex items-center gap-2 px-5 py-2.5 border border-border-light dark:border-border-dark rounded-lg text-sm text-txt-muted hover:text-txt transition-base">Discover</a>
         </div>
     </div>
     {% else %}
 
-    <!-- Activity-context chips. Each routes to /recommend?context=<slug>
-         which redirects to a prewritten mood query. Slugs are defined in
-         app/routers/pages.py _CONTEXT_TO_MOOD and must stay in sync. -->
-    <div>
-        <p class="text-xs text-txt-muted uppercase tracking-wide mb-2">What are you up for?</p>
-        <div class="flex gap-2 flex-wrap">
-            <a href="/recommend?context=tonight_binge" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Tonight's binge</a>
-            <a href="/recommend?context=wind_down" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Wind down before bed</a>
-            <a href="/recommend?context=walking_the_dog" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">While walking the dog</a>
-            <a href="/recommend?context=background_work" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Background while I work</a>
-            <a href="/recommend?context=quick_escape" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Quick escape</a>
-            <a href="/recommend?context=weekend_binge" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Lose the weekend</a>
-            <a href="/recommend" class="px-4 py-2 border border-dashed border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Something else&hellip;</a>
-        </div>
-    </div>
-
-    <div class="section-divider"></div>
-
-    <!-- Your best bets — one hero pick per media type, populated from
-         /api/media/best-bet/<type>. Each card says "Because you loved
-         <anchor>..." so the reason is explicit, not just "you might
-         like this". Hidden per-type if the anchor model can't find a
-         9+/10 rating to anchor to. -->
+    <!-- ============================================================
+         Section 2: "Just finished something?" — items the user added
+         or marked as done but never rated. Tapping a rating dot is
+         one click to close the loop on something they consumed.
+         Hidden entirely if everything has a rating.
+         ============================================================ -->
+    {% if unrated_recent %}
     <div>
         <h2 class="text-xl font-bold mb-1 flex items-center gap-2">
             <span class="w-8 h-8 rounded-lg gradient-coral flex items-center justify-center">
-                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 13l4 4L19 7"/></svg>
             </span>
-            Your best bets
+            Just finished something?
         </h2>
-        <p class="text-sm text-txt-muted mb-4">One pick per category, each tied to a specific thing you recently loved.</p>
-        <div id="best-bets" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div class="col-span-full text-center py-8">
-                <div class="inline-block w-5 h-5 border-2 border-coral/30 border-t-coral rounded-full animate-spin"></div>
-                <p class="text-xs text-txt-muted mt-2">Finding your best bets...</p>
+        <p class="text-sm text-txt-muted mb-4">Rate what you watched, read, or listened to — one tap and it's done.</p>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {% for item in unrated_recent %}
+            <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm flex" data-rec-card>
+                <div class="w-20 flex-shrink-0">
+                    <div class="poster-frame">
+                    {% if item.image_url %}
+                        <img src="{{ item.image_url }}" alt="" class="{% if item.media_type == 'podcast' %}poster-contain{% else %}poster-cover{% endif %}">
+                    {% else %}
+                        <div class="poster-fallback {% if item.media_type == 'tv' %}gradient-purple{% elif item.media_type == 'book' %}gradient-amber{% elif item.media_type == 'podcast' %}bg-green-500{% else %}gradient-blue{% endif %}">
+                            <span class="text-white text-2xl font-bold">{{ (item.title or '?')[0] }}</span>
+                        </div>
+                    {% endif %}
+                    </div>
+                </div>
+                <div class="flex-1 min-w-0 p-3 flex flex-col">
+                    <p class="text-[10px] uppercase tracking-wide text-txt-muted mb-0.5">{{ {'movie':'Movie','tv':'TV','book':'Book','podcast':'Podcast'}.get(item.media_type, item.media_type) }}{% if item.year %} · {{ item.year }}{% endif %}</p>
+                    <p class="text-sm font-semibold leading-tight mb-2 line-clamp-2">{{ item.title }}</p>
+                    <div class="mt-auto" data-home-rate-slot data-entry-id="{{ item.id }}"></div>
+                </div>
             </div>
+            {% endfor %}
         </div>
     </div>
+    {% endif %}
 
-    <div class="section-divider"></div>
+    <!-- ============================================================
+         Section 3: "Up next on your list" — the queue, sorted so the
+         items the model thinks you'll love most are first. Hidden
+         entirely if the queue is empty.
+         ============================================================ -->
+    {% if up_next %}
+    <div>
+        <div class="flex items-end justify-between mb-1">
+            <h2 class="text-xl font-bold flex items-center gap-2">
+                <span class="w-8 h-8 rounded-lg gradient-sage flex items-center justify-center">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5l7 7-7 7"/></svg>
+                </span>
+                Up next on your list
+            </h2>
+            <a href="/profile" class="text-sm text-sage hover:underline">See all &rarr;</a>
+        </div>
+        <p class="text-sm text-txt-muted mb-4">Your queue, with the highest-confidence picks first.</p>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {% for item in up_next %}
+            <a href="{% if item.external_id %}/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}{% else %}/profile{% endif %}"
+               class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm card-hover transition-base block">
+                <div class="poster-frame relative">
+                    {% if item.image_url %}
+                        <img src="{{ item.image_url }}" alt="" class="{% if item.media_type == 'podcast' %}poster-contain{% else %}poster-cover{% endif %}">
+                    {% else %}
+                        <div class="poster-fallback {% if item.media_type == 'tv' %}gradient-purple{% elif item.media_type == 'book' %}gradient-amber{% elif item.media_type == 'podcast' %}bg-green-500{% else %}gradient-blue{% endif %}">
+                            <span class="text-white text-3xl font-bold">{{ (item.title or '?')[0] }}</span>
+                        </div>
+                    {% endif %}
+                    {% if item.predicted_rating and item.predicted_rating >= 6 %}
+                    <div class="absolute top-2 right-2 px-2 py-0.5 {% if item.predicted_rating >= 8.5 %}bg-emerald-500{% elif item.predicted_rating >= 7.5 %}bg-emerald-400{% elif item.predicted_rating >= 6.5 %}bg-yellow-500{% else %}bg-amber-400{% endif %} rounded-full shadow">
+                        <span class="text-[10px] font-bold text-white">{{ "%.1f"|format(item.predicted_rating) }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="p-2">
+                    <p class="text-xs font-semibold leading-tight line-clamp-2">{{ item.title }}</p>
+                    {% if item.year %}<p class="text-[10px] text-txt-muted mt-0.5">{{ item.year }}</p>{% endif %}
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 
-    <!-- Life-context themes — each themed row matches a moment in the
-         user's day (walking the dog, winding down, weekend project…).
-         Populated from /api/media/home-bundle `themes` dict. Each row
-         uses .collapsible to cap visible items until the user unfurls. -->
+    <!-- ============================================================
+         Section 4: "Your best bet this week" — single hero card. The
+         media type rotates day-by-day so the user gets a fresh push
+         on each visit. The /api/media/best-bet/<type> response is
+         cached 7 days per (user, type) so the typical visit is a hit.
+         ============================================================ -->
     <div>
         <h2 class="text-xl font-bold mb-1 flex items-center gap-2">
-            <span class="w-8 h-8 rounded-lg gradient-sage flex items-center justify-center">
-                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span class="w-8 h-8 rounded-lg gradient-amber flex items-center justify-center">
+                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
             </span>
-            For your day
+            Your best bet this week
         </h2>
-        <p class="text-sm text-txt-muted mb-5">Picks framed around moments — not just vibes. Tap through to save or skip.</p>
-        <div id="themes-wrap" class="space-y-6">
-            <div class="text-center py-8 text-sm text-txt-muted">
-                <div class="inline-block w-5 h-5 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
-                <p class="mt-2">Picking the right things for each moment&hellip;</p>
+        <p class="text-sm text-txt-muted mb-4">One pick we think you'll love — fresh each day, anchored to something you've recently rated highly.</p>
+        <div id="best-bet-hero" data-media-type="{{ best_bet_media_type }}" class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-2xl shadow-sm overflow-hidden">
+            <div class="text-center py-12">
+                <div class="inline-block w-5 h-5 border-2 border-amber-400/30 border-t-amber-500 rounded-full animate-spin"></div>
+                <p class="text-xs text-txt-muted mt-2">Picking the one for you...</p>
             </div>
         </div>
+        <p class="text-right mt-3"><a href="/discover" class="text-sm text-sage hover:underline">More picks in Discover &rarr;</a></p>
     </div>
 
     {% endif %}
@@ -190,12 +237,15 @@
 
 {% block scripts %}
 <script src="/static/js/card_actions.js"></script>
-<script src="/static/js/discover_widgets.js"></script>
 <script>
-// escapeHtml, prBadge, TYPE_BADGE, TYPE_ACCENT, TYPE_LABEL, ensureHomeBundle,
-// loadBestBets, loadThemes, toggleCollapsible all come from discover_widgets.js
-// (loaded above). Index.html only needs the Right Now block + the welcome
-// modal handler, which are page-specific.
+// Home is intentionally lean now — no chips, no best-bets grid, no themes
+// (those all live on /discover via discover_widgets.js). The only AI calls
+// here are loadRightNow (top of page) and loadBestBetHero (single hero card).
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = (text == null ? '' : text);
+    return div.innerHTML;
+}
 
 {% if total > 0 %}
 // -----------------------------------------------------------------
@@ -297,10 +347,93 @@ async function toggleResonance(btn, entryId) {
     btn.disabled = false;
 }
 
-// Kick everything off in parallel. loadBestBets + loadThemes come from
-// discover_widgets.js and short-circuit if the matching DOM containers
-// aren't present (so this file works whether Home keeps or strips them).
-Promise.all([loadRightNow(), loadBestBets(), loadThemes()]);
+// -----------------------------------------------------------------
+// "Just finished something?" — wire showRatingDots into each
+// data-home-rate-slot. The actual rate handler lives in
+// card_actions.js (rateItem), which already PUTs the rating to
+// /api/profile/<id> and fades the card. We just have to populate
+// the slots on page load.
+// -----------------------------------------------------------------
+function wireRatingSlots() {
+    document.querySelectorAll('[data-home-rate-slot]').forEach(slot => {
+        const entryId = parseInt(slot.dataset.entryId, 10);
+        if (!entryId || typeof showRatingDots !== 'function') return;
+        showRatingDots(slot, entryId);
+    });
+}
+
+// -----------------------------------------------------------------
+// "Your best bet this week" — single hero card, anchored to a
+// recent 9+/10 rating. The media type is rotated server-side via
+// data-media-type. Renders into #best-bet-hero.
+// -----------------------------------------------------------------
+const TYPE_LABEL = { movie: 'Movie', tv: 'TV', book: 'Book', podcast: 'Podcast' };
+const TYPE_ACCENT = { movie: 'gradient-blue', tv: 'gradient-purple', book: 'gradient-amber', podcast: 'bg-green-500' };
+
+async function loadBestBetHero() {
+    const slot = document.getElementById('best-bet-hero');
+    if (!slot) return;
+    const mediaType = slot.dataset.mediaType || 'movie';
+    try {
+        const resp = await fetch(`/api/media/best-bet/${mediaType}`);
+        if (!resp.ok) {
+            slot.innerHTML = `<div class="text-center py-8 text-sm text-txt-muted">Couldn't load this week's pick.</div>`;
+            return;
+        }
+        const data = await resp.json();
+        if (!data || !data.pick) {
+            slot.innerHTML = `<div class="text-center py-8 text-sm text-txt-muted">${escapeHtml(data && data.message ? data.message : 'Rate a few things you loved to unlock your best bet.')}</div>`;
+            return;
+        }
+        slot.innerHTML = renderHeroCard(mediaType, data.pick, data.anchor);
+    } catch {
+        slot.innerHTML = `<div class="text-center py-8 text-sm text-txt-muted">Couldn't load this week's pick.</div>`;
+    }
+}
+
+function renderHeroCard(mediaType, pick, anchor) {
+    const accent = TYPE_ACCENT[pick.media_type || mediaType] || TYPE_ACCENT.movie;
+    const fit = (pick.media_type || mediaType) === 'podcast' ? 'poster-contain' : 'poster-cover';
+    const imageInner = pick.image_url
+        ? `<img src="${pick.image_url}" alt="" class="${fit}">`
+        : `<div class="poster-fallback ${accent}"><span class="text-white text-4xl font-bold">${escapeHtml((pick.title || '?')[0])}</span></div>`;
+    const link = pick.external_id ? `/media/${pick.media_type || mediaType}/${pick.external_id}?source=${pick.source}` : '#';
+    const itemForCard = {
+        external_id: pick.external_id || '',
+        source: pick.source || '',
+        title: pick.title,
+        media_type: pick.media_type || mediaType,
+        image_url: pick.image_url || null,
+        year: pick.year || null,
+        creator: pick.creator || null,
+        genres: Array.isArray(pick.genres) ? pick.genres.join(', ') : (pick.genres || null),
+        description: pick.description || null,
+    };
+    const actions = typeof buildActionBar === 'function' ? buildActionBar(itemForCard, 'md') : '';
+    const anchorLine = anchor && anchor.title
+        ? `<p class="text-xs text-txt-muted uppercase tracking-wide">Because you loved <span class="text-sage normal-case font-semibold">${escapeHtml(anchor.title)}</span></p>`
+        : `<p class="text-xs text-txt-muted uppercase tracking-wide">${escapeHtml(TYPE_LABEL[pick.media_type || mediaType] || 'Pick')} of the day</p>`;
+    return `
+        <div class="flex flex-col md:flex-row" data-rec-card>
+            <a href="${link}" class="md:w-48 md:flex-shrink-0">
+                <div class="poster-frame relative">${imageInner}</div>
+            </a>
+            <div class="p-5 md:p-6 flex-1 flex flex-col">
+                ${anchorLine}
+                <a href="${link}" class="text-xl md:text-2xl font-bold mt-1 mb-1 hover:text-sage transition-base block">${escapeHtml(pick.title)}</a>
+                ${pick.year ? `<p class="text-xs text-txt-muted mb-3">${pick.year}</p>` : ''}
+                ${pick.reason ? `<p class="text-sm text-txt dark:text-txt-light leading-relaxed mb-4">${escapeHtml(pick.reason)}</p>` : ''}
+                <div class="mt-auto quick-add-area">${actions}</div>
+            </div>
+        </div>`;
+}
+
+// Kick off the dynamic sections. The Just Finished and Up Next data
+// is server-rendered, so we only need JS for Right Now + the hero card
+// + wiring the rating dots into the static markup.
+wireRatingSlots();
+loadRightNow();
+loadBestBetHero();
 {% endif %}
 </script>
 {% endblock %}

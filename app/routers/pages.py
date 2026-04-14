@@ -62,12 +62,52 @@ def _get_greeting_context(user_name: str) -> dict:
 
 @router.get("/")
 async def home(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
-    # Light query — the new home page is almost entirely client-rendered
-    # from /api/media/home/right-now, /api/media/home-bundle, and
-    # /api/media/best-bet/*. The server only needs to know how many
-    # entries the user has so we can pick between the empty state, the
-    # new-user welcome modal, and the fully populated layout.
+    """Home does two things: helps the user close the loop on what they
+    just consumed (rate / status update), and inspires them with one pick
+    they didn't know they wanted. Everything else (mood browse, themes,
+    Mad Lib, chat) lives on /discover."""
+
     total = db.query(MediaEntry).filter(MediaEntry.user_id == user.id).count()
+
+    # "Just finished something?" — items the user added or marked as done
+    # but never rated. The default status for a new entry is 'consumed',
+    # so this naturally captures imports, bulk-adds, and quick-saves that
+    # never got a rating. We pull the most recent six so the user can
+    # close the loop in one click each.
+    unrated_recent = (
+        db.query(MediaEntry)
+        .filter(
+            MediaEntry.user_id == user.id,
+            MediaEntry.status == "consumed",
+            MediaEntry.rating.is_(None),
+        )
+        .order_by(MediaEntry.updated_at.desc(), MediaEntry.created_at.desc())
+        .limit(6)
+        .all()
+    )
+
+    # "Up next on your list" — the queue, sorted so the highest-confidence
+    # pick is first. Predicted rating descending puts the items the model
+    # thinks the user will love at the front of the swim lane.
+    up_next = (
+        db.query(MediaEntry)
+        .filter(
+            MediaEntry.user_id == user.id,
+            MediaEntry.status == "want_to_consume",
+        )
+        .order_by(MediaEntry.predicted_rating.desc().nullslast(), MediaEntry.created_at.desc())
+        .limit(6)
+        .all()
+    )
+
+    # "Your best bet this week" — single hero card, one media type per
+    # day. We rotate by day-of-year so each user sees movie / tv / book /
+    # podcast over the course of a week and the page feels fresh on
+    # repeat visits without re-querying the AI. The actual /api/media/
+    # best-bet/<type> call is cached 7 days per (user, type), so the
+    # page typically lands on a cached pick.
+    rotation = ["movie", "tv", "book", "podcast"]
+    best_bet_media_type = rotation[datetime.now(ZoneInfo("America/New_York")).timetuple().tm_yday % 4]
 
     greeting_ctx = _get_greeting_context(user.name)
 
@@ -78,6 +118,9 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
             "user": user,
             "total": total,
             "is_new_user": total < 5,
+            "unrated_recent": unrated_recent,
+            "up_next": up_next,
+            "best_bet_media_type": best_bet_media_type,
             **greeting_ctx,
         },
     )
