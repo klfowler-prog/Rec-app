@@ -124,7 +124,7 @@
             {% for item in currently %}
             <div class="progress-card relative" data-entry-id="{{ item.id }}">
                 {% if item.image_url %}
-                <div class="progress-bg" style="background-image: url('{{ item.image_url }}')"></div>
+                <div class="progress-bg" style="background-image: url('{{ item.image_url|e }}')"></div>
                 {% else %}
                 <div class="progress-bg {% if item.media_type == 'tv' %}gradient-purple{% elif item.media_type == 'book' %}gradient-amber{% elif item.media_type == 'podcast' %}bg-green-500{% else %}gradient-blue{% endif %}"></div>
                 {% endif %}

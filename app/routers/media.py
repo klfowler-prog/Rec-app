@@ -15,7 +15,7 @@ router = APIRouter()
 
 
 @router.get("/search", response_model=list[MediaResult])
-async def search_media(q: str = Query(..., min_length=1), media_type: str | None = None):
+async def search_media(q: str = Query(..., min_length=1), media_type: str | None = None, user: User = Depends(require_user)):
     """Search across all media APIs."""
     from app.services.unified_search import unified_search
 
@@ -32,7 +32,7 @@ class BulkSearchRequest(BaseModel):
 
 
 @router.post("/bulk-search")
-async def bulk_search(req: BulkSearchRequest):
+async def bulk_search(req: BulkSearchRequest, user: User = Depends(require_user)):
     """Search for multiple titles with explicit media types.
 
     Uses a semaphore to cap concurrency at 5, preventing API rate-limit

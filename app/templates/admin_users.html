@@ -49,7 +49,7 @@
                         </div>
                     </div>
                     {% if u.email.lower() != user.email.lower() %}
-                    <form method="POST" action="/admin/users/delete" onsubmit="return confirm('Delete {{ u.name }} and all their data? This cannot be undone.')" class="flex-shrink-0">
+                    <form method="POST" action="/admin/users/delete" onsubmit="return confirm('Delete this user and all their data? This cannot be undone.')" class="flex-shrink-0">
                         <input type="hidden" name="user_id" value="{{ u.id }}" />
                         <button type="submit" class="text-xs text-txt-muted hover:text-coral transition-base px-2 py-1 rounded hover:bg-coral/10">
                             Delete

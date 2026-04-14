@@ -18,7 +18,7 @@ def list_users(user: User = Depends(require_user), db: Session = Depends(get_db)
     """List all users except the current one, for picking a comparison partner."""
     users = db.query(User).filter(User.id != user.id).all()
     return [
-        {"id": u.id, "name": u.name, "email": u.email, "picture": u.picture}
+        {"id": u.id, "name": u.name, "picture": u.picture}
         for u in users
     ]
 

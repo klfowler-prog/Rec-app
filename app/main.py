@@ -30,7 +30,7 @@ with engine.connect() as conn:
 app = FastAPI(title="NextUp", description="Personal media recommendation engine")
 
 # Session middleware for auth cookies
-app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
+app.add_middleware(SessionMiddleware, secret_key=settings.secret_key, https_only=True, same_site="lax")
 
 
 @app.exception_handler(_LoginRequired)

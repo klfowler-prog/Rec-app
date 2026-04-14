@@ -16,3 +16,6 @@ build/
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
+.env.*
+.save
+*.save
