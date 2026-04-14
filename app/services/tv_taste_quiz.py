@@ -397,6 +397,28 @@ PROFILES: list[dict] = [
         "vector": {"serialization": 1.0, "moral_ambiguity": 1.0, "emotional": 0.3},
         "description": "You think of the best dramas in the same breath as great novels. You want craft, patience, and long-form storytelling that pays off character work episode by episode.",
     },
+    # Scene-driven profile signatures (Phase E2). Axis-proxy vectors
+    # that light up when the user rates items in the underserved
+    # scenes highly — sitcom + cozy comedy, TV horror, and period /
+    # contemporary TV romance.
+    {
+        "id": "cozy_comedy_fan",
+        "name": "The Cozy Comedy Fan",
+        "vector": {"comedy": 1.0, "emotional": 1.0, "darkness": -1.0, "irony": -0.3},
+        "description": "You watch TV to feel good. Parks and Rec, Schitt's Creek, Abbott Elementary, Ted Lasso — warm sitcoms with hearts the size of small countries are exactly your thing, and you're right that the mean stuff is usually just mean.",
+    },
+    {
+        "id": "horror_completist_tv",
+        "name": "The Horror Completist",
+        "vector": {"genre": 1.0, "darkness": 1.0, "ambiguity": 0.5, "moral_ambiguity": 0.3},
+        "description": "TV horror is its own country and you've mapped it — Hill House to Yellowjackets to Stranger Things. You want atmosphere, long-arc dread, and shows that are willing to commit to the bit instead of pulling punches.",
+    },
+    {
+        "id": "period_romantic",
+        "name": "The Period Romantic",
+        "vector": {"serialization": 1.0, "emotional": 1.0, "darkness": -0.5},
+        "description": "Bridgerton, The Crown, Outlander — you want TV that takes romance seriously, rewards long commitments, and gives you beautiful people in beautiful clothes making decisions you'll still be thinking about next week.",
+    },
 ]
 
 

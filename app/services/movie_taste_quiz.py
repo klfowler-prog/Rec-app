@@ -424,6 +424,30 @@ PROFILES: list[dict] = [
         "vector": {"irony": 1.0, "comedy": 1.0, "emotional": -1.0},
         "description": "Earnestness is suspicious. You're drawn to deadpan, absurdist, or formally self-aware comedy that doesn't take itself too seriously.",
     },
+    # Scene-driven profile signatures (Phase E2). These target the
+    # underserved taste territories — genre cinema, horror, modern
+    # romance — with axis-proxy vectors that light up when the user
+    # rates items in those scenes highly. The profile list matches
+    # top 2 by cosine similarity so these coexist with the existing
+    # prestige-canon-centric profiles.
+    {
+        "id": "mainline_genre_fan",
+        "name": "The Mainline Genre Fan",
+        "vector": {"comedy": 1.0, "genre": 1.0, "emotional": 0.5, "pace": -0.5},
+        "description": "You love action, thrillers, and smart buddy comedies — genre cinema that knows what it is and commits. Not here to be challenged; here to be entertained by something that's firing on every cylinder.",
+    },
+    {
+        "id": "horror_completist",
+        "name": "The Horror Completist",
+        "vector": {"darkness": 1.0, "genre": 1.0, "ambiguity": 0.5, "pace": 0.3},
+        "description": "You sit with the dread. From A24 elevated horror to classic supernatural canon to found-footage lo-fi — you're drawn to films that let discomfort do the work and trust the audience to stay with it.",
+    },
+    {
+        "id": "modern_romantic",
+        "name": "The Modern Romantic",
+        "vector": {"emotional": 1.0, "darkness": -1.0, "irony": -0.5, "pace": -0.3},
+        "description": "Love stories, first and always. You're drawn to films that take feeling seriously — romances, coming-of-age, films that trust an earned emotional beat more than a clever one.",
+    },
 ]
 
 
