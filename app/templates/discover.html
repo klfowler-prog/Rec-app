@@ -147,9 +147,74 @@
     </div>
 
     <!-- ============================================================
-         2. MOOD PILLS — small colorful chips, not dominating cards.
-         Each chip is an explicit mood / context that routes back to
-         /discover?context=<slug> and autofires a chat message.
+         2. LET'S FIND SOMETHING — mad lib + chat in a proper section
+         ============================================================ -->
+    <div>
+        <div class="mb-4">
+            <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold mb-0.5">Let's find something</p>
+            <h2 class="text-xl md:text-2xl font-bold">Tell us what you're in the mood for</h2>
+        </div>
+
+        <div class="space-y-4">
+            <!-- Mad Lib -->
+            <div class="relative overflow-hidden rounded-2xl p-5 md:p-6" style="background: linear-gradient(135deg, #8B9E6B 0%, #5A7040 100%);">
+                <div class="absolute top-0 right-0 w-28 h-28 bg-white/10 rounded-full -translate-y-10 translate-x-10"></div>
+                <div class="absolute bottom-0 left-4 w-16 h-16 bg-white/5 rounded-full translate-y-8"></div>
+                <div class="relative z-10">
+                    <p class="text-white/70 text-xs font-bold uppercase tracking-widest mb-3">Mix two things you love</p>
+                    <div class="flex flex-wrap items-baseline gap-x-3 gap-y-4">
+                        <span class="text-lg text-white/80 font-light">I want a</span>
+                        <select id="madlib-type" class="border-b-2 border-white/50 bg-white/15 text-white text-lg font-semibold px-2 py-0.5 rounded-t outline-none cursor-pointer appearance-none" style="color: white;">
+                            <option value="" style="color: #2B3A4E;">anything</option>
+                            <option value="movie" style="color: #2B3A4E;">movie</option>
+                            <option value="tv" style="color: #2B3A4E;">TV show</option>
+                            <option value="book" style="color: #2B3A4E;">book</option>
+                            <option value="podcast" style="color: #2B3A4E;">podcast</option>
+                        </select>
+                        <span class="text-lg text-white/80 font-light">that's like</span>
+                        <input id="madlib-ref1" type="text" placeholder="The Matrix" autocomplete="off"
+                            class="border-b-2 border-white/50 bg-white/15 text-white text-lg font-semibold placeholder-white/30 px-2 py-0.5 rounded-t outline-none min-w-[120px] w-40 focus:border-white transition-colors" />
+                        <span class="text-lg text-white/80 font-light">meets</span>
+                        <input id="madlib-ref2" type="text" placeholder="Harry Potter" autocomplete="off"
+                            class="border-b-2 border-white/50 bg-white/15 text-white text-lg font-semibold placeholder-white/30 px-2 py-0.5 rounded-t outline-none min-w-[140px] w-52 focus:border-white transition-colors" />
+                        <button id="madlib-send"
+                            class="px-6 py-2.5 bg-white text-sage-dark rounded-xl text-base font-bold transition-all hover:bg-cream hover:scale-105 active:scale-95 shadow-lg whitespace-nowrap">
+                            Find it &rarr;
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat bar -->
+            <div id="chat-panel" class="ask-bar">
+                <div class="p-4">
+                    <p class="text-[11px] text-txt-muted uppercase tracking-[0.18em] font-bold mb-2">Or just tell us</p>
+                    <div class="flex items-center gap-2">
+                        <select id="rec-type-filter" class="flex-shrink-0 px-3 py-2.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm text-txt dark:text-txt-light">
+                            <option value="">Any type</option>
+                            <option value="movie">Movie</option>
+                            <option value="tv">TV</option>
+                            <option value="book">Book</option>
+                            <option value="podcast">Podcast</option>
+                        </select>
+                        <div class="flex-1">
+                            <textarea id="rec-input" rows="1" placeholder="A sci-fi book that won't depress me, something to watch with my partner who hates anything dark..."
+                                class="w-full px-4 py-2.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sage/40 focus:border-sage transition-base resize-none"
+                                style="max-height: 120px;"></textarea>
+                        </div>
+                        <button id="rec-send" class="px-5 py-2.5 bg-sage text-white rounded-lg text-sm font-semibold hover:bg-sage-dark disabled:opacity-50 transition-base flex items-center gap-1.5">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <!-- Chat messages area — hidden until a message is sent -->
+                <div id="chat-messages" class="ask-messages hidden overflow-y-auto space-y-3 px-4 pb-4 border-t border-border-light dark:border-border-dark"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         3. MOOD PILLS — browse by moment in your day.
          ============================================================ -->
     <div>
         <div class="mb-3">
@@ -181,64 +246,6 @@
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 Lose the weekend
             </button>
-        </div>
-    </div>
-
-    <!-- ============================================================
-         3. MAD LIB + ASK BAR — two ways to go specific, side by side.
-         Compact card + conversational bar, neither one dominating.
-         ============================================================ -->
-    <div class="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        <!-- Mad Lib: playful structured input -->
-        <div class="lg:col-span-3 madlib-compact">
-            <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold mb-2">Mix two things you love</p>
-            <div class="flex flex-wrap items-baseline gap-x-2 gap-y-3 text-txt dark:text-txt-light">
-                <span class="text-base font-light">I want a</span>
-                <select id="madlib-type" class="madlib-select">
-                    <option value="">anything</option>
-                    <option value="movie">movie</option>
-                    <option value="tv">TV show</option>
-                    <option value="book">book</option>
-                    <option value="podcast">podcast</option>
-                </select>
-                <span class="text-base font-light">that's like</span>
-                <input id="madlib-ref1" type="text" placeholder="The Matrix" autocomplete="off" class="madlib-field w-32" />
-                <span class="text-base font-light">meets</span>
-                <input id="madlib-ref2" type="text" placeholder="Harry Potter" autocomplete="off" class="madlib-field w-40" />
-                <button id="madlib-send" class="ml-auto px-4 py-1.5 bg-sage text-white rounded-lg text-sm font-semibold hover:bg-sage-dark active:scale-95 transition-base shadow-sm whitespace-nowrap">
-                    Find it &rarr;
-                </button>
-            </div>
-        </div>
-
-        <!-- Ask bar: conversational input -->
-        <div class="lg:col-span-2">
-            <div id="chat-panel" class="ask-bar">
-                <div class="p-3">
-                    <div class="flex items-center gap-2 mb-1 text-[11px] text-sage uppercase tracking-[0.18em] font-bold">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-                        <span>Just ask</span>
-                    </div>
-                    <textarea id="rec-input" rows="1" placeholder="A sci-fi book that won't depress me&hellip;"
-                        class="w-full px-1 py-1.5 bg-transparent border-0 text-sm focus:outline-none resize-none placeholder:text-txt-muted"
-                        style="max-height: 120px;"></textarea>
-                    <div class="flex items-center gap-2 mt-1">
-                        <select id="rec-type-filter" class="flex-shrink-0 px-2 py-1 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-md text-[11px] text-txt dark:text-txt-light">
-                            <option value="">Any type</option>
-                            <option value="movie">Movie</option>
-                            <option value="tv">TV</option>
-                            <option value="book">Book</option>
-                            <option value="podcast">Podcast</option>
-                        </select>
-                        <button id="rec-send" class="ml-auto px-4 py-1.5 bg-sage text-white rounded-md text-xs font-semibold hover:bg-sage-dark disabled:opacity-50 transition-base flex items-center gap-1.5">
-                            <span>Send</span>
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
-                        </button>
-                    </div>
-                </div>
-                <!-- Chat messages area — hidden until a message is sent -->
-                <div id="chat-messages" class="ask-messages hidden overflow-y-auto space-y-3 px-3 pb-3 border-t border-border-light dark:border-border-dark"></div>
-            </div>
         </div>
     </div>
 
