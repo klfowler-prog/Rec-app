@@ -19,6 +19,9 @@ def _build_profile_context(db: Session, user_id: int) -> str:
     high_rated = [e for e in entries if e.rating and e.rating >= 8]
     high_rated.sort(key=lambda e: e.rating or 0, reverse=True)
 
+    # Abandoned items — strong negative signal about what didn't work
+    abandoned = [e for e in entries if e.status == "abandoned"]
+
     # Recently consumed
     recent = sorted(entries, key=lambda e: e.created_at, reverse=True)[:10]
 
@@ -47,6 +50,14 @@ def _build_profile_context(db: Session, user_id: int) -> str:
         rating_str = f" rated {e.rating}/10" if e.rating else ""
         lines.append(f"- {e.title} ({e.media_type}) — {e.status}{rating_str}")
     lines.append("")
+
+    if abandoned:
+        lines.append("### Abandoned / Didn't Finish:")
+        lines.append("These are items the user started but dropped. Treat as soft negative signal — something about the tone, pacing, subject, or style didn't work for them. Avoid recommending items with similar characteristics.")
+        for e in abandoned[:10]:
+            genre_str = f" [{e.genres}]" if e.genres else ""
+            lines.append(f"- {e.title} ({e.media_type}){genre_str}")
+        lines.append("")
 
     if top_genres:
         lines.append(f"### Genre Preferences:")

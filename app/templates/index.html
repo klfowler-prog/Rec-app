@@ -143,6 +143,10 @@
                     <p class="text-[10px] uppercase tracking-wide text-txt-muted mb-0.5">{{ {'movie':'Movie','tv':'TV','book':'Book','podcast':'Podcast'}.get(item.media_type, item.media_type) }}{% if item.year %} · {{ item.year }}{% endif %}</p>
                     <p class="text-sm font-semibold leading-tight mb-2 line-clamp-2">{{ item.title }}</p>
                     <div class="mt-auto" data-home-rate-slot data-entry-id="{{ item.id }}"></div>
+                    <div class="flex gap-1.5 mt-1.5">
+                        <button onclick="homeQuickStatus({{ item.id }}, 'abandoned', this)" class="text-[10px] px-2 py-0.5 rounded border border-border-light dark:border-border-dark text-txt-muted hover:bg-gray-100 dark:hover:bg-gray-800 transition-base">Didn't finish</button>
+                        <button onclick="homeQuickStatus({{ item.id }}, 'want_to_consume', this)" class="text-[10px] px-2 py-0.5 rounded border border-border-light dark:border-border-dark text-txt-muted hover:bg-sage/10 transition-base">Later</button>
+                    </div>
                 </div>
             </div>
             {% endfor %}
@@ -347,6 +351,28 @@ function wireRatingSlots() {
         if (!entryId || typeof showRatingDots !== 'function') return;
         showRatingDots(slot, entryId);
     });
+}
+
+// "Didn't finish" / "Later" quick-status buttons on unrated cards
+async function homeQuickStatus(entryId, newStatus, btn) {
+    if (!entryId) return;
+    btn.disabled = true;
+    try {
+        const resp = await fetch(`/api/profile/${entryId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus }),
+        });
+        if (!resp.ok) { btn.disabled = false; return; }
+        // Fade out the card
+        const card = btn.closest('[data-rec-card]');
+        if (card) {
+            card.style.transition = 'opacity 0.3s, transform 0.3s';
+            card.style.opacity = '0';
+            card.style.transform = 'scale(0.95)';
+            setTimeout(() => card.remove(), 300);
+        }
+    } catch { btn.disabled = false; }
 }
 
 // -----------------------------------------------------------------

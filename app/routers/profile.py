@@ -261,6 +261,7 @@ async def predict_ratings(user: User = Depends(require_user), db: Session = Depe
         return {"predicted": 0}
 
     consumed = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.status == "consumed", MediaEntry.rating.isnot(None)).all()
+    abandoned = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.status == "abandoned").all()
     want = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.status == "want_to_consume").all()
 
     if not consumed or not want:
@@ -268,6 +269,11 @@ async def predict_ratings(user: User = Depends(require_user), db: Session = Depe
 
     rated = sorted(consumed, key=lambda e: e.rating or 0, reverse=True)
     taste_lines = [f"- {e.title} ({e.media_type}) — {e.rating}/10 [{e.genres or 'no genres'}]" for e in rated[:20]]
+    if abandoned:
+        taste_lines.append("")
+        taste_lines.append("Abandoned (treat as ~4/10 — user started but didn't finish):")
+        for e in abandoned[:10]:
+            taste_lines.append(f"- {e.title} ({e.media_type}) [{e.genres or 'no genres'}]")
 
     predict_lines = []
     want_map = {}
