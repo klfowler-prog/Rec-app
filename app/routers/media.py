@@ -642,28 +642,38 @@ async def taste_quiz_movies_items(
 
 
 @router.get("/taste-quiz/tv")
-async def taste_quiz_tv_items():
-    """Return the 19 TV shows for the TV taste quiz, enriched with
-    TMDB metadata. Fixed accessible → challenging order."""
+async def taste_quiz_tv_items(
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Return the TV shows for the taste quiz, enriched with TMDB
+    metadata and filtered against the user's saved onboarding picks
+    (generation + scenes). Same caching + filter pattern as the
+    movies endpoint: the enriched pool is cached globally, the
+    per-user filter is applied at request time."""
     from app import cache
     from app.services.tv_taste_quiz import SHOWS, RESPONSE_OPTIONS, AXES, MIN_ANSWERED
+    from app.services.taste_quiz_scoring import filter_quiz_items_by_onboarding, load_onboarding
 
-    cached = cache.get("tv_taste_quiz_items")
-    if cached is not None:
-        return cached
-    enriched = await _enrich_quiz_items_via_tmdb(SHOWS, "tv")
+    enriched = cache.get("tv_taste_quiz_items_enriched")
+    if enriched is None:
+        enriched = await _enrich_quiz_items_via_tmdb(SHOWS, "tv")
+        cache.set("tv_taste_quiz_items_enriched", enriched, ttl_seconds=86400 * 7)
+
+    onboarding = load_onboarding(db, user.id)
+    items = filter_quiz_items_by_onboarding(enriched, onboarding)
+
     result = {
-        "items": enriched,
+        "items": items,
         "options": RESPONSE_OPTIONS,
         "axes": AXES,
         "min_answered": MIN_ANSWERED,
-        "total_questions": len(SHOWS),
+        "total_questions": len(items),
         "media_type": "tv",
         "media_label": "show",
         "media_label_plural": "shows",
         "verb": "watched",
     }
-    cache.set("tv_taste_quiz_items", result, ttl_seconds=86400 * 7)
     return result
 
 

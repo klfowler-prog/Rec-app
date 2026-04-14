@@ -237,19 +237,22 @@ def filter_quiz_items_by_onboarding(
     else:
         filtered = [it for it in gen_pass if scene_overlap(it) > 0]
 
-    # Back-fill pass 1: items that passed the generation filter but not
-    # the scene filter. They're at least in the right era.
-    if len(filtered) < min_items and user_scenes:
+    # Back-fill pass 1: add every item that passed the generation
+    # filter but didn't match any scene. Not "up to the minimum" —
+    # we want the user's whole era cohort since all of it is at
+    # least era-appropriate. The final max_items cap enforces the
+    # ceiling.
+    if len(filtered) < max_items and user_scenes:
         seen_orders = {it.get("order") for it in filtered}
         for it in gen_pass:
             if it.get("order") not in seen_orders:
                 filtered.append(it)
                 seen_orders.add(it.get("order"))
-            if len(filtered) >= min_items:
-                break
 
-    # Back-fill pass 2: the full pool, for users with an era that has
-    # almost no tagged items (e.g. classic + anime).
+    # Back-fill pass 2: if we're STILL below the minimum after adding
+    # the full generation cohort, reach into the rest of the pool so
+    # the user never sees fewer than min_items (e.g. a gen_z user
+    # whose era has fewer than 15 items in the current pool).
     if len(filtered) < min_items:
         seen_orders = {it.get("order") for it in filtered}
         for it in items:
