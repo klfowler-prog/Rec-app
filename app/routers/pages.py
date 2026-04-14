@@ -259,8 +259,10 @@ async def taste_dna_page(request: Request, user: User = Depends(require_user), d
     """Taste DNA page. Loads the user's saved quiz results so the
     template can decide whether to show the new-user quiz prompts at
     the top or tuck them into a secondary 'retake' section at the
-    bottom."""
-    from app.services.taste_quiz_scoring import load_quiz_results
+    bottom. Also loads the user's onboarding picks (media mix +
+    era + scenes) so the page can display them with an 'Edit' link
+    back to /onboarding."""
+    from app.services.taste_quiz_scoring import get_onboarding_display, load_onboarding, load_quiz_results
 
     quiz_results = load_quiz_results(db, user.id)
     quiz_status = {
@@ -270,9 +272,12 @@ async def taste_dna_page(request: Request, user: User = Depends(require_user), d
     }
     quiz_status["completed_count"] = sum(1 for v in (quiz_status["movies"], quiz_status["tv"], quiz_status["books"]) if v)
     quiz_status["total"] = 3
+
+    onboarding_display = get_onboarding_display(load_onboarding(db, user.id))
+
     return templates.TemplateResponse(
         "taste_dna.html",
-        {"request": request, "user": user, "quiz_status": quiz_status},
+        {"request": request, "user": user, "quiz_status": quiz_status, "onboarding_display": onboarding_display},
     )
 
 

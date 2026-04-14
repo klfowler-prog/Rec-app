@@ -266,6 +266,41 @@ def load_onboarding(db, user_id: int) -> dict | None:
     return load_quiz_results(db, user_id).get("onboarding")
 
 
+def get_onboarding_display(onboarding: dict | None) -> dict | None:
+    """Format saved onboarding answers for UI display. Returns None
+    if there's nothing to show, or a dict with three lists of
+    human-readable labels the /taste template can iterate over:
+
+        {
+            "media_types": [("movie", "movies"), ("tv", "TV shows"), ...],
+            "generation": ("gen_z", "mostly recent stuff (last 5-10 years)"),
+            "scenes": [("anime", "anime + manga"), ...],
+        }
+
+    Each entry is a (slug, label) tuple so the template can still
+    key by the raw slug when it wants (e.g. for icons or accent
+    classes) while rendering the friendly label by default.
+    Generation is a single tuple (or None if 'mix'/missing) since
+    it's a single-value pick.
+    """
+    if not onboarding or not isinstance(onboarding, dict):
+        return None
+
+    media_types = onboarding.get("media_types") or []
+    generation = onboarding.get("generation") or "mix"
+    scenes = onboarding.get("scenes") or []
+
+    # Nothing worth showing
+    if not media_types and not scenes and generation == "mix":
+        return None
+
+    return {
+        "media_types": [(m, _MEDIA_TYPE_LABELS.get(m, m)) for m in media_types],
+        "generation": (generation, _GENERATION_LABELS.get(generation, generation)) if generation != "mix" else None,
+        "scenes": [(s, _SCENE_LABELS.get(s, s)) for s in scenes],
+    }
+
+
 def filter_quiz_items_by_onboarding(
     items: list[dict],
     onboarding: dict | None,
