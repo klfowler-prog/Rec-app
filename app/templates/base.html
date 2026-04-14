@@ -97,9 +97,9 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
                     Home
                 </a>
-                <a href="/search" onclick="closeSidebar()" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-base hover:bg-sage/10 {% if request.url.path == '/search' %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                    Search
+                <a href="/discover" onclick="closeSidebar()" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-base hover:bg-sage/10 {% if request.url.path == '/discover' or request.url.path == '/recommend' %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16zM11 8v6M8 11h6"/></svg>
+                    Discover
                 </a>
                 {% set library_active = request.url.path == '/profile' or request.url.path.startswith('/profile/') %}
                 <div class="nav-group">
@@ -133,20 +133,26 @@
                 </div>
                 <a href="/taste" onclick="closeSidebar()" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-base hover:bg-sage/10 {% if request.url.path == '/taste' or request.url.path == '/quick-start' or request.url.path.startswith('/quick-start/') %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-                    Taste DNA
+                    My Taste
                 </a>
-                <a href="/together" onclick="closeSidebar()" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-base hover:bg-sage/10 {% if request.url.path == '/together' %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                    Together
-                </a>
-                <a href="/recommend" onclick="closeSidebar()" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-base hover:bg-sage/10 {% if request.url.path == '/recommend' %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-                    Get Recs
-                </a>
-                <a href="/add" onclick="closeSidebar()" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-base hover:bg-sage/10 {% if request.url.path in ('/add', '/bulk-add', '/import/goodreads', '/import/plex') %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
+                <a href="/add" onclick="closeSidebar()" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-base hover:bg-sage/10 {% if request.url.path in ('/add', '/bulk-add', '/import/goodreads', '/import/plex', '/search') %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-                    Add Media
+                    Add
                 </a>
+                {% set more_active = request.url.path == '/together' %}
+                <div class="nav-group">
+                    <button type="button" onclick="toggleMoreGroup()" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-base hover:bg-sage/10 {% if more_active %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z"/></svg>
+                        More
+                        <svg id="more-chevron" class="w-4 h-4 ml-auto transition-transform {% if more_active %}rotate-180{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div id="more-submenu" class="{% if not more_active %}hidden {% endif %}mt-1 ml-6 space-y-0.5 border-l border-border-light dark:border-border-dark pl-3">
+                        <a href="/together" onclick="closeSidebar()" class="nav-link flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-base hover:bg-sage/10 {% if request.url.path == '/together' %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                            Together
+                        </a>
+                    </div>
+                </div>
             </div>
             <div class="p-4 border-t border-border-light dark:border-border-dark space-y-2">
                 {% if user is defined and user and admin_email and user.email|lower == admin_email %}
@@ -231,6 +237,13 @@
         function toggleLibraryGroup() {
             const submenu = document.getElementById('library-submenu');
             const chevron = document.getElementById('library-chevron');
+            submenu.classList.toggle('hidden');
+            chevron.classList.toggle('rotate-180');
+        }
+
+        function toggleMoreGroup() {
+            const submenu = document.getElementById('more-submenu');
+            const chevron = document.getElementById('more-chevron');
             submenu.classList.toggle('hidden');
             chevron.classList.toggle('rotate-180');
         }

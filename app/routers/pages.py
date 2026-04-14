@@ -62,12 +62,52 @@ def _get_greeting_context(user_name: str) -> dict:
 
 @router.get("/")
 async def home(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
-    # Light query — the new home page is almost entirely client-rendered
-    # from /api/media/home/right-now, /api/media/home-bundle, and
-    # /api/media/best-bet/*. The server only needs to know how many
-    # entries the user has so we can pick between the empty state, the
-    # new-user welcome modal, and the fully populated layout.
+    """Home does two things: helps the user close the loop on what they
+    just consumed (rate / status update), and inspires them with one pick
+    they didn't know they wanted. Everything else (mood browse, themes,
+    Mad Lib, chat) lives on /discover."""
+
     total = db.query(MediaEntry).filter(MediaEntry.user_id == user.id).count()
+
+    # "Just finished something?" — items the user added or marked as done
+    # but never rated. The default status for a new entry is 'consumed',
+    # so this naturally captures imports, bulk-adds, and quick-saves that
+    # never got a rating. We pull the most recent six so the user can
+    # close the loop in one click each.
+    unrated_recent = (
+        db.query(MediaEntry)
+        .filter(
+            MediaEntry.user_id == user.id,
+            MediaEntry.status == "consumed",
+            MediaEntry.rating.is_(None),
+        )
+        .order_by(MediaEntry.updated_at.desc(), MediaEntry.created_at.desc())
+        .limit(6)
+        .all()
+    )
+
+    # "Up next on your list" — the queue, sorted so the highest-confidence
+    # pick is first. Predicted rating descending puts the items the model
+    # thinks the user will love at the front of the swim lane.
+    up_next = (
+        db.query(MediaEntry)
+        .filter(
+            MediaEntry.user_id == user.id,
+            MediaEntry.status == "want_to_consume",
+        )
+        .order_by(MediaEntry.predicted_rating.desc().nullslast(), MediaEntry.created_at.desc())
+        .limit(6)
+        .all()
+    )
+
+    # "Your best bet this week" — single hero card, one media type per
+    # day. We rotate by day-of-year so each user sees movie / tv / book /
+    # podcast over the course of a week and the page feels fresh on
+    # repeat visits without re-querying the AI. The actual /api/media/
+    # best-bet/<type> call is cached 7 days per (user, type), so the
+    # page typically lands on a cached pick.
+    rotation = ["movie", "tv", "book", "podcast"]
+    best_bet_media_type = rotation[datetime.now(ZoneInfo("America/New_York")).timetuple().tm_yday % 4]
 
     greeting_ctx = _get_greeting_context(user.name)
 
@@ -78,6 +118,9 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
             "user": user,
             "total": total,
             "is_new_user": total < 5,
+            "unrated_recent": unrated_recent,
+            "up_next": up_next,
+            "best_bet_media_type": best_bet_media_type,
             **greeting_ctx,
         },
     )
@@ -214,22 +257,34 @@ _CONTEXT_TO_MOOD = {
 }
 
 
-@router.get("/recommend")
-async def recommend_page(
+@router.get("/discover")
+async def discover_page(
     request: Request,
     user: User = Depends(require_user),
     context: str | None = None,
 ):
-    """Recommendation freeform page. Accepts an optional ?context=<slug>
-    from the home page's activity-context chip row and redirects to the
-    same page with a prewritten mood query, so the existing recommend
-    flow (which already auto-sends from ?mood=) takes over."""
+    """Single 'find me something' surface. Replaces the old /recommend page
+    and absorbs the activity chips, Mad Lib, Best Bets, and For Your Day
+    themes that previously lived on Home. Accepts an optional ?context=<slug>
+    from a chip click and redirects to the same page with a prewritten
+    mood query, so the inline chat (which auto-sends from ?mood=) takes
+    over."""
     if context and context in _CONTEXT_TO_MOOD:
         from urllib.parse import urlencode
 
-        target = "/recommend?" + urlencode({"mood": _CONTEXT_TO_MOOD[context]})
+        target = "/discover?" + urlencode({"mood": _CONTEXT_TO_MOOD[context]})
         return RedirectResponse(url=target, status_code=303)
-    return templates.TemplateResponse("recommend.html", {"request": request, "user": user})
+    return templates.TemplateResponse("discover.html", {"request": request, "user": user})
+
+
+@router.get("/recommend")
+async def recommend_page(request: Request, user: User = Depends(require_user)):
+    """Legacy redirect — /recommend folded into /discover in the Phase B1
+    rebuild. We preserve the query string so old chip and mood deep-links
+    keep working."""
+    qs = request.url.query
+    target = "/discover" + (f"?{qs}" if qs else "")
+    return RedirectResponse(url=target, status_code=303)
 
 
 @router.get("/bulk-add")
@@ -260,6 +315,31 @@ async def plex_import_page(request: Request, user: User = Depends(require_user))
 @router.get("/quick-start")
 async def quick_start_page(request: Request, user: User = Depends(require_user)):
     return templates.TemplateResponse("quick_start.html", {"request": request, "user": user})
+
+
+@router.get("/onboarding")
+async def onboarding_page(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """4-step taste-profile onboarding wizard. Step 1 picks the media
+    types you engage with, Step 2 picks an era, Step 2b picks the
+    'worlds you're into' (anime, action, gaming culture, etc.), Step
+    3 surfaces a quiz checklist filtered by your media-type picks.
+
+    Pre-loads the saved answers (if any) so the user can come back and
+    edit. Skipping any step persists 'mix' / empty defaults so the
+    rest of the app falls back to current behavior."""
+    from app.services.taste_quiz_scoring import load_onboarding
+
+    saved = load_onboarding(db, user.id) or {}
+    return templates.TemplateResponse(
+        "onboarding.html",
+        {
+            "request": request,
+            "user": user,
+            "saved_media_types": saved.get("media_types", []),
+            "saved_generation": saved.get("generation", "mix"),
+            "saved_scenes": saved.get("scenes", []),
+        },
+    )
 
 
 @router.get("/quick-start/movies")
@@ -294,6 +374,10 @@ async def quick_start_tv_page(request: Request, user: User = Depends(require_use
 
 @router.get("/quick-start/books")
 async def quick_start_books_page(request: Request, user: User = Depends(require_user)):
+    """Legacy combined books quiz — fiction + nonfiction in one flow.
+    Still here for users who want to do both modules in one sitting,
+    but the welcome modal and quick-start picker now point at the
+    split routes below by default."""
     return templates.TemplateResponse(
         "quick_start_quiz.html",
         {
@@ -302,6 +386,44 @@ async def quick_start_books_page(request: Request, user: User = Depends(require_
             "quiz_slug": "books",
             "quiz_title": "Book taste quiz",
             "quiz_blurb": "Two modules — 20 fiction titles, then 10 nonfiction. We'll learn how you read (prose vs plot, ideas vs feelings, how dark you can go) and figure out which module is really driving your taste.",
+            "item_label": "Book",
+        },
+    )
+
+
+@router.get("/quick-start/books/fiction")
+async def quick_start_books_fiction_page(request: Request, user: User = Depends(require_user)):
+    """Fiction-only books quiz. The quick_start_quiz template already
+    knows how to render a single-module book quiz — the API endpoint
+    /api/media/taste-quiz/books_fiction returns the same shape as the
+    combined endpoint with only the fiction module included, so the
+    JS works without changes."""
+    return templates.TemplateResponse(
+        "quick_start_quiz.html",
+        {
+            "request": request,
+            "user": user,
+            "quiz_slug": "books_fiction",
+            "quiz_title": "Fiction taste quiz",
+            "quiz_blurb": "20 novels, one at a time. We'll figure out how you read fiction — prose vs plot, ideas vs feelings, how dark you can go — and lock in your reader profile.",
+            "item_label": "Book",
+        },
+    )
+
+
+@router.get("/quick-start/books/nonfiction")
+async def quick_start_books_nonfiction_page(request: Request, user: User = Depends(require_user)):
+    """Nonfiction-only books quiz. The unblocker for readers who only
+    do nonfiction (history, science, memoir, true stories) and don't
+    want to click 'Haven't read' through 20 novels first."""
+    return templates.TemplateResponse(
+        "quick_start_quiz.html",
+        {
+            "request": request,
+            "user": user,
+            "quiz_slug": "books_nonfiction",
+            "quiz_title": "Nonfiction taste quiz",
+            "quiz_blurb": "10 nonfiction titles spanning memoir, ideas, science, history, and true crime. We'll figure out whether you read for the story, the argument, or the voice.",
             "item_label": "Book",
         },
     )

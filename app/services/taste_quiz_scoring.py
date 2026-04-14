@@ -95,10 +95,101 @@ def compute_next_quiz(db, user_id: int, current_slug: str | None = None) -> dict
 
 def build_quiz_signals_block(db, user_id: int) -> str:
     """One-call convenience for recommendation prompts: loads the
-    user's quiz results and formats them into a prompt block. Returns
-    an empty string when there are no results, so the caller can
-    include the output unconditionally."""
-    return format_quiz_signals_for_prompt(load_quiz_results(db, user_id))
+    user's saved quiz results + onboarding answers and formats them
+    into a prompt block for the AI to read as taste anchors. Returns
+    an empty string when neither source has any data, so the caller
+    can include the output unconditionally.
+
+    The output combines two sections:
+    1. USER ONBOARDING SIGNALS — the explicit 'I like these worlds'
+       picks from Phase D1 (media mix + era + scenes). These are
+       the strongest signal because the user typed them directly,
+       not inferred from rating patterns.
+    2. TASTE QUIZ SIGNALS — profile labels + axis scores from the
+       movie/TV/books quizzes (the existing format).
+    """
+    results = load_quiz_results(db, user_id)
+    onboarding_block = format_onboarding_signals_for_prompt(results.get("onboarding"))
+    quiz_block = format_quiz_signals_for_prompt(results)
+    return onboarding_block + quiz_block
+
+
+# Human-readable labels for the scene/generation enums so the AI sees
+# "anime + gaming culture" instead of "['anime', 'gaming_culture']".
+_SCENE_LABELS = {
+    "anime": "anime + manga",
+    "action_thriller": "action and thrillers",
+    "comedy": "comedies (sitcoms, buddy films, stand-up)",
+    "horror": "horror and scary stuff",
+    "scifi_fantasy": "sci-fi and fantasy",
+    "prestige_drama": "prestige drama (literary / character-driven)",
+    "romance": "romance",
+    "true_crime": "true crime and true stories",
+    "sports": "sports and competition",
+    "music": "music and music history",
+    "gaming_culture": "gaming culture (FNAF, Last of Us, Arcane, etc.)",
+    "k_content": "K-dramas, K-pop, Korean content",
+    "reality_tv": "reality TV",
+    "indie_arthouse": "indie + arthouse",
+    "docs_nonfiction": "documentaries and narrative nonfiction",
+    "kids_family": "kids and family",
+}
+
+_GENERATION_LABELS = {
+    "gen_z": "mostly recent stuff (last 5-10 years)",
+    "millennial": "millennial canon (2000s-2010s)",
+    "classic": "classic canon (70s-90s)",
+    "mix": "a mix across eras",
+}
+
+_MEDIA_TYPE_LABELS = {
+    "movie": "movies",
+    "tv": "TV shows",
+    "book_fiction": "fiction books",
+    "book_nonfiction": "nonfiction books",
+    "podcast": "podcasts",
+}
+
+
+def format_onboarding_signals_for_prompt(onboarding: dict | None) -> str:
+    """Format saved onboarding answers into a compact prompt block.
+    Returns an empty string when the user hasn't completed the wizard
+    so the caller can include the output unconditionally."""
+    if not onboarding or not isinstance(onboarding, dict):
+        return ""
+
+    media_types = onboarding.get("media_types") or []
+    generation = onboarding.get("generation") or "mix"
+    scenes = onboarding.get("scenes") or []
+
+    # Nothing worth reporting if all three are empty / default.
+    if not media_types and not scenes and generation == "mix":
+        return ""
+
+    lines = ["## USER ONBOARDING SIGNALS (the user explicitly told us these — weight them strongly):"]
+
+    if media_types:
+        pretty = ", ".join(_MEDIA_TYPE_LABELS.get(m, m) for m in media_types)
+        lines.append(f"- **Media mix**: {pretty}")
+
+    if generation and generation != "mix":
+        lines.append(f"- **Era lean**: {_GENERATION_LABELS.get(generation, generation)}")
+
+    if scenes:
+        pretty_scenes = ", ".join(_SCENE_LABELS.get(s, s) for s in scenes)
+        lines.append(f"- **Taste territories**: {pretty_scenes}")
+
+    lines.append("")
+    lines.append(
+        "INSTRUCTION: These are the user's declared preferences — the 'worlds' "
+        "they told us they're into. Weight recommendations that land in these "
+        "territories strongly over ones that don't, even if the alternative "
+        "sounds equally good on paper. A user who picked 'anime + gaming culture' "
+        "wants anime and gaming-adjacent picks first; only reach outside those "
+        "worlds when the user's message explicitly asks for something different."
+    )
+    lines.append("")
+    return "\n".join(lines) + "\n"
 
 
 def load_quiz_results(db, user_id: int) -> dict:
@@ -115,6 +206,155 @@ def load_quiz_results(db, user_id: int) -> dict:
     except (json.JSONDecodeError, TypeError):
         return {}
     return data if isinstance(data, dict) else {}
+
+
+# Valid scene tags (Step 2b of the onboarding wizard). Items in the
+# quiz pools are tagged with the same vocabulary in Phase D2 so the
+# filter algorithm at quiz load time can match user picks against
+# item scene tags. Keep this list in sync with the chip list in
+# templates/onboarding.html.
+ONBOARDING_SCENES = [
+    "anime", "action_thriller", "comedy", "horror", "scifi_fantasy",
+    "prestige_drama", "romance", "true_crime", "sports", "music",
+    "gaming_culture", "k_content", "reality_tv", "indie_arthouse",
+    "docs_nonfiction", "kids_family",
+]
+ONBOARDING_GENERATIONS = ["gen_z", "millennial", "classic", "mix"]
+ONBOARDING_MEDIA_TYPES = ["movie", "tv", "book_fiction", "book_nonfiction", "podcast"]
+
+
+def save_onboarding(db, user_id: int, answers: dict) -> dict:
+    """Persist the user's onboarding wizard answers under the
+    'onboarding' key in UserPreferences.quiz_results. Validates the
+    incoming dict against the allowed vocabularies above and
+    silently drops anything unknown — never crashes the wizard.
+
+    Returns the cleaned dict that was persisted, so the caller can
+    echo it back to the client."""
+    from app.models import UserPreferences
+
+    cleaned: dict = {
+        "media_types": [t for t in (answers.get("media_types") or []) if t in ONBOARDING_MEDIA_TYPES],
+        "generation": answers.get("generation") if answers.get("generation") in ONBOARDING_GENERATIONS else "mix",
+        "scenes": [s for s in (answers.get("scenes") or []) if s in ONBOARDING_SCENES],
+        "completed_at": datetime.utcnow().isoformat(),
+    }
+
+    prefs = db.query(UserPreferences).filter(UserPreferences.user_id == user_id).first()
+    if not prefs:
+        prefs = UserPreferences(user_id=user_id)
+        db.add(prefs)
+
+    try:
+        existing = json.loads(prefs.quiz_results) if prefs.quiz_results else {}
+        if not isinstance(existing, dict):
+            existing = {}
+    except (json.JSONDecodeError, TypeError):
+        existing = {}
+
+    existing["onboarding"] = cleaned
+    prefs.quiz_results = json.dumps(existing)
+    db.commit()
+    return cleaned
+
+
+def load_onboarding(db, user_id: int) -> dict | None:
+    """Return the user's saved onboarding answers, or None if they
+    haven't completed the wizard yet. Always returns a dict shape
+    when present so callers can do data.get('scenes') without
+    KeyError."""
+    return load_quiz_results(db, user_id).get("onboarding")
+
+
+def filter_quiz_items_by_onboarding(
+    items: list[dict],
+    onboarding: dict | None,
+    min_items: int = 15,
+    max_items: int = 25,
+) -> list[dict]:
+    """Filter a tagged quiz item pool against the user's saved
+    onboarding picks (generation + scenes). Items are expected to
+    carry both 'generation' (list) and 'scenes' (list) keys — Phase
+    D2a-c tagged the existing pools.
+
+    Algorithm (from Part 4 of the plan):
+    1. Generation filter: keep items where the user's generation is
+       in the item's generation[] OR the item is tagged 'universal'.
+       If the user picked 'mix' or has no onboarding saved, every
+       item passes this step.
+    2. Scene filter: from the generation-pass set, keep items where
+       the user's scenes[] list has any overlap with the item's
+       scenes[] list. If the user picked no scenes, every item
+       passes this step.
+    3. Back-fill if the filtered set is < min_items:
+       - First from the generation-pass set that didn't match any
+         scene (they're at least in the right era).
+       - Then from the full pool (last-resort catch-all).
+       Never return fewer than min_items if the pool contains that
+       many — undershooting the minimum is what breaks the current
+       quiz experience for users outside the prestige-canon slice.
+    4. Sort: scene-overlap-count desc (best matches first), then
+       by original item.order asc for stable presentation.
+    5. Cap at max_items.
+
+    When the user has no onboarding saved, returns the first
+    max_items of the pool unchanged — preserving today's behavior
+    for users who skipped the wizard.
+    """
+    if not onboarding:
+        return items[:max_items]
+
+    user_gen = onboarding.get("generation") or "mix"
+    user_scenes = set(onboarding.get("scenes") or [])
+
+    def passes_gen(item: dict) -> bool:
+        if user_gen == "mix":
+            return True
+        item_gens = set(item.get("generation") or [])
+        # 'universal' items always pass the generation filter — they're
+        # cross-generational hits that should anchor any user's quiz.
+        return user_gen in item_gens or "universal" in item_gens
+
+    def scene_overlap(item: dict) -> int:
+        if not user_scenes:
+            return 0
+        return len(user_scenes & set(item.get("scenes") or []))
+
+    gen_pass = [it for it in items if passes_gen(it)]
+
+    if not user_scenes:
+        # Scene step is a no-op when the user picked nothing.
+        filtered = list(gen_pass)
+    else:
+        filtered = [it for it in gen_pass if scene_overlap(it) > 0]
+
+    # Back-fill pass 1: add every item that passed the generation
+    # filter but didn't match any scene. Not "up to the minimum" —
+    # we want the user's whole era cohort since all of it is at
+    # least era-appropriate. The final max_items cap enforces the
+    # ceiling.
+    if len(filtered) < max_items and user_scenes:
+        seen_orders = {it.get("order") for it in filtered}
+        for it in gen_pass:
+            if it.get("order") not in seen_orders:
+                filtered.append(it)
+                seen_orders.add(it.get("order"))
+
+    # Back-fill pass 2: if we're STILL below the minimum after adding
+    # the full generation cohort, reach into the rest of the pool so
+    # the user never sees fewer than min_items (e.g. a gen_z user
+    # whose era has fewer than 15 items in the current pool).
+    if len(filtered) < min_items:
+        seen_orders = {it.get("order") for it in filtered}
+        for it in items:
+            if it.get("order") not in seen_orders:
+                filtered.append(it)
+                seen_orders.add(it.get("order"))
+            if len(filtered) >= min_items:
+                break
+
+    filtered.sort(key=lambda it: (-scene_overlap(it), it.get("order", 9999)))
+    return filtered[:max_items]
 
 
 def format_quiz_signals_for_prompt(quiz_results: dict) -> str:

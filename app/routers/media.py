@@ -599,6 +599,10 @@ async def _enrich_quiz_items_via_tmdb(items: list[dict], media_type: str) -> lis
             "year": item.get("year") or item.get("years"),
             "weights": item["weights"],
             "media_type": media_type,
+            # Carry the D2 pool tags through enrichment so the quiz-load
+            # filter can match them against the user's onboarding picks.
+            "generation": item.get("generation") or [],
+            "scenes": item.get("scenes") or [],
             "image_url": best.image_url if best else None,
             "external_id": best.external_id if best else "",
             "source": best.source if best else "",
@@ -612,55 +616,74 @@ async def _enrich_quiz_items_via_tmdb(items: list[dict], media_type: str) -> lis
 
 
 @router.get("/taste-quiz/movies")
-async def taste_quiz_movies_items():
-    """Return the 20 films for the movie taste quiz, enriched with
-    TMDB metadata. Fixed order (accessible → challenging), shared
-    across all users, cached 7 days."""
+async def taste_quiz_movies_items(
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Return the films for the movie taste quiz, enriched with TMDB
+    metadata and filtered against the user's saved onboarding picks
+    (generation + scenes). The full enriched pool is cached globally
+    for 7 days so the TMDB lookups only run once — the per-user
+    filter step is a cheap list comprehension applied on top of the
+    cached pool."""
     from app import cache
     from app.services.movie_taste_quiz import FILMS, RESPONSE_OPTIONS, AXES, MIN_ANSWERED
+    from app.services.taste_quiz_scoring import filter_quiz_items_by_onboarding, load_onboarding
 
-    cached = cache.get("movie_taste_quiz_items")
-    if cached is not None:
-        return cached
-    enriched = await _enrich_quiz_items_via_tmdb(FILMS, "movie")
-    result = {
-        "items": enriched,
+    enriched = cache.get("movie_taste_quiz_items_enriched")
+    if enriched is None:
+        enriched = await _enrich_quiz_items_via_tmdb(FILMS, "movie")
+        cache.set("movie_taste_quiz_items_enriched", enriched, ttl_seconds=86400 * 7)
+
+    onboarding = load_onboarding(db, user.id)
+    items = filter_quiz_items_by_onboarding(enriched, onboarding)
+
+    return {
+        "items": items,
         "options": RESPONSE_OPTIONS,
         "axes": AXES,
         "min_answered": MIN_ANSWERED,
-        "total_questions": len(FILMS),
+        "total_questions": len(items),
         "media_type": "movie",
         "media_label": "film",
         "media_label_plural": "films",
         "verb": "watched",
     }
-    cache.set("movie_taste_quiz_items", result, ttl_seconds=86400 * 7)
-    return result
 
 
 @router.get("/taste-quiz/tv")
-async def taste_quiz_tv_items():
-    """Return the 19 TV shows for the TV taste quiz, enriched with
-    TMDB metadata. Fixed accessible → challenging order."""
+async def taste_quiz_tv_items(
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Return the TV shows for the taste quiz, enriched with TMDB
+    metadata and filtered against the user's saved onboarding picks
+    (generation + scenes). Same caching + filter pattern as the
+    movies endpoint: the enriched pool is cached globally, the
+    per-user filter is applied at request time."""
     from app import cache
     from app.services.tv_taste_quiz import SHOWS, RESPONSE_OPTIONS, AXES, MIN_ANSWERED
+    from app.services.taste_quiz_scoring import filter_quiz_items_by_onboarding, load_onboarding
 
-    cached = cache.get("tv_taste_quiz_items")
-    if cached is not None:
-        return cached
-    enriched = await _enrich_quiz_items_via_tmdb(SHOWS, "tv")
+    enriched = cache.get("tv_taste_quiz_items_enriched")
+    if enriched is None:
+        enriched = await _enrich_quiz_items_via_tmdb(SHOWS, "tv")
+        cache.set("tv_taste_quiz_items_enriched", enriched, ttl_seconds=86400 * 7)
+
+    onboarding = load_onboarding(db, user.id)
+    items = filter_quiz_items_by_onboarding(enriched, onboarding)
+
     result = {
-        "items": enriched,
+        "items": items,
         "options": RESPONSE_OPTIONS,
         "axes": AXES,
         "min_answered": MIN_ANSWERED,
-        "total_questions": len(SHOWS),
+        "total_questions": len(items),
         "media_type": "tv",
         "media_label": "show",
         "media_label_plural": "shows",
         "verb": "watched",
     }
-    cache.set("tv_taste_quiz_items", result, ttl_seconds=86400 * 7)
     return result
 
 
@@ -761,6 +784,9 @@ async def _enrich_books_via_open_library(items: list[dict]) -> list[dict]:
             "note_in_ui": item.get("note_in_ui"),
             "weights": item["weights"],
             "media_type": "book",
+            # Phase D2 pool tags carried through for the quiz-load filter.
+            "generation": item.get("generation") or [],
+            "scenes": item.get("scenes") or [],
             "image_url": best.image_url if best else None,
             "external_id": best.external_id if best else "",
             "source": best.source if best else "",
@@ -774,10 +800,15 @@ async def _enrich_books_via_open_library(items: list[dict]) -> list[dict]:
 
 
 @router.get("/taste-quiz/books")
-async def taste_quiz_books_items():
+async def taste_quiz_books_items(
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
     """Return the two book quiz modules (fiction + nonfiction), each
-    enriched with Open Library metadata. Fiction is presented as
-    Part 1, nonfiction as Part 2."""
+    enriched with Open Library metadata and filtered against the
+    user's saved onboarding. The enriched pools are cached globally
+    for 7 days; the per-user filter is a cheap list comprehension
+    applied on top."""
     import asyncio
 
     from app import cache
@@ -785,15 +816,21 @@ async def taste_quiz_books_items():
         FICTION, NONFICTION, RESPONSE_OPTIONS, AXES,
         FICTION_MIN, NONFICTION_MIN,
     )
+    from app.services.taste_quiz_scoring import filter_quiz_items_by_onboarding, load_onboarding
 
-    cached = cache.get("book_taste_quiz_items")
-    if cached is not None:
-        return cached
+    fiction_enriched = cache.get("book_taste_quiz_items_fiction_enriched")
+    nonfiction_enriched = cache.get("book_taste_quiz_items_nonfiction_enriched")
+    if fiction_enriched is None or nonfiction_enriched is None:
+        fiction_enriched, nonfiction_enriched = await asyncio.gather(
+            _enrich_books_via_open_library(FICTION),
+            _enrich_books_via_open_library(NONFICTION),
+        )
+        cache.set("book_taste_quiz_items_fiction_enriched", fiction_enriched, ttl_seconds=86400 * 7)
+        cache.set("book_taste_quiz_items_nonfiction_enriched", nonfiction_enriched, ttl_seconds=86400 * 7)
 
-    fiction_items, nonfiction_items = await asyncio.gather(
-        _enrich_books_via_open_library(FICTION),
-        _enrich_books_via_open_library(NONFICTION),
-    )
+    onboarding = load_onboarding(db, user.id)
+    fiction_items = filter_quiz_items_by_onboarding(fiction_enriched, onboarding, min_items=10)
+    nonfiction_items = filter_quiz_items_by_onboarding(nonfiction_enriched, onboarding, min_items=10)
 
     # Tag each item with its module so the frontend can split the
     # flow into Part 1 / Part 2 and the scoring endpoint knows which
@@ -803,7 +840,7 @@ async def taste_quiz_books_items():
     for it in nonfiction_items:
         it["module"] = "nonfiction"
 
-    result = {
+    return {
         "modules": [
             {
                 "id": "fiction",
@@ -826,8 +863,6 @@ async def taste_quiz_books_items():
         "verb": "read",
         "total_questions": len(fiction_items) + len(nonfiction_items),
     }
-    cache.set("book_taste_quiz_items", result, ttl_seconds=86400 * 7)
-    return result
 
 
 class BookQuizResponseItem(BaseModel):
@@ -838,6 +873,93 @@ class BookQuizResponseItem(BaseModel):
 
 class BookQuizSubmission(BaseModel):
     responses: list[BookQuizResponseItem]
+
+
+@router.get("/taste-quiz/books_fiction")
+async def taste_quiz_books_fiction_items(
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Fiction-only books quiz. Same shape as /taste-quiz/books but
+    with only the fiction module, filtered against the user's saved
+    onboarding picks so e.g. a gen_z + romance reader doesn't see
+    Crime and Punishment next to Beach Read."""
+    from app import cache
+    from app.services.books_taste_quiz import FICTION, RESPONSE_OPTIONS, AXES, FICTION_MIN
+    from app.services.taste_quiz_scoring import filter_quiz_items_by_onboarding, load_onboarding
+
+    enriched = cache.get("book_taste_quiz_items_fiction_enriched")
+    if enriched is None:
+        enriched = await _enrich_books_via_open_library(FICTION)
+        cache.set("book_taste_quiz_items_fiction_enriched", enriched, ttl_seconds=86400 * 7)
+
+    onboarding = load_onboarding(db, user.id)
+    fiction_items = filter_quiz_items_by_onboarding(enriched, onboarding, min_items=10)
+    for it in fiction_items:
+        it["module"] = "fiction"
+
+    return {
+        "modules": [
+            {
+                "id": "fiction",
+                "label": "Fiction",
+                "items": fiction_items,
+                "min_answered": FICTION_MIN,
+            },
+        ],
+        "options": RESPONSE_OPTIONS,
+        "axes": AXES,
+        "media_type": "book",
+        "media_label": "book",
+        "media_label_plural": "books",
+        "verb": "read",
+        "min_answered": FICTION_MIN,
+        "total_questions": len(fiction_items),
+    }
+
+
+@router.get("/taste-quiz/books_nonfiction")
+async def taste_quiz_books_nonfiction_items(
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Nonfiction-only books quiz. Same pattern as books_fiction —
+    the unblocker for nonfiction-only readers (memoir / history /
+    true-crime fans) who don't want to wade through 20 novels first,
+    now also filtered by onboarding scenes so a true-crime reader
+    gets Say Nothing + In Cold Blood + Bad Blood up top."""
+    from app import cache
+    from app.services.books_taste_quiz import NONFICTION, RESPONSE_OPTIONS, AXES, NONFICTION_MIN
+    from app.services.taste_quiz_scoring import filter_quiz_items_by_onboarding, load_onboarding
+
+    enriched = cache.get("book_taste_quiz_items_nonfiction_enriched")
+    if enriched is None:
+        enriched = await _enrich_books_via_open_library(NONFICTION)
+        cache.set("book_taste_quiz_items_nonfiction_enriched", enriched, ttl_seconds=86400 * 7)
+
+    onboarding = load_onboarding(db, user.id)
+    nonfiction_items = filter_quiz_items_by_onboarding(enriched, onboarding, min_items=10)
+    for it in nonfiction_items:
+        it["module"] = "nonfiction"
+
+    return {
+        "modules": [
+            {
+                "id": "nonfiction",
+                "label": "Nonfiction",
+                "items": nonfiction_items,
+                "min_answered": NONFICTION_MIN,
+            },
+        ],
+        "options": RESPONSE_OPTIONS,
+        "axes": AXES,
+        "media_type": "book",
+        "media_label": "book",
+        "media_label_plural": "books",
+        "verb": "read",
+        "min_answered": NONFICTION_MIN,
+        "total_questions": len(nonfiction_items),
+    }
 
 
 @router.get("/taste-quiz/podcast-bonus")
@@ -1019,6 +1141,110 @@ async def score_book_quiz(
         result.get("dominant_module"),
     )
     return result
+
+
+@router.post("/taste-quiz/books_fiction/score")
+async def score_book_quiz_fiction(
+    submission: BookQuizSubmission,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Score the fiction-only books quiz. Routes through the same
+    score_book_responses function as the combined endpoint, which
+    handles a fiction-only payload by falling back to fiction-only
+    profile matching. Persisted under the 'books' slug so the rest
+    of the app (taste DNA page, recommendation prompts) sees a books
+    profile regardless of whether the user took the combined quiz
+    or just one module."""
+    from app.services.books_taste_quiz import score_book_responses
+    from app.services.taste_quiz_scoring import compute_next_quiz, persist_quiz_result
+
+    result = score_book_responses([r.model_dump() for r in submission.responses])
+    persist_quiz_result(db, user.id, "books", result)
+    if result.get("has_enough_data"):
+        result["next_quiz"] = compute_next_quiz(db, user.id, current_slug="books")
+    log.info(
+        "book_taste_quiz_fiction [user=%d]: fic=%d top=%s",
+        user.id,
+        result.get("fiction_answered", 0),
+        result["profiles"][0]["id"] if result.get("profiles") else "none",
+    )
+    return result
+
+
+@router.post("/taste-quiz/books_nonfiction/score")
+async def score_book_quiz_nonfiction(
+    submission: BookQuizSubmission,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Score the nonfiction-only books quiz. Same path as the fiction
+    split — score_book_responses sees only nonfiction responses and
+    uses nonfiction-only profile matching. Persisted under 'books'."""
+    from app.services.books_taste_quiz import score_book_responses
+    from app.services.taste_quiz_scoring import compute_next_quiz, persist_quiz_result
+
+    result = score_book_responses([r.model_dump() for r in submission.responses])
+    persist_quiz_result(db, user.id, "books", result)
+    if result.get("has_enough_data"):
+        result["next_quiz"] = compute_next_quiz(db, user.id, current_slug="books")
+    log.info(
+        "book_taste_quiz_nonfiction [user=%d]: non=%d top=%s",
+        user.id,
+        result.get("nonfiction_answered", 0),
+        result["profiles"][0]["id"] if result.get("profiles") else "none",
+    )
+    return result
+
+
+class OnboardingSubmission(BaseModel):
+    media_types: list[str] = []  # subset of ["movie","tv","book_fiction","book_nonfiction","podcast"]
+    generation: str = "mix"      # one of ["gen_z","millennial","classic","mix"]
+    scenes: list[str] = []       # subset of ONBOARDING_SCENES
+
+
+@router.post("/onboarding")
+async def save_onboarding_answers(
+    submission: OnboardingSubmission,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Persist the 4-step onboarding wizard answers. The quiz item
+    pools (Phase D2) read these to filter quiz items down to the
+    user's generation + scenes intersection. The recommendation
+    prompts (Phase E) read them as additional taste anchors.
+
+    Returns the cleaned answers + a suggested next URL based on the
+    user's media-type picks (first selected quiz, or /quick-start as
+    a fallback)."""
+    from app.services.taste_quiz_scoring import save_onboarding
+
+    cleaned = save_onboarding(db, user.id, submission.model_dump())
+
+    # Pick the first quiz the user should take based on their media
+    # mix. Order: movie -> tv -> fiction -> nonfiction. Podcasts have
+    # no standalone quiz (they ship as a bonus after the others).
+    next_url = "/quick-start"
+    media_to_url = [
+        ("movie", "/quick-start/movies"),
+        ("tv", "/quick-start/tv"),
+        ("book_fiction", "/quick-start/books/fiction"),
+        ("book_nonfiction", "/quick-start/books/nonfiction"),
+    ]
+    for mt, url in media_to_url:
+        if mt in cleaned["media_types"]:
+            next_url = url
+            break
+
+    log.info(
+        "onboarding_saved [user=%d]: types=%s gen=%s scenes=%s -> %s",
+        user.id,
+        cleaned["media_types"],
+        cleaned["generation"],
+        cleaned["scenes"],
+        next_url,
+    )
+    return {"saved": cleaned, "next_url": next_url}
 
 
 @router.get("/taste-test")
@@ -1890,6 +2116,7 @@ Match the user's fiction/nonfiction balance.
 
 CRITICAL RULES:
 - Each "reason" field for top_picks and suggestions MUST cite at least ONE specific item from a DIFFERENT media type in their profile, by name. Connection must be CONCRETE — shared theme, idea, emotional beat, narrative approach. Never match on surface features like setting, demographic, or keyword.
+- The no-surface-match rule applies to themes too. A shared word in the title is NOT a connection. A shared setting alone is NOT a connection. A shared genre label is NOT a connection. Example of what NOT to do: anchor is "The Florida Project" (a Sean Baker movie about poverty and childhood on the margins of Orlando); picking "Probate and Settle an Estate in Florida" (a legal how-to guide) is a surface match on the word "Florida" — it is NOT a valid theme pick. A valid match would be something like "Random Family" by Adrian Nicole LeBlanc, which shares the concrete themes of marginalized families and structural precarity.
 - DO NOT recommend any of these — the user has already consumed, queued, or dismissed them: {avoid_str}
 - Insights must reference actual items from their profile. Bad: "You like drama". Good: "Your top-rated book (The Road) and your top-rated TV show (The Last of Us) both center on post-apocalyptic parent-child journeys."
 
@@ -2190,6 +2417,51 @@ async def best_bet(
 
     known_normalized, _ = _build_known_titles(db, user.id)
 
+    # Give the AI the user's broader taste register, not just the one
+    # anchor. Without this context the model grasps at surface features
+    # (e.g. picks a probate legal guide for "The Florida Project" based
+    # on the shared word "Florida") because it has nothing to calibrate
+    # against. Top 8 rated items from other media types plus up to 4
+    # from the same media type as the request is a lightweight way to
+    # show "here's their actual register across all the things they've
+    # engaged with".
+    top_rated_other = (
+        db.query(MediaEntry)
+        .filter(
+            MediaEntry.user_id == user.id,
+            MediaEntry.rating.isnot(None),
+            MediaEntry.rating >= 8,
+            MediaEntry.media_type != media_type,
+        )
+        .order_by(MediaEntry.rating.desc(), MediaEntry.rated_at.desc().nullslast())
+        .limit(8)
+        .all()
+    )
+    top_rated_same = (
+        db.query(MediaEntry)
+        .filter(
+            MediaEntry.user_id == user.id,
+            MediaEntry.rating.isnot(None),
+            MediaEntry.rating >= 8,
+            MediaEntry.media_type == media_type,
+        )
+        .order_by(MediaEntry.rating.desc(), MediaEntry.rated_at.desc().nullslast())
+        .limit(4)
+        .all()
+    )
+    taste_lines: list[str] = []
+    if top_rated_other or top_rated_same:
+        for e in top_rated_other + top_rated_same:
+            g = f" [{e.genres}]" if e.genres else ""
+            taste_lines.append(
+                f"  - {e.title} ({e.media_type}, {e.year or '?'}) — {e.rating}/10{g}"
+            )
+    taste_profile_block = (
+        "USER'S TASTE PROFILE (what they actually like — use this to calibrate register, tone, and level of ambition):\n"
+        + "\n".join(taste_lines)
+        + "\n"
+    ) if taste_lines else ""
+
     try:
         from app.services.gemini import generate
 
@@ -2205,52 +2477,108 @@ ANCHOR ITEM (the thing they just loved):
 - Genres: {anchor.genres or 'unknown'}
 - Rating: {anchor.rating}/10
 
-TASK: Pick ONE {type_label} that picks up a CONCRETE, specific element of the anchor item — a theme, a tonal register, a narrative approach, a specific idea it's wrestling with, or a character dynamic. The connection must be named explicitly and tied to something real about the anchor, not a surface-level genre match or a shared keyword.
+{taste_profile_block}
+TASK: Generate 3 candidate {type_label}s, then I'll pick the strongest. Each candidate must pick up a CONCRETE, specific element of the anchor item — a theme, a tonal register, a narrative approach, a specific idea it's wrestling with, or a character dynamic. The connection must be named explicitly and tied to something real about the anchor, AND it must sit inside the user's overall taste register as visible in the profile above.
+
+CRITICAL — NO SURFACE MATCHES:
+A shared word in the title is NOT a connection. A shared setting alone is NOT a connection. A shared genre label is NOT a connection. If you cannot articulate the connection without repeating a surface word, you haven't found one.
+
+BAD EXAMPLE (do not do this): anchor is "The Florida Project" (a Sean Baker movie about poverty, childhood, and motel communities on the margins of Orlando). A surface-match pick would be "Probate and Settle an Estate in Florida" — a legal how-to guide that happens to have "Florida" in the title. That is NOT a match. It shares one word and nothing else.
+
+GOOD EXAMPLE for the same anchor: "Random Family" by Adrian Nicole LeBlanc (narrative nonfiction about poverty, teenage motherhood, and family precarity in the Bronx) — it matches on concrete themes (marginalized families, structural precarity, intimate daily texture), on tone (empathetic, unflinching, deeply observed), and on register (serious literary nonfiction, not genre or reference).
 
 RULES:
-- The pick must be a real, findable {type_label} — no invented titles.
+- Each candidate must be a real, findable {type_label} — no invented titles.
 - DO NOT pick anything the user already has in their library: {', '.join(list(known_normalized)[:30]) if known_normalized else 'none'}
-- The "reason" should start with "Because you loved {anchor.title}..." and cite a specific concrete element.
-- Match audience and tonal register — don't suggest adult content if the anchor is family-friendly, or vice versa.
-- Include a "predicted_rating": your honest 1-10 prediction (one decimal) of how this specific user would rate it. Base this on the anchor they just loved and any other signals above. If you can't find a pick that lands above 7 for them, still return your best candidate but score it honestly — the app will drop picks below 6 rather than show an outside-the-lane rec.
+- Each "reason" must start with "Because you loved {anchor.title}..." and cite a specific concrete, non-surface element.
+- Match audience and tonal register — don't suggest cozy/YA/how-to material for a prestige/literary profile, or vice versa. Use the TASTE PROFILE above to calibrate.
+- Include a "predicted_rating" for each candidate: your honest 1-10 prediction (one decimal) of how THIS SPECIFIC USER would rate it, based on the anchor AND the full taste profile above. Be ruthless — if a candidate fits the anchor thematically but sits outside the user's register, predict LOW (4-5), don't soft-pedal. The app drops anything below 6, so lying doesn't help you.
+- It is completely fine for ALL 3 candidates to score below 6. In that case the app will show "no best bet this week" rather than force a bad match. Do not inflate scores to keep the section populated.
+- Spread your scores across the range. Don't give all three 8+.
 
 Return ONLY valid JSON, no markdown:
 {{
-  "title": "...",
-  "year": 2020,
-  "reason": "Because you loved {anchor.title}, <specific concrete connection>.",
-  "predicted_rating": 8.5
+  "candidates": [
+    {{
+      "title": "...",
+      "year": 2020,
+      "reason": "Because you loved {anchor.title}, <specific concrete connection grounded in theme/tone/idea, not surface>.",
+      "predicted_rating": 8.5
+    }},
+    {{
+      "title": "...",
+      "year": 2018,
+      "reason": "Because you loved {anchor.title}, <specific concrete connection>.",
+      "predicted_rating": 7.2
+    }},
+    {{
+      "title": "...",
+      "year": 2022,
+      "reason": "Because you loved {anchor.title}, <specific concrete connection>.",
+      "predicted_rating": 6.4
+    }}
+  ]
 }}"""
 
-        text = (await generate(prompt)).strip()
-        parsed = _parse_ai_json(text, f"best_bet:{media_type}")
-        if not isinstance(parsed, dict) or not parsed.get("title"):
+        raw_text = (await generate(prompt)).strip()
+        log.info(
+            "best_bet [user=%d/%s] raw_response: %s",
+            user.id, media_type, raw_text[:1200],
+        )
+        parsed = _parse_ai_json(raw_text, f"best_bet:{media_type}")
+        if not isinstance(parsed, dict):
             return {"pick": None, "anchor": None}
 
-        title = parsed["title"]
-        if _is_known(title, known_normalized):
+        raw_candidates = parsed.get("candidates") or []
+        if not isinstance(raw_candidates, list) or not raw_candidates:
             return {"pick": None, "anchor": None}
 
-        # Honest predicted rating; drop the whole pick if it's outside the
-        # user's lane. The prompt tells the AI to be ruthless with this —
-        # we'd rather show "no best bet right now" than a 5/10 pick.
-        raw_pr = parsed.get("predicted_rating")
-        try:
-            pr = float(raw_pr) if raw_pr is not None else None
-        except (TypeError, ValueError):
-            pr = None
-        if pr is not None:
-            pr = round(pr, 1) if 0 < pr <= 10 else None
-        if pr is not None and pr < 6.0:
+        # Normalize each candidate: coerce the rating, drop anything the
+        # user already has, drop anything below the 6 floor, then sort
+        # descending. If everything lands below 6, we return no pick
+        # rather than force a bad one onto the card.
+        def _coerce_pr(raw) -> float | None:
+            try:
+                v = float(raw) if raw is not None else None
+            except (TypeError, ValueError):
+                return None
+            if v is None or v <= 0 or v > 10:
+                return None
+            return round(v, 1)
+
+        survivors: list[dict] = []
+        for c in raw_candidates:
+            if not isinstance(c, dict):
+                continue
+            t = (c.get("title") or "").strip()
+            if not t or _is_known(t, known_normalized):
+                continue
+            pr = _coerce_pr(c.get("predicted_rating"))
+            if pr is None or pr < 6.0:
+                continue
+            survivors.append({
+                "title": t,
+                "year": c.get("year"),
+                "reason": c.get("reason", ""),
+                "predicted_rating": pr,
+            })
+
+        if not survivors:
             log.info(
-                "best_bet [user=%d/%s]: dropping %s — predicted %s below 6",
-                user.id, media_type, title, pr,
+                "best_bet [user=%d/%s]: all candidates dropped (known or below 6.0)",
+                user.id, media_type,
             )
             return {
                 "pick": None,
                 "anchor": None,
                 "message": "Nothing crossed the 6/10 bar for this category right now — try again in a few days.",
             }
+
+        # Sort by predicted_rating desc; AI ordering is the tiebreaker.
+        survivors.sort(key=lambda c: -c["predicted_rating"])
+        chosen = survivors[0]
+        title = chosen["title"]
+        pr = chosen["predicted_rating"]
 
         # Enrich via search for poster + external_id
         matches = await unified_search(title, media_type)
@@ -2269,21 +2597,21 @@ Return ONLY valid JSON, no markdown:
                     "creator": best.creator,
                     "genres": best.genres or [],
                     "description": best.description,
-                    "reason": parsed.get("reason", ""),
+                    "reason": chosen["reason"],
                     "predicted_rating": pr,
                 }
         if not enriched_pick:
             enriched_pick = {
                 "title": title,
                 "media_type": media_type,
-                "year": parsed.get("year"),
+                "year": chosen.get("year"),
                 "image_url": None,
                 "external_id": "",
                 "source": "",
                 "creator": None,
                 "genres": [],
                 "description": None,
-                "reason": parsed.get("reason", ""),
+                "reason": chosen["reason"],
                 "predicted_rating": pr,
             }
 
@@ -2297,8 +2625,8 @@ Return ONLY valid JSON, no markdown:
             },
         }
         log.info(
-            "best_bet [user=%d/%s]: anchor=%s -> pick=%s (pred=%s)",
-            user.id, media_type, anchor.title, enriched_pick["title"], pr,
+            "best_bet [user=%d/%s]: anchor=%s -> picked %s (pred=%s) from %d surviving candidates",
+            user.id, media_type, anchor.title, enriched_pick["title"], pr, len(survivors),
         )
         cache.set(cache_key, result, ttl_seconds=604800)  # 7 days
         return result
