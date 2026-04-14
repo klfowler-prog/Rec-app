@@ -149,7 +149,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             {% for item in unrated_batch %}
             <div class="flex items-center gap-3 p-3 rounded-xl bg-bg-light dark:bg-bg-dark border border-border-light/50 dark:border-border-dark/50" data-rec-card>
-                <div class="w-12 h-16 flex-shrink-0 rounded overflow-hidden">
+                <a href="{% if item.external_id %}/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}{% else %}/profile{% endif %}" class="w-12 h-16 flex-shrink-0 rounded overflow-hidden block hover:opacity-80 transition-base">
                     {% if item.image_url %}
                         <img src="{{ item.image_url }}" alt="" class="w-full h-full {% if item.media_type == 'podcast' %}object-contain{% else %}object-cover{% endif %}">
                     {% else %}
@@ -157,9 +157,9 @@
                             <span class="text-white text-lg font-bold">{{ (item.title or '?')[0] }}</span>
                         </div>
                     {% endif %}
-                </div>
+                </a>
                 <div class="flex-1 min-w-0">
-                    <p class="text-sm font-semibold leading-tight line-clamp-1">{{ item.title }}</p>
+                    <a href="{% if item.external_id %}/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}{% else %}/profile{% endif %}" class="text-sm font-semibold leading-tight line-clamp-1 hover:text-sage transition-base block">{{ item.title }}</a>
                     <p class="text-[10px] uppercase tracking-wide text-txt-muted">{{ {'movie':'Movie','tv':'TV','book':'Book','podcast':'Podcast'}.get(item.media_type, item.media_type) }}{% if item.year %} · {{ item.year }}{% endif %}</p>
                     <div class="mt-1.5 flex items-center gap-2">
                         <div data-home-rate-slot data-entry-id="{{ item.id }}"></div>
