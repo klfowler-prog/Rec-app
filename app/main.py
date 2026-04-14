@@ -35,7 +35,7 @@ app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
 
 @app.exception_handler(_LoginRequired)
 async def login_required_handler(request: Request, exc: _LoginRequired):
-    return RedirectResponse("/auth/login")
+    return RedirectResponse("/welcome")
 
 
 # Mount static files

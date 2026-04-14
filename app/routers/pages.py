@@ -60,6 +60,16 @@ def _get_greeting_context(user_name: str) -> dict:
     }
 
 
+@router.get("/welcome")
+async def welcome_page(request: Request):
+    """Public landing page for unauthenticated users."""
+    # If already logged in, skip straight to home
+    user_id = request.session.get("user_id")
+    if user_id:
+        return RedirectResponse("/")
+    return templates.TemplateResponse("welcome.html", {"request": request})
+
+
 @router.get("/")
 async def home(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
     """Home does two things: helps the user close the loop on what they
