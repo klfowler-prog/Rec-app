@@ -16,11 +16,18 @@ async def unified_search(query: str, media_type: str | None = None) -> list[Medi
         tasks.append(itunes.search(query))
 
     all_results: list[MediaResult] = []
+    errors = 0
     settled = await asyncio.gather(*tasks, return_exceptions=True)
     for result in settled:
         if isinstance(result, list):
             all_results.extend(result)
-        # Silently skip failed APIs
+        else:
+            errors += 1
+
+    # If every API failed, raise so callers can distinguish "no results"
+    # from "couldn't reach the service at all".
+    if errors == len(settled) and errors > 0:
+        raise RuntimeError("All search APIs failed")
 
     return all_results
 
