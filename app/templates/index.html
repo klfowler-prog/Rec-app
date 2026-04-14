@@ -294,22 +294,43 @@
          users stumble into the feature instead of finding it buried.
          Purple gradient keeps it visually distinct from the Discover
          teaser (black overlay) and My Taste teaser (coral).
+
+         Copy adapts to the user's partner count: with zero partners
+         we lead with the invite angle ("Together mode needs your
+         people"), with >=1 we lead with the pairing sell and tuck
+         the invite nudge underneath. A Copy invite button puts a
+         pre-written sign-up message on the clipboard so the user
+         can paste it into any chat/email.
          ============================================================ -->
-    <a href="/together" class="block relative overflow-hidden rounded-2xl min-h-[8rem] transition-all hover:scale-[1.01] hover:shadow-xl group" style="background: linear-gradient(135deg, #6B5B8A 0%, #524470 55%, #3D3456 100%);">
+    <div class="relative overflow-hidden rounded-2xl min-h-[8rem] transition-all hover:shadow-xl group" style="background: linear-gradient(135deg, #6B5B8A 0%, #524470 55%, #3D3456 100%);">
         <div class="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -translate-y-12 translate-x-16 pointer-events-none"></div>
         <div class="absolute bottom-0 left-1/3 w-24 h-24 bg-coral/15 rounded-full translate-y-10 pointer-events-none"></div>
-        <div class="relative z-10 p-5 md:p-6 flex items-center gap-4">
+        <div class="relative z-10 p-5 md:p-6 flex flex-col md:flex-row md:items-center gap-4">
             <div class="w-12 h-12 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center flex-shrink-0">
                 <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
             </div>
             <div class="flex-1 min-w-0 text-white">
                 <p class="text-[10px] text-white/60 uppercase tracking-[0.18em] font-bold mb-1">Together mode</p>
-                <p class="text-base md:text-lg font-bold group-hover:text-cream transition-base">Find something to watch with someone</p>
-                <p class="text-sm text-white/75 leading-relaxed mt-0.5">Pair with a friend or partner and we'll pick a movie, show, or book you'll both love — not a mushy compromise.</p>
+                {% if together_partner_count == 0 %}
+                <p class="text-base md:text-lg font-bold">Invite your people to unlock Together mode</p>
+                <p class="text-sm text-white/75 leading-relaxed mt-0.5">Together finds movies, shows, and books everyone will love — but it needs your friends and family on NextUp first. Share the link and I'll add them for access.</p>
+                {% else %}
+                <p class="text-base md:text-lg font-bold">Find something to watch with someone</p>
+                <p class="text-sm text-white/75 leading-relaxed mt-0.5">You're paired with <span class="font-semibold text-white">{{ together_partner_count }}</span> {% if together_partner_count == 1 %}person{% else %}people{% endif %} on NextUp. Compare your taste to land on picks you'll both love — or invite more family to join.</p>
+                {% endif %}
             </div>
-            <svg class="w-5 h-5 text-white/50 ml-auto flex-shrink-0 group-hover:translate-x-1 group-hover:text-white transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            <div class="flex flex-col sm:flex-row md:flex-col lg:flex-row items-stretch md:items-center gap-2 flex-shrink-0">
+                <a href="/together" class="flex items-center justify-center gap-2 px-4 py-2 bg-white text-[#524470] rounded-xl text-sm font-semibold hover:bg-cream hover:scale-[1.03] active:scale-95 transition-base shadow-sm whitespace-nowrap">
+                    {% if together_partner_count == 0 %}Open Together{% else %}Compare tastes{% endif %}
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+                </a>
+                <button type="button" onclick="copyTogetherInvite(this)" class="flex items-center justify-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-sm font-semibold transition-base whitespace-nowrap border border-white/20">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+                    <span data-copy-label>Copy invite</span>
+                </button>
+            </div>
         </div>
-    </a>
+    </div>
 
     <!-- My Library teaser -->
     <a href="/profile" class="block relative overflow-hidden rounded-2xl min-h-[5rem] transition-all hover:scale-[1.01] hover:shadow-lg group bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark">
@@ -385,6 +406,50 @@ async function homeQuickStatus(entryId, newStatus, btn) {
             setTimeout(() => card.remove(), 300);
         }
     } catch { btn.disabled = false; }
+}
+
+// ---- Together invite helper ----------------------------------------
+// Copies a short pre-written message to the clipboard explaining what
+// NextUp is and linking to the /welcome landing page so the user can
+// paste it into any chat / email / message. Access is allowlist-
+// gated, so the message also tells the recipient to reply so the
+// sender can add their email.
+async function copyTogetherInvite(btn) {
+    const welcomeUrl = `${window.location.origin}/welcome`;
+    const message = [
+        "I'm using NextUp to track movies, shows, books, and podcasts and get recs that actually fit my taste.",
+        "",
+        "It has a Together mode that compares our taste profiles and picks things we'll both love.",
+        `Check it out: ${welcomeUrl}`,
+        "",
+        "Reply with the email you'd use to sign in and I'll get you added — access is invite-only.",
+    ].join("\n");
+
+    const label = btn.querySelector('[data-copy-label]');
+    const originalLabel = label ? label.textContent : '';
+
+    try {
+        await navigator.clipboard.writeText(message);
+        if (label) label.textContent = 'Copied ✓';
+    } catch {
+        // Clipboard API can fail in insecure contexts — fall back to a
+        // hidden textarea + execCommand so the button still works.
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = message;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            ta.remove();
+            if (label) label.textContent = 'Copied ✓';
+        } catch {
+            if (label) label.textContent = 'Copy failed';
+        }
+    }
+
+    setTimeout(() => { if (label) label.textContent = originalLabel; }, 2200);
 }
 
 // Right Now — just update the AI commentary in the hero

@@ -155,6 +155,12 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
     )
     nav_posters = [p.image_url for p in poster_items if p.image_url]
 
+    # Count of other NextUp users the current user could pair with in
+    # Together mode. Drives the Home teaser copy — zero partners gets
+    # a strong 'invite your people' hook, non-zero gets the standard
+    # pairing sell with a secondary 'invite more' nudge.
+    together_partner_count = db.query(User).filter(User.id != user.id).count()
+
     return templates.TemplateResponse(
         "index.html",
         {
@@ -172,6 +178,7 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
             "type_counts": type_counts,
             "quizzes_done": quizzes_done,
             "nav_posters": nav_posters,
+            "together_partner_count": together_partner_count,
             **greeting_ctx,
         },
     )
