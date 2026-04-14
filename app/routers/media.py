@@ -790,10 +790,15 @@ async def _enrich_books_via_open_library(items: list[dict]) -> list[dict]:
 
 
 @router.get("/taste-quiz/books")
-async def taste_quiz_books_items():
+async def taste_quiz_books_items(
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
     """Return the two book quiz modules (fiction + nonfiction), each
-    enriched with Open Library metadata. Fiction is presented as
-    Part 1, nonfiction as Part 2."""
+    enriched with Open Library metadata and filtered against the
+    user's saved onboarding. The enriched pools are cached globally
+    for 7 days; the per-user filter is a cheap list comprehension
+    applied on top."""
     import asyncio
 
     from app import cache
@@ -801,15 +806,21 @@ async def taste_quiz_books_items():
         FICTION, NONFICTION, RESPONSE_OPTIONS, AXES,
         FICTION_MIN, NONFICTION_MIN,
     )
+    from app.services.taste_quiz_scoring import filter_quiz_items_by_onboarding, load_onboarding
 
-    cached = cache.get("book_taste_quiz_items")
-    if cached is not None:
-        return cached
+    fiction_enriched = cache.get("book_taste_quiz_items_fiction_enriched")
+    nonfiction_enriched = cache.get("book_taste_quiz_items_nonfiction_enriched")
+    if fiction_enriched is None or nonfiction_enriched is None:
+        fiction_enriched, nonfiction_enriched = await asyncio.gather(
+            _enrich_books_via_open_library(FICTION),
+            _enrich_books_via_open_library(NONFICTION),
+        )
+        cache.set("book_taste_quiz_items_fiction_enriched", fiction_enriched, ttl_seconds=86400 * 7)
+        cache.set("book_taste_quiz_items_nonfiction_enriched", nonfiction_enriched, ttl_seconds=86400 * 7)
 
-    fiction_items, nonfiction_items = await asyncio.gather(
-        _enrich_books_via_open_library(FICTION),
-        _enrich_books_via_open_library(NONFICTION),
-    )
+    onboarding = load_onboarding(db, user.id)
+    fiction_items = filter_quiz_items_by_onboarding(fiction_enriched, onboarding, min_items=10)
+    nonfiction_items = filter_quiz_items_by_onboarding(nonfiction_enriched, onboarding, min_items=10)
 
     # Tag each item with its module so the frontend can split the
     # flow into Part 1 / Part 2 and the scoring endpoint knows which
@@ -819,7 +830,7 @@ async def taste_quiz_books_items():
     for it in nonfiction_items:
         it["module"] = "nonfiction"
 
-    result = {
+    return {
         "modules": [
             {
                 "id": "fiction",
@@ -842,8 +853,6 @@ async def taste_quiz_books_items():
         "verb": "read",
         "total_questions": len(fiction_items) + len(nonfiction_items),
     }
-    cache.set("book_taste_quiz_items", result, ttl_seconds=86400 * 7)
-    return result
 
 
 class BookQuizResponseItem(BaseModel):
@@ -857,24 +866,29 @@ class BookQuizSubmission(BaseModel):
 
 
 @router.get("/taste-quiz/books_fiction")
-async def taste_quiz_books_fiction_items():
-    """Fiction-only books quiz. Returns the same shape as
-    /taste-quiz/books but with only the fiction module so the
-    quick_start_quiz template's two-module rendering picks up the
-    single module and the user only sees novels (not nonfiction).
-    Cached separately so we don't redo the Open Library enrichment."""
+async def taste_quiz_books_fiction_items(
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Fiction-only books quiz. Same shape as /taste-quiz/books but
+    with only the fiction module, filtered against the user's saved
+    onboarding picks so e.g. a gen_z + romance reader doesn't see
+    Crime and Punishment next to Beach Read."""
     from app import cache
     from app.services.books_taste_quiz import FICTION, RESPONSE_OPTIONS, AXES, FICTION_MIN
+    from app.services.taste_quiz_scoring import filter_quiz_items_by_onboarding, load_onboarding
 
-    cached = cache.get("book_taste_quiz_items_fiction")
-    if cached is not None:
-        return cached
+    enriched = cache.get("book_taste_quiz_items_fiction_enriched")
+    if enriched is None:
+        enriched = await _enrich_books_via_open_library(FICTION)
+        cache.set("book_taste_quiz_items_fiction_enriched", enriched, ttl_seconds=86400 * 7)
 
-    fiction_items = await _enrich_books_via_open_library(FICTION)
+    onboarding = load_onboarding(db, user.id)
+    fiction_items = filter_quiz_items_by_onboarding(enriched, onboarding, min_items=10)
     for it in fiction_items:
         it["module"] = "fiction"
 
-    result = {
+    return {
         "modules": [
             {
                 "id": "fiction",
@@ -892,28 +906,33 @@ async def taste_quiz_books_fiction_items():
         "min_answered": FICTION_MIN,
         "total_questions": len(fiction_items),
     }
-    cache.set("book_taste_quiz_items_fiction", result, ttl_seconds=86400 * 7)
-    return result
 
 
 @router.get("/taste-quiz/books_nonfiction")
-async def taste_quiz_books_nonfiction_items():
-    """Nonfiction-only books quiz. Same idea as books_fiction but
-    with only the nonfiction module. The unblocker for nonfiction-only
-    readers (e.g. memoir / history / true-crime fans) who don't want
-    to wade through 20 novels first."""
+async def taste_quiz_books_nonfiction_items(
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Nonfiction-only books quiz. Same pattern as books_fiction —
+    the unblocker for nonfiction-only readers (memoir / history /
+    true-crime fans) who don't want to wade through 20 novels first,
+    now also filtered by onboarding scenes so a true-crime reader
+    gets Say Nothing + In Cold Blood + Bad Blood up top."""
     from app import cache
     from app.services.books_taste_quiz import NONFICTION, RESPONSE_OPTIONS, AXES, NONFICTION_MIN
+    from app.services.taste_quiz_scoring import filter_quiz_items_by_onboarding, load_onboarding
 
-    cached = cache.get("book_taste_quiz_items_nonfiction")
-    if cached is not None:
-        return cached
+    enriched = cache.get("book_taste_quiz_items_nonfiction_enriched")
+    if enriched is None:
+        enriched = await _enrich_books_via_open_library(NONFICTION)
+        cache.set("book_taste_quiz_items_nonfiction_enriched", enriched, ttl_seconds=86400 * 7)
 
-    nonfiction_items = await _enrich_books_via_open_library(NONFICTION)
+    onboarding = load_onboarding(db, user.id)
+    nonfiction_items = filter_quiz_items_by_onboarding(enriched, onboarding, min_items=10)
     for it in nonfiction_items:
         it["module"] = "nonfiction"
 
-    result = {
+    return {
         "modules": [
             {
                 "id": "nonfiction",
@@ -931,8 +950,6 @@ async def taste_quiz_books_nonfiction_items():
         "min_answered": NONFICTION_MIN,
         "total_questions": len(nonfiction_items),
     }
-    cache.set("book_taste_quiz_items_nonfiction", result, ttl_seconds=86400 * 7)
-    return result
 
 
 @router.get("/taste-quiz/podcast-bonus")
