@@ -53,9 +53,9 @@ async def bulk_search(req: BulkSearchRequest):
             try:
                 matches = await unified_search(title, media_type)
                 matches = _rank_by_title_match(title, matches)
-                return title, matches[:3] if matches else []
+                return title, {"results": matches[:3] if matches else [], "error": False}
             except Exception:
-                return title, []
+                return title, {"results": [], "error": True}
 
     found = await asyncio.gather(*[search_one(t, mt) for t, mt in items])
     return {title: matches for title, matches in found}

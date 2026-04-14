@@ -70,23 +70,30 @@ function renderMatches(items) {
 
     matchList.innerHTML = items.map(item => {
         const title = item.title;
-        const results = matchData[title] || [];
-        if (results.length === 0) {
+        const entry = matchData[title] || {};
+        const results = entry.results || entry || [];
+        const isError = entry.error === true;
+        const resultList = Array.isArray(results) ? results : [];
+        if (resultList.length === 0) {
+            const msg = isError ? '— search failed, try again later' : '— no match found';
+            const icon = isError
+                ? '<svg class="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'
+                : '<svg class="w-5 h-5 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"/></svg>';
             return `
                 <div class="bg-surface-light dark:bg-surface-dark rounded-lg border border-border-light dark:border-border-dark p-4">
                     <div class="flex items-center gap-3">
-                        <svg class="w-5 h-5 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                        ${icon}
                         <span class="text-sm font-medium">${escapeHtml(title)}</span>
                         <span class="px-1.5 py-0.5 ${typeColors[item.media_type] || ''} text-[10px] font-medium rounded capitalize">${item.media_type}</span>
-                        <span class="text-xs text-txt-muted">— no match found</span>
+                        <span class="text-xs ${isError ? 'text-amber-600 dark:text-amber-400' : 'text-txt-muted'}">${msg}</span>
                     </div>
                 </div>
             `;
         }
 
         matched++;
-        const best = results[0];
-        const alternatives = results.slice(1);
+        const best = resultList[0];
+        const alternatives = resultList.slice(1);
         const badgeClass = typeColors[best.media_type] || typeColors.movie;
         const itemId = `match-${encodeId(title)}`;
 
@@ -143,7 +150,8 @@ addAllBtn.addEventListener('click', async () => {
     const checkboxes = document.querySelectorAll('.match-checkbox:checked');
     for (const cb of checkboxes) {
         const title = cb.dataset.title;
-        const results = matchData[title] || [];
+        const entry = matchData[title] || {};
+        const results = Array.isArray(entry.results || entry) ? (entry.results || entry) : [];
         if (results.length === 0) continue;
 
         let pickIndex = 0;
