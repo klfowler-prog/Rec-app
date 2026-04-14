@@ -1144,6 +1144,56 @@ async def score_book_quiz_nonfiction(
     return result
 
 
+class OnboardingSubmission(BaseModel):
+    media_types: list[str] = []  # subset of ["movie","tv","book_fiction","book_nonfiction","podcast"]
+    generation: str = "mix"      # one of ["gen_z","millennial","classic","mix"]
+    scenes: list[str] = []       # subset of ONBOARDING_SCENES
+
+
+@router.post("/onboarding")
+async def save_onboarding_answers(
+    submission: OnboardingSubmission,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Persist the 4-step onboarding wizard answers. The quiz item
+    pools (Phase D2) read these to filter quiz items down to the
+    user's generation + scenes intersection. The recommendation
+    prompts (Phase E) read them as additional taste anchors.
+
+    Returns the cleaned answers + a suggested next URL based on the
+    user's media-type picks (first selected quiz, or /quick-start as
+    a fallback)."""
+    from app.services.taste_quiz_scoring import save_onboarding
+
+    cleaned = save_onboarding(db, user.id, submission.model_dump())
+
+    # Pick the first quiz the user should take based on their media
+    # mix. Order: movie -> tv -> fiction -> nonfiction. Podcasts have
+    # no standalone quiz (they ship as a bonus after the others).
+    next_url = "/quick-start"
+    media_to_url = [
+        ("movie", "/quick-start/movies"),
+        ("tv", "/quick-start/tv"),
+        ("book_fiction", "/quick-start/books/fiction"),
+        ("book_nonfiction", "/quick-start/books/nonfiction"),
+    ]
+    for mt, url in media_to_url:
+        if mt in cleaned["media_types"]:
+            next_url = url
+            break
+
+    log.info(
+        "onboarding_saved [user=%d]: types=%s gen=%s scenes=%s -> %s",
+        user.id,
+        cleaned["media_types"],
+        cleaned["generation"],
+        cleaned["scenes"],
+        next_url,
+    )
+    return {"saved": cleaned, "next_url": next_url}
+
+
 @router.get("/taste-test")
 async def taste_test():
     """Return contrasting taste-axis pools. Each axis has two LABELED

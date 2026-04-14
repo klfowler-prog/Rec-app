@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}Start your taste profile{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-8">
+    <div>
+        <h2 class="text-2xl font-semibold mb-1">Tell us about your taste</h2>
+        <p class="text-txt-muted text-sm">Three quick questions so NextUp learns what you're actually into — then a short quiz on each medium you picked.</p>
+    </div>
+
+    <form id="onboarding-form" class="space-y-8" onsubmit="event.preventDefault(); submitOnboarding();">
+
+        <!-- Step 1: media mix -->
+        <section>
+            <p class="text-[11px] font-bold text-sage uppercase tracking-widest mb-1">Step 1</p>
+            <h3 class="text-lg font-semibold mb-1">What do you spend time on?</h3>
+            <p class="text-sm text-txt-muted mb-4">Uncheck anything you don't care about — we won't ask you to rate it.</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {% set media_items = [
+                    ('movie',            'Movies',          'gradient-blue'),
+                    ('tv',               'TV shows',        'gradient-purple'),
+                    ('book_fiction',     'Fiction books',   'gradient-amber'),
+                    ('book_nonfiction',  'Nonfiction books','gradient-amber'),
+                    ('podcast',          'Podcasts',        'bg-green-500'),
+                ] %}
+                {% for value, label, accent in media_items %}
+                <label class="flex items-center gap-3 px-4 py-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl cursor-pointer hover:border-sage transition-base">
+                    <input type="checkbox" name="media_types" value="{{ value }}"
+                           {% if (not saved_media_types) or value in saved_media_types %}checked{% endif %}
+                           class="w-4 h-4 accent-sage">
+                    <span class="w-6 h-6 rounded {{ accent }} flex-shrink-0"></span>
+                    <span class="text-sm font-medium flex-1">{{ label }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </section>
+
+        <!-- Step 2: era / generation -->
+        <section>
+            <p class="text-[11px] font-bold text-sage uppercase tracking-widest mb-1">Step 2</p>
+            <h3 class="text-lg font-semibold mb-1">Which era are you most drawn to?</h3>
+            <p class="text-sm text-txt-muted mb-4">Tells us whether to pull from recent stuff, millennial canon, older classics, or a mix.</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {% set era_items = [
+                    ('gen_z',       'Mostly recent',      'Last 5-10 years'),
+                    ('millennial',  'Millennial canon',   '2000s-2010s'),
+                    ('classic',     'Gen X / classic',    '70s-90s'),
+                    ('mix',         'A mix',              'Show me everything'),
+                ] %}
+                {% for value, label, sub in era_items %}
+                <label class="flex items-start gap-3 px-4 py-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl cursor-pointer hover:border-sage transition-base">
+                    <input type="radio" name="generation" value="{{ value }}"
+                           {% if saved_generation == value or (not saved_generation and value == 'mix') %}checked{% endif %}
+                           class="w-4 h-4 accent-sage mt-0.5">
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium">{{ label }}</p>
+                        <p class="text-[11px] text-txt-muted">{{ sub }}</p>
+                    </div>
+                </label>
+                {% endfor %}
+            </div>
+        </section>
+
+        <!-- Step 2b: scenes (taste territories) -->
+        <section>
+            <p class="text-[11px] font-bold text-sage uppercase tracking-widest mb-1">Step 3</p>
+            <h3 class="text-lg font-semibold mb-1">What worlds are you into?</h3>
+            <p class="text-sm text-txt-muted mb-4">Pick as many as you like — or leave them all unchecked and we'll show you a mix.</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {% set scene_items = [
+                    ('anime',            'Anime + manga',            'Demon Slayer, Spirited Away, Attack on Titan'),
+                    ('action_thriller',  'Action + thrillers',       'John Wick, Mission: Impossible, Heat'),
+                    ('comedy',           'Comedies',                 'Sitcoms, buddy films, stand-up'),
+                    ('horror',           'Horror + scary stuff',     'The Conjuring, IT, A24 horror'),
+                    ('scifi_fantasy',    'Sci-fi + fantasy',         'Dune, LOTR, Foundation'),
+                    ('prestige_drama',   'Prestige drama',           'Severance, Succession, literary fiction'),
+                    ('romance',          'Romance',                  'Bridgerton, romance novels, romcoms'),
+                    ('true_crime',       'True crime + true stories','Making a Murderer, Say Nothing'),
+                    ('sports',           'Sports + competition',     'The Last Dance, Friday Night Lights'),
+                    ('music',            'Music + music history',    'Music docs, memoirs, Song Exploder'),
+                    ('gaming_culture',   'Gaming culture',           'FNAF, Last of Us, Arcane, Minecraft'),
+                    ('k_content',        'K-content',                'K-dramas, K-pop, Squid Game'),
+                    ('reality_tv',       'Reality TV',               'Bravo, Love Is Blind, baking shows'),
+                    ('indie_arthouse',   'Indie + arthouse',         'A24, Criterion, indie press'),
+                    ('docs_nonfiction',  'Docs + nonfiction',        'Documentaries, narrative nonfiction'),
+                    ('kids_family',      'Kids + family',            'Family movies, all-ages shows'),
+                ] %}
+                {% for value, label, examples in scene_items %}
+                <label class="flex items-start gap-3 px-4 py-2.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg cursor-pointer hover:border-sage transition-base">
+                    <input type="checkbox" name="scenes" value="{{ value }}"
+                           {% if value in saved_scenes %}checked{% endif %}
+                           class="w-4 h-4 accent-sage mt-0.5">
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium">{{ label }}</p>
+                        <p class="text-[11px] text-txt-muted truncate">{{ examples }}</p>
+                    </div>
+                </label>
+                {% endfor %}
+            </div>
+        </section>
+
+        <div class="flex items-center justify-between pt-4 border-t border-border-light dark:border-border-dark">
+            <a href="/" class="text-sm text-txt-muted hover:text-txt transition-base">Skip for now</a>
+            <button type="submit" id="onboarding-submit"
+                    class="px-6 py-2.5 bg-sage text-white rounded-xl text-sm font-semibold transition-base hover:bg-sage-dark active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
+                Save &amp; start the quiz &rarr;
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function submitOnboarding() {
+        const form = document.getElementById('onboarding-form');
+        const btn = document.getElementById('onboarding-submit');
+        btn.disabled = true;
+
+        const mediaTypes = Array.from(form.querySelectorAll('input[name="media_types"]:checked')).map(i => i.value);
+        const generation = (form.querySelector('input[name="generation"]:checked') || {}).value || 'mix';
+        const scenes = Array.from(form.querySelectorAll('input[name="scenes"]:checked')).map(i => i.value);
+
+        try {
+            const resp = await fetch('/api/media/onboarding', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ media_types: mediaTypes, generation, scenes }),
+            });
+            if (!resp.ok) {
+                btn.disabled = false;
+                alert("Couldn't save your picks. Try again in a moment.");
+                return;
+            }
+            const data = await resp.json();
+            window.location.href = data.next_url || '/quick-start';
+        } catch {
+            btn.disabled = false;
+            alert("Couldn't save your picks. Try again in a moment.");
+        }
+    }
+</script>
+{% endblock %}

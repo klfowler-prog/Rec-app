@@ -317,6 +317,31 @@ async def quick_start_page(request: Request, user: User = Depends(require_user))
     return templates.TemplateResponse("quick_start.html", {"request": request, "user": user})
 
 
+@router.get("/onboarding")
+async def onboarding_page(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """4-step taste-profile onboarding wizard. Step 1 picks the media
+    types you engage with, Step 2 picks an era, Step 2b picks the
+    'worlds you're into' (anime, action, gaming culture, etc.), Step
+    3 surfaces a quiz checklist filtered by your media-type picks.
+
+    Pre-loads the saved answers (if any) so the user can come back and
+    edit. Skipping any step persists 'mix' / empty defaults so the
+    rest of the app falls back to current behavior."""
+    from app.services.taste_quiz_scoring import load_onboarding
+
+    saved = load_onboarding(db, user.id) or {}
+    return templates.TemplateResponse(
+        "onboarding.html",
+        {
+            "request": request,
+            "user": user,
+            "saved_media_types": saved.get("media_types", []),
+            "saved_generation": saved.get("generation", "mix"),
+            "saved_scenes": saved.get("scenes", []),
+        },
+    )
+
+
 @router.get("/quick-start/movies")
 async def quick_start_movies_page(request: Request, user: User = Depends(require_user)):
     return templates.TemplateResponse(

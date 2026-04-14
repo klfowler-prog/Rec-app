@@ -117,6 +117,64 @@ def load_quiz_results(db, user_id: int) -> dict:
     return data if isinstance(data, dict) else {}
 
 
+# Valid scene tags (Step 2b of the onboarding wizard). Items in the
+# quiz pools are tagged with the same vocabulary in Phase D2 so the
+# filter algorithm at quiz load time can match user picks against
+# item scene tags. Keep this list in sync with the chip list in
+# templates/onboarding.html.
+ONBOARDING_SCENES = [
+    "anime", "action_thriller", "comedy", "horror", "scifi_fantasy",
+    "prestige_drama", "romance", "true_crime", "sports", "music",
+    "gaming_culture", "k_content", "reality_tv", "indie_arthouse",
+    "docs_nonfiction", "kids_family",
+]
+ONBOARDING_GENERATIONS = ["gen_z", "millennial", "classic", "mix"]
+ONBOARDING_MEDIA_TYPES = ["movie", "tv", "book_fiction", "book_nonfiction", "podcast"]
+
+
+def save_onboarding(db, user_id: int, answers: dict) -> dict:
+    """Persist the user's onboarding wizard answers under the
+    'onboarding' key in UserPreferences.quiz_results. Validates the
+    incoming dict against the allowed vocabularies above and
+    silently drops anything unknown — never crashes the wizard.
+
+    Returns the cleaned dict that was persisted, so the caller can
+    echo it back to the client."""
+    from app.models import UserPreferences
+
+    cleaned: dict = {
+        "media_types": [t for t in (answers.get("media_types") or []) if t in ONBOARDING_MEDIA_TYPES],
+        "generation": answers.get("generation") if answers.get("generation") in ONBOARDING_GENERATIONS else "mix",
+        "scenes": [s for s in (answers.get("scenes") or []) if s in ONBOARDING_SCENES],
+        "completed_at": datetime.utcnow().isoformat(),
+    }
+
+    prefs = db.query(UserPreferences).filter(UserPreferences.user_id == user_id).first()
+    if not prefs:
+        prefs = UserPreferences(user_id=user_id)
+        db.add(prefs)
+
+    try:
+        existing = json.loads(prefs.quiz_results) if prefs.quiz_results else {}
+        if not isinstance(existing, dict):
+            existing = {}
+    except (json.JSONDecodeError, TypeError):
+        existing = {}
+
+    existing["onboarding"] = cleaned
+    prefs.quiz_results = json.dumps(existing)
+    db.commit()
+    return cleaned
+
+
+def load_onboarding(db, user_id: int) -> dict | None:
+    """Return the user's saved onboarding answers, or None if they
+    haven't completed the wizard yet. Always returns a dict shape
+    when present so callers can do data.get('scenes') without
+    KeyError."""
+    return load_quiz_results(db, user_id).get("onboarding")
+
+
 def format_quiz_signals_for_prompt(quiz_results: dict) -> str:
     """Format the user's quiz results into a compact block the AI
     can read as taste signals. Returns an empty string if there are
