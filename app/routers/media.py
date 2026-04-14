@@ -2028,7 +2028,7 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
     if recent_items:
         recent_items.sort(key=lambda e: e.rated_at, reverse=True)
         recent_lines = [f"  - {e.title} ({e.media_type}, {e.rating}/10)" for e in recent_items[:10]]
-        recent_section = "\n\nRECENTLY RATED (last 30 days — their current mood):\n" + "\n".join(recent_lines)
+        recent_section = "\n\nRECENTLY RATED (last 30 days — one directional signal, NOT the whole picture):\n" + "\n".join(recent_lines)
 
     # Avoid list — pack as many titles as fit in the budget.
     avoid_titles: list[str] = []
@@ -2105,6 +2105,9 @@ Every item in top_picks and every item in themes MUST include a "predicted_ratin
 - Their taste register is visible in the PROFILE above. If they rate prestige TV 9/10 and cozy family movies aren't in their profile at all, a Paddington-style pick should be a 5 at best for them, not an 8.
 - A score of 8+ means "this person will probably love this." 7 means "solid match." 6 means "borderline — worth trying but not a sure thing." Below 6 means "outside their lane."
 - DO NOT inflate. Spread the ratings across the range. It is better to return fewer high-confidence picks than to lie up.
+
+RECENCY BALANCE — CRITICAL:
+The "recently rated" section is ONE signal among many. Do NOT over-index on the last item rated or the most recent few. If someone just rated a cooking show 9/10, that doesn't mean every recommendation should be food-related. Use the FULL taste profile — the breadth of their highly-rated items across genres, media types, and years — as the primary driver. Recent ratings are a tiebreaker, not a pivot.
 
 NONFICTION IS WELCOME:
 - Movies can include documentaries
