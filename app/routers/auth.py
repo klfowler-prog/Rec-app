@@ -119,9 +119,9 @@ async def auth_callback(request: Request, code: str = "", state: str = "", db: S
 
 @router.get("/logout")
 async def logout(request: Request):
-    """Clear session and redirect to login."""
+    """Clear session and redirect to welcome page."""
     request.session.clear()
-    return RedirectResponse("/auth/login")
+    return RedirectResponse("/welcome")
 
 
 @router.get("/access-denied")
