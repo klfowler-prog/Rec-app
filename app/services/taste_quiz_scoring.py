@@ -95,10 +95,101 @@ def compute_next_quiz(db, user_id: int, current_slug: str | None = None) -> dict
 
 def build_quiz_signals_block(db, user_id: int) -> str:
     """One-call convenience for recommendation prompts: loads the
-    user's quiz results and formats them into a prompt block. Returns
-    an empty string when there are no results, so the caller can
-    include the output unconditionally."""
-    return format_quiz_signals_for_prompt(load_quiz_results(db, user_id))
+    user's saved quiz results + onboarding answers and formats them
+    into a prompt block for the AI to read as taste anchors. Returns
+    an empty string when neither source has any data, so the caller
+    can include the output unconditionally.
+
+    The output combines two sections:
+    1. USER ONBOARDING SIGNALS — the explicit 'I like these worlds'
+       picks from Phase D1 (media mix + era + scenes). These are
+       the strongest signal because the user typed them directly,
+       not inferred from rating patterns.
+    2. TASTE QUIZ SIGNALS — profile labels + axis scores from the
+       movie/TV/books quizzes (the existing format).
+    """
+    results = load_quiz_results(db, user_id)
+    onboarding_block = format_onboarding_signals_for_prompt(results.get("onboarding"))
+    quiz_block = format_quiz_signals_for_prompt(results)
+    return onboarding_block + quiz_block
+
+
+# Human-readable labels for the scene/generation enums so the AI sees
+# "anime + gaming culture" instead of "['anime', 'gaming_culture']".
+_SCENE_LABELS = {
+    "anime": "anime + manga",
+    "action_thriller": "action and thrillers",
+    "comedy": "comedies (sitcoms, buddy films, stand-up)",
+    "horror": "horror and scary stuff",
+    "scifi_fantasy": "sci-fi and fantasy",
+    "prestige_drama": "prestige drama (literary / character-driven)",
+    "romance": "romance",
+    "true_crime": "true crime and true stories",
+    "sports": "sports and competition",
+    "music": "music and music history",
+    "gaming_culture": "gaming culture (FNAF, Last of Us, Arcane, etc.)",
+    "k_content": "K-dramas, K-pop, Korean content",
+    "reality_tv": "reality TV",
+    "indie_arthouse": "indie + arthouse",
+    "docs_nonfiction": "documentaries and narrative nonfiction",
+    "kids_family": "kids and family",
+}
+
+_GENERATION_LABELS = {
+    "gen_z": "mostly recent stuff (last 5-10 years)",
+    "millennial": "millennial canon (2000s-2010s)",
+    "classic": "classic canon (70s-90s)",
+    "mix": "a mix across eras",
+}
+
+_MEDIA_TYPE_LABELS = {
+    "movie": "movies",
+    "tv": "TV shows",
+    "book_fiction": "fiction books",
+    "book_nonfiction": "nonfiction books",
+    "podcast": "podcasts",
+}
+
+
+def format_onboarding_signals_for_prompt(onboarding: dict | None) -> str:
+    """Format saved onboarding answers into a compact prompt block.
+    Returns an empty string when the user hasn't completed the wizard
+    so the caller can include the output unconditionally."""
+    if not onboarding or not isinstance(onboarding, dict):
+        return ""
+
+    media_types = onboarding.get("media_types") or []
+    generation = onboarding.get("generation") or "mix"
+    scenes = onboarding.get("scenes") or []
+
+    # Nothing worth reporting if all three are empty / default.
+    if not media_types and not scenes and generation == "mix":
+        return ""
+
+    lines = ["## USER ONBOARDING SIGNALS (the user explicitly told us these — weight them strongly):"]
+
+    if media_types:
+        pretty = ", ".join(_MEDIA_TYPE_LABELS.get(m, m) for m in media_types)
+        lines.append(f"- **Media mix**: {pretty}")
+
+    if generation and generation != "mix":
+        lines.append(f"- **Era lean**: {_GENERATION_LABELS.get(generation, generation)}")
+
+    if scenes:
+        pretty_scenes = ", ".join(_SCENE_LABELS.get(s, s) for s in scenes)
+        lines.append(f"- **Taste territories**: {pretty_scenes}")
+
+    lines.append("")
+    lines.append(
+        "INSTRUCTION: These are the user's declared preferences — the 'worlds' "
+        "they told us they're into. Weight recommendations that land in these "
+        "territories strongly over ones that don't, even if the alternative "
+        "sounds equally good on paper. A user who picked 'anime + gaming culture' "
+        "wants anime and gaming-adjacent picks first; only reach outside those "
+        "worlds when the user's message explicitly asks for something different."
+    )
+    lines.append("")
+    return "\n".join(lines) + "\n"
 
 
 def load_quiz_results(db, user_id: int) -> dict:
