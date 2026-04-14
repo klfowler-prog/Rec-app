@@ -157,7 +157,8 @@
         weekend_binge:    { label: "Lose the weekend",          blurb: "Binge it. Fall in. Look up and it's dark outside.",   accent: 'text-coral' },
         quick_escape:     { label: "Quick escape",              blurb: "15-90 minutes, out of your own head.",                accent: 'text-rose-500' },
     };
-    const THEME_ORDER = ['tonight_binge', 'wind_down', 'walking_the_dog', 'background_work', 'weekend_binge', 'quick_escape'];
+    // Morning → daytime → evening → weekend
+    const THEME_ORDER = ['walking_the_dog', 'background_work', 'quick_escape', 'tonight_binge', 'wind_down', 'weekend_binge'];
 
     async function loadThemes() {
         const wrap = document.getElementById('themes-wrap');
