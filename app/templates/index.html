@@ -34,11 +34,11 @@
 <div class="space-y-10">
 
     {% if is_new_user %}
-    <!-- New-user welcome modal — shown once per browser. Single
-         screen, no multi-step tour — the goal is to push the user
-         straight into a taste quiz so their profile has real signal
-         from the first session. Dismissing sets a localStorage flag
-         so it never reappears. -->
+    <!-- New-user welcome modal — shown once per browser. Nudges new
+         users into the onboarding wizard, which captures their media
+         mix + era + scenes and routes them into the first relevant
+         quiz. Dismissing sets a localStorage flag so it never
+         reappears. -->
     <div id="welcome-modal" class="fixed inset-0 bg-black/60 z-50 hidden items-center justify-center p-4" onclick="if(event.target===this)dismissWelcome()">
         <div class="bg-surface-light dark:bg-surface-dark rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-border-light dark:border-border-dark">
             <div class="rounded-t-2xl p-6 text-white relative" style="background: linear-gradient(135deg, #2B3A4E 0%, #1E2A3A 100%);">
@@ -46,50 +46,25 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
                 <p class="text-[11px] text-white/60 uppercase tracking-widest mb-2 font-semibold">Welcome to NextUp</p>
-                <h2 class="text-2xl font-bold mb-2">Start with a taste quiz</h2>
-                <p class="text-sm text-white/85 leading-relaxed">NextUp connects what you watch, read, and listen to into one taste profile — so a show you loved can surface a book you'll love too. The fastest way to give the AI real signal is a short quiz. Pick one to start.</p>
+                <h2 class="text-2xl font-bold mb-2">Build your taste profile</h2>
+                <p class="text-sm text-white/85 leading-relaxed">Three quick questions — which media types, which era, which kinds of stories you're into — then a short quiz on each medium you picked. Everything maps into one profile so a show you loved can surface a book you'll love too.</p>
             </div>
             <div class="p-6 space-y-3">
-                <a href="/quick-start/movies" class="flex items-center gap-3 px-4 py-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl hover:border-sage transition-base group">
-                    <span class="w-10 h-10 rounded-lg gradient-blue flex items-center justify-center flex-shrink-0">
-                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/></svg>
-                    </span>
+                <a href="/onboarding" class="flex items-center gap-3 px-5 py-4 bg-sage text-white rounded-xl hover:bg-sage-dark transition-base group shadow-sm">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                     <div class="flex-1 min-w-0">
-                        <p class="text-sm font-semibold">Movies quiz</p>
-                        <p class="text-[11px] text-txt-muted">25 films · ~5 minutes</p>
+                        <p class="text-sm font-semibold">Start the wizard</p>
+                        <p class="text-[11px] text-white/80">~2 minutes of questions, then a short quiz on each medium</p>
                     </div>
-                    <svg class="w-4 h-4 text-txt-muted group-hover:text-sage transition-base" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    <svg class="w-4 h-4 flex-shrink-0 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                 </a>
-                <a href="/quick-start/tv" class="flex items-center gap-3 px-4 py-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl hover:border-sage transition-base group">
-                    <span class="w-10 h-10 rounded-lg gradient-purple flex items-center justify-center flex-shrink-0">
-                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                    </span>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-sm font-semibold">TV quiz</p>
-                        <p class="text-[11px] text-txt-muted">24 shows · ~5 minutes</p>
-                    </div>
-                    <svg class="w-4 h-4 text-txt-muted group-hover:text-sage transition-base" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                </a>
-                <a href="/quick-start/books/fiction" class="flex items-center gap-3 px-4 py-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl hover:border-sage transition-base group">
-                    <span class="w-10 h-10 rounded-lg gradient-amber flex items-center justify-center flex-shrink-0">
-                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
-                    </span>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-sm font-semibold">Fiction quiz</p>
-                        <p class="text-[11px] text-txt-muted">20 novels · ~5 minutes</p>
-                    </div>
-                    <svg class="w-4 h-4 text-txt-muted group-hover:text-sage transition-base" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                </a>
-                <a href="/quick-start/books/nonfiction" class="flex items-center gap-3 px-4 py-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl hover:border-sage transition-base group">
-                    <span class="w-10 h-10 rounded-lg gradient-amber flex items-center justify-center flex-shrink-0">
-                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
-                    </span>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-sm font-semibold">Nonfiction quiz</p>
-                        <p class="text-[11px] text-txt-muted">10 titles · ~4 minutes</p>
-                    </div>
-                    <svg class="w-4 h-4 text-txt-muted group-hover:text-sage transition-base" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                </a>
+                <p class="text-[11px] text-txt-muted text-center">Or jump straight to a specific quiz:</p>
+                <div class="grid grid-cols-2 gap-2">
+                    <a href="/quick-start/movies" class="px-3 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg text-xs text-txt-muted hover:border-sage hover:text-sage text-center transition-base">Movies</a>
+                    <a href="/quick-start/tv" class="px-3 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg text-xs text-txt-muted hover:border-sage hover:text-sage text-center transition-base">TV</a>
+                    <a href="/quick-start/books/fiction" class="px-3 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg text-xs text-txt-muted hover:border-sage hover:text-sage text-center transition-base">Fiction</a>
+                    <a href="/quick-start/books/nonfiction" class="px-3 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg text-xs text-txt-muted hover:border-sage hover:text-sage text-center transition-base">Nonfiction</a>
+                </div>
                 <div class="text-center pt-2">
                     <button onclick="dismissWelcome()" class="text-xs text-txt-muted hover:text-txt transition-base">Skip for now — I'll find my way</button>
                 </div>
@@ -115,20 +90,22 @@
         </div>
     </div>
 
-    <!-- Empty state for brand new users -->
+    <!-- Empty state for brand new users. Primary CTA is the onboarding
+         wizard — the secondary Add link is there for users who already
+         know what they want to log and don't need a taste profile. -->
     {% if total == 0 %}
     <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-8 text-center">
         <div class="w-16 h-16 bg-sage/10 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg class="w-8 h-8 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            <svg class="w-8 h-8 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
         </div>
         <h3 class="text-lg font-semibold mb-2">Build your taste profile</h3>
-        <p class="text-txt-muted mb-6 max-w-md mx-auto">Rate movies, shows, books, and podcasts you've enjoyed. NextUp will learn your taste and recommend what's next.</p>
+        <p class="text-txt-muted mb-6 max-w-md mx-auto">Three quick questions and a short quiz on each medium you pick. NextUp learns how you actually engage with stuff, then uses it to recommend across movies, TV, books, and podcasts.</p>
         <div class="flex gap-3 justify-center">
-            <a href="/add" class="inline-flex items-center gap-2 px-5 py-2.5 bg-sage text-white rounded-lg text-sm font-medium transition-base hover:bg-sage-dark">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-                Add Media
+            <a href="/onboarding" class="inline-flex items-center gap-2 px-5 py-2.5 bg-sage text-white rounded-lg text-sm font-medium transition-base hover:bg-sage-dark">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                Start the wizard
             </a>
-            <a href="/discover" class="inline-flex items-center gap-2 px-5 py-2.5 border border-border-light dark:border-border-dark rounded-lg text-sm text-txt-muted hover:text-txt transition-base">Discover</a>
+            <a href="/add" class="inline-flex items-center gap-2 px-5 py-2.5 border border-border-light dark:border-border-dark rounded-lg text-sm text-txt-muted hover:text-txt transition-base">Add items manually</a>
         </div>
     </div>
     {% else %}
