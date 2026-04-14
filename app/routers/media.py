@@ -2095,7 +2095,7 @@ You are producing FOUR outputs in one JSON response — do NOT repeat the same i
 
 1. top_picks: 8 recommendations total — 2 movies, 2 TV shows, 2 books, 2 podcasts. List the strongest pick first in each pair. The app will drop anything the user already has and keep the strongest surviving pick per category.
 2. suggestions: 5 items for each of these categories: {', '.join(missing_types_list) if missing_types_list else '(none needed)'}. These should be DIFFERENT from top_picks. The app filters these too and keeps the top 3 survivors per category.
-3. themes: 4 picks for EACH of these life-context themes — each theme is framed around a moment in the user's day, not a vibe in the abstract. Pick items that actually match the moment AND the user's taste profile. Don't repeat items across themes or with top_picks / suggestions. Theme slugs + what each is asking for:
+3. themes: 6 picks for EACH of these life-context themes — each theme is framed around a moment in the user's day, not a vibe in the abstract. Pick items that actually match the moment AND the user's taste profile. Don't repeat items across themes or with top_picks / suggestions. Theme slugs + what each is asking for:
 {theme_guide}
 4. insights: 3 sharp, specific observations about cross-medium patterns in their profile.
 
@@ -2257,7 +2257,7 @@ Return ONLY valid JSON, no markdown:
         for theme_slug, items in raw_themes.items():
             if not isinstance(items, list):
                 continue
-            for it in items[:4]:  # cap input per theme at 4
+            for it in items[:6]:  # cap input per theme at 6
                 theme_tasks.append(enrich_pick(it))
                 theme_keys.append(theme_slug)
 
