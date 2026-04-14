@@ -26,12 +26,12 @@
         .hero-poster-grid {
             position: absolute; inset: 0; display: grid;
             grid-template-columns: repeat(6, 1fr); grid-template-rows: repeat(2, 1fr);
-            gap: 4px; filter: blur(2px); opacity: 0.15;
+            gap: 4px; filter: blur(1px); opacity: 0.45;
         }
         .hero-poster-grid img { width: 100%; height: 100%; object-fit: cover; }
         .hero-overlay {
             position: absolute; inset: 0;
-            background: linear-gradient(135deg, rgba(43,58,78,0.92) 0%, rgba(30,42,58,0.95) 50%, rgba(43,58,78,0.92) 100%);
+            background: linear-gradient(135deg, rgba(43,58,78,0.82) 0%, rgba(30,42,58,0.85) 50%, rgba(43,58,78,0.82) 100%);
         }
         .hero-gradient::before {
             content: ""; position: absolute; top: -8rem; right: -5rem; z-index: 1;
