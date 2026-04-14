@@ -303,6 +303,37 @@ FILMS: list[dict] = [
      "weights": {"genre": 2, "darkness": 2, "emotional": 1, "ambiguity": 1},
      "generation": ["millennial"],
      "scenes": ["horror", "prestige_drama", "indie_arthouse"]},
+    # Romance (Phase D4a)
+    {"order": 57, "title": "Past Lives",                              "year": 2023,
+     "weights": {"emotional": 2, "prose": 0, "pace": 1, "ambiguity": 1},
+     "generation": ["gen_z"],
+     "scenes": ["romance", "prestige_drama", "indie_arthouse", "k_content"]},
+    {"order": 58, "title": "Crazy Rich Asians",                       "year": 2018,
+     "weights": {"emotional": 1, "comedy": 1, "darkness": -1},
+     "generation": ["gen_z", "millennial"],
+     "scenes": ["romance", "comedy"]},
+    {"order": 59, "title": "The Notebook",                            "year": 2004,
+     "weights": {"emotional": 2, "darkness": -1},
+     "generation": ["millennial"],
+     "scenes": ["romance"]},
+    # K-content (Phase D4a)
+    {"order": 60, "title": "Decision to Leave",                       "year": 2022,
+     "weights": {"genre": 1, "ambiguity": 2, "pace": 1, "darkness": 1},
+     "generation": ["gen_z"],
+     "scenes": ["k_content", "action_thriller", "prestige_drama", "indie_arthouse"]},
+    {"order": 61, "title": "Train to Busan",                          "year": 2016,
+     "weights": {"genre": 2, "darkness": 1, "emotional": 1},
+     "generation": ["gen_z", "millennial"],
+     "scenes": ["k_content", "horror", "action_thriller"]},
+    # True crime (Phase D4a)
+    {"order": 62, "title": "Zodiac",                                  "year": 2007,
+     "weights": {"pace": 2, "darkness": 1, "ambiguity": 2, "moral_ambiguity": 1},
+     "generation": ["millennial"],
+     "scenes": ["true_crime", "action_thriller", "prestige_drama"]},
+    {"order": 63, "title": "Prisoners",                               "year": 2013,
+     "weights": {"darkness": 2, "moral_ambiguity": 2, "pace": 1},
+     "generation": ["millennial", "gen_z"],
+     "scenes": ["true_crime", "action_thriller", "prestige_drama"]},
 ]
 
 
