@@ -214,22 +214,34 @@ _CONTEXT_TO_MOOD = {
 }
 
 
-@router.get("/recommend")
-async def recommend_page(
+@router.get("/discover")
+async def discover_page(
     request: Request,
     user: User = Depends(require_user),
     context: str | None = None,
 ):
-    """Recommendation freeform page. Accepts an optional ?context=<slug>
-    from the home page's activity-context chip row and redirects to the
-    same page with a prewritten mood query, so the existing recommend
-    flow (which already auto-sends from ?mood=) takes over."""
+    """Single 'find me something' surface. Replaces the old /recommend page
+    and absorbs the activity chips, Mad Lib, Best Bets, and For Your Day
+    themes that previously lived on Home. Accepts an optional ?context=<slug>
+    from a chip click and redirects to the same page with a prewritten
+    mood query, so the inline chat (which auto-sends from ?mood=) takes
+    over."""
     if context and context in _CONTEXT_TO_MOOD:
         from urllib.parse import urlencode
 
-        target = "/recommend?" + urlencode({"mood": _CONTEXT_TO_MOOD[context]})
+        target = "/discover?" + urlencode({"mood": _CONTEXT_TO_MOOD[context]})
         return RedirectResponse(url=target, status_code=303)
-    return templates.TemplateResponse("recommend.html", {"request": request, "user": user})
+    return templates.TemplateResponse("discover.html", {"request": request, "user": user})
+
+
+@router.get("/recommend")
+async def recommend_page(request: Request, user: User = Depends(require_user)):
+    """Legacy redirect — /recommend folded into /discover in the Phase B1
+    rebuild. We preserve the query string so old chip and mood deep-links
+    keep working."""
+    qs = request.url.query
+    target = "/discover" + (f"?{qs}" if qs else "")
+    return RedirectResponse(url=target, status_code=303)
 
 
 @router.get("/bulk-add")

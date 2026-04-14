@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% block title %}Discover{% endblock %}
+
+{% block head %}
+<style>
+    /* Reused from index.html for the themed swim lanes. */
+    .swim-lane { overflow-x: auto; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .swim-lane::-webkit-scrollbar { display: none; }
+    .collapsible.collapsed { max-height: 20rem; overflow: hidden; position: relative; }
+    .collapsible.expanded { max-height: none; overflow: visible; }
+    .collapsible.collapsed::after {
+        content: "";
+        position: absolute;
+        inset: auto 0 0 0;
+        height: 3rem;
+        background: linear-gradient(to bottom, transparent, var(--surface-bg, rgba(255,255,255,0.9)));
+        pointer-events: none;
+    }
+    .section-divider { height: 2px; background: linear-gradient(to right, transparent, rgba(139,158,107,0.3), transparent); }
+    /* The chat panel sits inline on Discover (instead of fullscreen as
+       on the old /recommend page) so it can coexist with the chips,
+       Mad Lib, Best Bets and themes sections. The fixed height keeps
+       the page scrollable while the chat scrolls internally. */
+    .discover-chat { height: 28rem; }
+    @media (min-width: 768px) { .discover-chat { height: 32rem; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-10">
+
+    <div>
+        <h2 class="text-2xl font-semibold mb-1">Discover</h2>
+        <p class="text-txt-muted">Three ways to find your next thing — pick a moment, mix two things you love, or just tell me what you want.</p>
+    </div>
+
+    <!-- 1. Activity chips. Each chip routes back to /discover with a
+         ?context=<slug> param; the route resolves it to a mood query
+         and the chat auto-sends. Slugs match _CONTEXT_TO_MOOD in
+         app/routers/pages.py. -->
+    <div>
+        <p class="text-xs text-txt-muted uppercase tracking-wide mb-2">What are you up for?</p>
+        <div class="flex gap-2 flex-wrap">
+            <a href="/discover?context=tonight_binge" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Tonight's binge</a>
+            <a href="/discover?context=wind_down" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Wind down before bed</a>
+            <a href="/discover?context=walking_the_dog" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">While walking the dog</a>
+            <a href="/discover?context=background_work" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Background while I work</a>
+            <a href="/discover?context=quick_escape" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Quick escape</a>
+            <a href="/discover?context=weekend_binge" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Lose the weekend</a>
+        </div>
+    </div>
+
+    <!-- 2. Mad Libs. The wiring at the bottom forwards the structured
+         pick to the chat below as a single message. -->
+    <div class="relative bg-gradient-to-br from-sage/10 to-sage/5 dark:from-sage/15 dark:to-sage/5 border border-sage/25 rounded-2xl px-5 py-4 overflow-hidden">
+        <div class="absolute top-0 right-0 w-32 h-32 bg-sage/5 rounded-full -translate-y-12 translate-x-12 pointer-events-none"></div>
+        <p class="text-[11px] font-bold text-sage uppercase tracking-widest mb-3">Mix two things you love</p>
+        <div class="flex flex-wrap items-baseline gap-x-3 gap-y-4">
+            <span class="text-lg text-txt dark:text-txt-light font-light">I want a</span>
+            <select id="madlib-type" class="border-b-2 border-sage bg-transparent text-lg text-sage font-semibold focus:outline-none pb-0.5 cursor-pointer appearance-none hover:border-sage-dark transition-colors">
+                <option value="">anything</option>
+                <option value="movie">movie</option>
+                <option value="tv">TV show</option>
+                <option value="book">book</option>
+                <option value="podcast">podcast</option>
+            </select>
+            <span class="text-lg text-txt dark:text-txt-light font-light">that's like</span>
+            <input id="madlib-ref1" type="text" placeholder="The Matrix" autocomplete="off"
+                class="border-b-2 border-sage bg-transparent text-lg text-txt dark:text-txt-light font-semibold placeholder-sage/30 focus:outline-none focus:border-sage-dark pb-0.5 min-w-[100px] w-40 transition-colors" />
+            <span class="text-lg text-txt dark:text-txt-light font-light">meets</span>
+            <input id="madlib-ref2" type="text" placeholder="Harry Potter" autocomplete="off"
+                class="border-b-2 border-sage bg-transparent text-lg text-txt dark:text-txt-light font-semibold placeholder-sage/30 focus:outline-none focus:border-sage-dark pb-0.5 min-w-[120px] w-52 transition-colors" />
+            <button id="madlib-send"
+                class="ml-1 px-5 py-2 bg-sage text-white rounded-xl text-base font-semibold transition-base hover:bg-sage-dark hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 shadow-sm">
+                Find it &rarr;
+            </button>
+        </div>
+    </div>
+
+    <!-- 3. Chat — the full /recommend experience inlined as a section.
+         Same DOM IDs (chat-messages, rec-input, rec-send, rec-type-filter)
+         that recommend.js expects, so the existing JS works as-is. -->
+    <div>
+        <p class="text-xs text-txt-muted uppercase tracking-wide mb-2">Just tell me what you want</p>
+        <div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-2xl flex flex-col discover-chat overflow-hidden">
+            <div id="chat-messages" class="flex-1 overflow-y-auto space-y-4 p-4">
+                <div class="flex gap-3">
+                    <div class="w-8 h-8 bg-sage/10 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <svg class="w-4 h-4 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                    </div>
+                    <div class="bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg rounded-tl-sm px-4 py-3 max-w-2xl">
+                        <p class="text-sm">Tell me what you're in the mood for and I'll pull from your taste profile. Try "a sci-fi book that won't depress me" or "something to watch with my partner who hates anything dark".</p>
+                    </div>
+                </div>
+            </div>
+            <div class="border-t border-border-light dark:border-border-dark p-3">
+                <div class="flex gap-2">
+                    <select id="rec-type-filter" class="px-3 py-2.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm text-txt dark:text-txt-light">
+                        <option value="">Any type</option>
+                        <option value="movie">Movies</option>
+                        <option value="tv">TV Shows</option>
+                        <option value="book">Books</option>
+                        <option value="podcast">Podcasts</option>
+                    </select>
+                    <div class="flex-1 relative">
+                        <textarea id="rec-input" rows="1" placeholder="What are you in the mood for?"
+                            class="w-full px-4 py-2.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sage/40 focus:border-sage transition-base resize-none"
+                            style="max-height: 120px;"></textarea>
+                    </div>
+                    <button id="rec-send" class="px-5 py-2.5 bg-sage text-white rounded-lg text-sm font-medium transition-base hover:bg-sage-dark disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                        Send
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section-divider"></div>
+
+    <!-- 4. Your best bets — one hero pick per media type. Driven by
+         loadBestBets() in discover_widgets.js. -->
+    <div>
+        <h2 class="text-xl font-bold mb-1 flex items-center gap-2">
+            <span class="w-8 h-8 rounded-lg gradient-coral flex items-center justify-center">
+                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+            </span>
+            Your best bets
+        </h2>
+        <p class="text-sm text-txt-muted mb-4">One pick per category, each tied to a specific thing you recently loved.</p>
+        <div id="best-bets" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="col-span-full text-center py-8">
+                <div class="inline-block w-5 h-5 border-2 border-coral/30 border-t-coral rounded-full animate-spin"></div>
+                <p class="text-xs text-txt-muted mt-2">Finding your best bets...</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="section-divider"></div>
+
+    <!-- 5. For your day — themed swim lanes. Driven by loadThemes() in
+         discover_widgets.js. -->
+    <div>
+        <h2 class="text-xl font-bold mb-1 flex items-center gap-2">
+            <span class="w-8 h-8 rounded-lg gradient-sage flex items-center justify-center">
+                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </span>
+            For your day
+        </h2>
+        <p class="text-sm text-txt-muted mb-5">Picks framed around moments — not just vibes. Tap through to save or skip.</p>
+        <div id="themes-wrap" class="space-y-6">
+            <div class="text-center py-8 text-sm text-txt-muted">
+                <div class="inline-block w-5 h-5 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
+                <p class="mt-2">Picking the right things for each moment&hellip;</p>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/card_actions.js"></script>
+<script src="/static/js/discover_widgets.js"></script>
+<script src="/static/js/recommend.js"></script>
+<script>
+    // Mad Lib → fire as a chat message. Identical to the wiring on the
+    // old /recommend page so behavior is unchanged.
+    document.getElementById('madlib-send').addEventListener('click', function() {
+        const type = document.getElementById('madlib-type').value;
+        const ref1 = document.getElementById('madlib-ref1').value.trim();
+        const ref2 = document.getElementById('madlib-ref2').value.trim();
+        if (!ref1 && !ref2) {
+            document.getElementById('madlib-ref1').focus();
+            return;
+        }
+        const typeLabel = type || 'something';
+        let prompt;
+        if (ref1 && ref2) {
+            prompt = `Find me ${typeLabel === 'something' ? 'something' : 'a ' + typeLabel} that feels like ${ref1} meets ${ref2}.`;
+        } else {
+            prompt = `Find me ${typeLabel === 'something' ? 'something' : 'a ' + typeLabel} that feels like ${ref1 || ref2}.`;
+        }
+        if (type) document.getElementById('rec-type-filter').value = type;
+        recInput.value = prompt;
+        sendMessage();
+        // Scroll the chat panel into view so the user sees the response.
+        document.getElementById('chat-messages').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+
+    ['madlib-ref1', 'madlib-ref2'].forEach(id => {
+        document.getElementById(id).addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                document.getElementById('madlib-send').click();
+            }
+        });
+    });
+
+    // Auto-send mood from URL params (chip click via /discover?context=...)
+    const urlMood = new URLSearchParams(window.location.search).get('mood');
+    if (urlMood) {
+        recInput.value = urlMood;
+        // Scroll the chat into view so the user sees the streaming response.
+        document.getElementById('chat-messages').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(sendMessage, 300);
+    }
+
+    // Kick off the AI-curated sections.
+    Promise.all([loadBestBets(), loadThemes()]);
+</script>
+{% endblock %}
