@@ -354,7 +354,12 @@ async def plex_import_page(request: Request, user: User = Depends(require_user))
 
 
 @router.get("/quick-start")
-async def quick_start_page(request: Request, user: User = Depends(require_user)):
+async def quick_start_page(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    # If user hasn't done onboarding (generation + scenes), send them there first
+    from app.services.taste_quiz_scoring import load_onboarding
+    onboarding = load_onboarding(db, user.id)
+    if not onboarding:
+        return RedirectResponse("/onboarding", status_code=303)
     return templates.TemplateResponse("quick_start.html", {"request": request, "user": user})
 
 
@@ -384,7 +389,10 @@ async def onboarding_page(request: Request, user: User = Depends(require_user), 
 
 
 @router.get("/quick-start/movies")
-async def quick_start_movies_page(request: Request, user: User = Depends(require_user)):
+async def quick_start_movies_page(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    from app.services.taste_quiz_scoring import load_onboarding
+    if not load_onboarding(db, user.id):
+        return RedirectResponse("/onboarding", status_code=303)
     return templates.TemplateResponse(
         "quick_start_quiz.html",
         {
@@ -399,7 +407,10 @@ async def quick_start_movies_page(request: Request, user: User = Depends(require
 
 
 @router.get("/quick-start/tv")
-async def quick_start_tv_page(request: Request, user: User = Depends(require_user)):
+async def quick_start_tv_page(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    from app.services.taste_quiz_scoring import load_onboarding
+    if not load_onboarding(db, user.id):
+        return RedirectResponse("/onboarding", status_code=303)
     return templates.TemplateResponse(
         "quick_start_quiz.html",
         {
@@ -414,11 +425,11 @@ async def quick_start_tv_page(request: Request, user: User = Depends(require_use
 
 
 @router.get("/quick-start/books")
-async def quick_start_books_page(request: Request, user: User = Depends(require_user)):
-    """Legacy combined books quiz — fiction + nonfiction in one flow.
-    Still here for users who want to do both modules in one sitting,
-    but the welcome modal and quick-start picker now point at the
-    split routes below by default."""
+async def quick_start_books_page(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """Legacy combined books quiz — fiction + nonfiction in one flow."""
+    from app.services.taste_quiz_scoring import load_onboarding
+    if not load_onboarding(db, user.id):
+        return RedirectResponse("/onboarding", status_code=303)
     return templates.TemplateResponse(
         "quick_start_quiz.html",
         {
@@ -433,12 +444,11 @@ async def quick_start_books_page(request: Request, user: User = Depends(require_
 
 
 @router.get("/quick-start/books/fiction")
-async def quick_start_books_fiction_page(request: Request, user: User = Depends(require_user)):
-    """Fiction-only books quiz. The quick_start_quiz template already
-    knows how to render a single-module book quiz — the API endpoint
-    /api/media/taste-quiz/books_fiction returns the same shape as the
-    combined endpoint with only the fiction module included, so the
-    JS works without changes."""
+async def quick_start_books_fiction_page(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """Fiction-only books quiz."""
+    from app.services.taste_quiz_scoring import load_onboarding
+    if not load_onboarding(db, user.id):
+        return RedirectResponse("/onboarding", status_code=303)
     return templates.TemplateResponse(
         "quick_start_quiz.html",
         {
@@ -453,10 +463,11 @@ async def quick_start_books_fiction_page(request: Request, user: User = Depends(
 
 
 @router.get("/quick-start/books/nonfiction")
-async def quick_start_books_nonfiction_page(request: Request, user: User = Depends(require_user)):
-    """Nonfiction-only books quiz. The unblocker for readers who only
-    do nonfiction (history, science, memoir, true stories) and don't
-    want to click 'Haven't read' through 20 novels first."""
+async def quick_start_books_nonfiction_page(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """Nonfiction-only books quiz."""
+    from app.services.taste_quiz_scoring import load_onboarding
+    if not load_onboarding(db, user.id):
+        return RedirectResponse("/onboarding", status_code=303)
     return templates.TemplateResponse(
         "quick_start_quiz.html",
         {
