@@ -334,6 +334,52 @@ FILMS: list[dict] = [
      "weights": {"darkness": 2, "moral_ambiguity": 2, "pace": 1},
      "generation": ["millennial", "gen_z"],
      "scenes": ["true_crime", "action_thriller", "prestige_drama"]},
+    # Sports (Phase D4b) — previously zero sports-tagged items.
+    {"order": 64, "title": "Moneyball",                               "year": 2011,
+     "weights": {"emotional": 1, "ideas": 0, "pace": 1},
+     "generation": ["millennial", "gen_z"],
+     "scenes": ["sports", "prestige_drama"]},
+    {"order": 65, "title": "Rocky",                                   "year": 1976,
+     "weights": {"emotional": 2, "film_history": 1},
+     "generation": ["classic", "universal"],
+     "scenes": ["sports"]},
+    {"order": 66, "title": "Creed",                                   "year": 2015,
+     "weights": {"emotional": 2, "genre": 1},
+     "generation": ["gen_z", "millennial"],
+     "scenes": ["sports", "action_thriller"]},
+    # Music (Phase D4b) — previously just La La Land tagged music.
+    {"order": 67, "title": "Bohemian Rhapsody",                       "year": 2018,
+     "weights": {"emotional": 2, "darkness": 1},
+     "generation": ["gen_z", "millennial"],
+     "scenes": ["music"]},
+    {"order": 68, "title": "Almost Famous",                           "year": 2000,
+     "weights": {"emotional": 2, "comedy": 1, "irony": 1},
+     "generation": ["millennial"],
+     "scenes": ["music", "comedy", "indie_arthouse"]},
+    # Kids + family (Phase D4b) — previously just Toy Story and the
+    # anime family items. Adds the modern Disney canon.
+    {"order": 69, "title": "Frozen",                                  "year": 2013,
+     "weights": {"emotional": 1, "comedy": 1, "darkness": -2},
+     "generation": ["millennial", "gen_z", "universal"],
+     "scenes": ["kids_family", "music"]},
+    {"order": 70, "title": "Coco",                                    "year": 2017,
+     "weights": {"emotional": 2, "darkness": -1},
+     "generation": ["gen_z", "millennial"],
+     "scenes": ["kids_family", "music"]},
+    {"order": 71, "title": "The Lion King",                           "year": 1994,
+     "weights": {"emotional": 2, "darkness": 1, "film_history": 1},
+     "generation": ["classic", "millennial", "universal"],
+     "scenes": ["kids_family", "music"]},
+    # Docs / nonfiction (Phase D4b) — previously zero docs_nonfiction
+    # items in the movie pool.
+    {"order": 72, "title": "Free Solo",                               "year": 2018,
+     "weights": {"emotional": 2, "pace": 1, "darkness": 1},
+     "generation": ["gen_z", "millennial"],
+     "scenes": ["docs_nonfiction", "sports"]},
+    {"order": 73, "title": "Won't You Be My Neighbor?",               "year": 2018,
+     "weights": {"emotional": 2, "darkness": -2},
+     "generation": ["gen_z", "millennial"],
+     "scenes": ["docs_nonfiction"]},
 ]
 
 

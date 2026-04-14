@@ -327,6 +327,36 @@ SHOWS: list[dict] = [
      "weights": {"irony": 1, "comedy": 1, "emotional": 1},
      "generation": ["millennial", "gen_z"],
      "scenes": ["reality_tv", "comedy"]},
+    # Sports (Phase D4b) — previously only Ted Lasso. Add prestige
+    # sports drama + the doc-series canon the sports fan actually
+    # consumes.
+    {"order": 64, "title": "Friday Night Lights",        "tmdb_year": 2006, "years": "2006–2011",
+     "weights": {"emotional": 2, "serialization": 2, "moral_ambiguity": 1},
+     "generation": ["millennial"],
+     "scenes": ["sports", "prestige_drama"]},
+    {"order": 65, "title": "The Last Dance",             "tmdb_year": 2020, "years": "2020",
+     "weights": {"emotional": 1, "pace": 1},
+     "generation": ["gen_z", "millennial"],
+     "scenes": ["sports", "docs_nonfiction"]},
+    {"order": 66, "title": "Drive to Survive",           "tmdb_year": 2019, "years": "2019–",
+     "weights": {"emotional": 1, "serialization": 1},
+     "generation": ["gen_z"],
+     "scenes": ["sports", "docs_nonfiction", "reality_tv"]},
+    # Music (Phase D4b)
+    {"order": 67, "title": "Daisy Jones & the Six",      "tmdb_year": 2023, "years": "2023",
+     "weights": {"emotional": 2, "darkness": 1},
+     "generation": ["gen_z"],
+     "scenes": ["music", "romance"]},
+    # Kids + family (Phase D4b) — adds the all-ages animation that
+    # bridges kids_family with anime for the younger viewer.
+    {"order": 68, "title": "Avatar: The Last Airbender", "tmdb_year": 2005, "years": "2005–2008",
+     "weights": {"emotional": 1, "genre": 1, "serialization": 2, "darkness": -1},
+     "generation": ["millennial", "gen_z", "universal"],
+     "scenes": ["kids_family", "action_thriller", "scifi_fantasy"]},
+    {"order": 69, "title": "Bluey",                      "tmdb_year": 2018, "years": "2018–",
+     "weights": {"emotional": 2, "darkness": -2},
+     "generation": ["gen_z"],
+     "scenes": ["kids_family", "comedy"]},
 ]
 
 
