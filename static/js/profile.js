@@ -354,7 +354,15 @@ async function loadTasteShape() {
     } catch {}
 }
 
+// Backfill predicted ratings for queue items missing them
+async function backfillPredictions() {
+    try {
+        await fetch('/api/profile/predict-ratings', { method: 'POST' });
+    } catch {}
+}
+
 // Initial load
 loadProfile();
 loadTopTen();
 loadTasteShape();
+backfillPredictions();

@@ -2,7 +2,7 @@ import asyncio
 import csv
 import io
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel as PydanticBaseModel
 from sqlalchemy.orm import Session
 
@@ -36,8 +36,69 @@ def list_profile(
     return query.all()
 
 
+async def _predict_single_item(user_id: int, entry_id: int):
+    """Background task: predict rating for a single queue item."""
+    import json
+    import logging
+
+    from app.config import settings
+
+    if not settings.gemini_api_key:
+        return
+
+    log = logging.getLogger(__name__)
+    from app.database import SessionLocal
+    db = SessionLocal()
+    try:
+        entry = db.query(MediaEntry).filter(MediaEntry.id == entry_id, MediaEntry.user_id == user_id).first()
+        if not entry or entry.predicted_rating is not None:
+            return
+
+        consumed = db.query(MediaEntry).filter(
+            MediaEntry.user_id == user_id, MediaEntry.status == "consumed", MediaEntry.rating.isnot(None)
+        ).all()
+        if not consumed:
+            return
+
+        rated = sorted(consumed, key=lambda e: e.rating or 0, reverse=True)
+        taste_lines = [f"- {e.title} ({e.media_type}) — {e.rating}/10 [{e.genres or 'no genres'}]" for e in rated[:20]]
+
+        from app.services.gemini import generate
+        prompt = f"""You are a media taste predictor. Based on this user's rated items, predict how much they would enjoy this specific item on a scale of 1-10.
+
+User's rated items:
+{chr(10).join(taste_lines)}
+
+Predict rating for:
+- {entry.title} by {entry.creator or 'unknown'} ({entry.media_type}) [{entry.genres or 'no genres'}]
+
+Return ONLY a JSON object with "predicted_rating" (1-10, one decimal). No markdown. Example: {{"predicted_rating": 7.5}}"""
+
+        text = (await generate(prompt)).strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+            text = text.rsplit("```", 1)[0]
+        parsed = json.loads(text)
+        pr = parsed.get("predicted_rating")
+        if pr is not None:
+            pr_f = float(pr)
+            if 1 <= pr_f <= 10:
+                entry.predicted_rating = round(pr_f, 1)
+                db.commit()
+                log.info("Predicted rating for entry %d: %.1f", entry_id, pr_f)
+    except Exception as e:
+        log.debug("Single-item prediction failed for entry %d: %s", entry_id, e)
+    finally:
+        db.close()
+
+
 @router.post("/", response_model=MediaEntryResponse)
-def add_to_profile(entry: MediaEntryCreate, user: User = Depends(require_user), db: Session = Depends(get_db)):
+def add_to_profile(
+    entry: MediaEntryCreate,
+    background_tasks: BackgroundTasks,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
     from datetime import datetime as dt
 
     from app import cache
@@ -59,11 +120,14 @@ def add_to_profile(entry: MediaEntryCreate, user: User = Depends(require_user), 
     db.commit()
     db.refresh(db_entry)
     cache.mark_profile_changed()
+    # Auto-predict rating for queue items in the background
+    if db_entry.status == "want_to_consume" and db_entry.predicted_rating is None:
+        background_tasks.add_task(_predict_single_item, user.id, db_entry.id)
     return db_entry
 
 
 @router.put("/{entry_id}", response_model=MediaEntryResponse)
-def update_entry(entry_id: int, updates: MediaEntryUpdate, user: User = Depends(require_user), db: Session = Depends(get_db)):
+def update_entry(entry_id: int, updates: MediaEntryUpdate, background_tasks: BackgroundTasks, user: User = Depends(require_user), db: Session = Depends(get_db)):
     from datetime import datetime as dt
 
     entry = db.query(MediaEntry).filter(MediaEntry.id == entry_id, MediaEntry.user_id == user.id).first()
@@ -82,6 +146,9 @@ def update_entry(entry_id: int, updates: MediaEntryUpdate, user: User = Depends(
     if "rating" in update_data or "status" in update_data:
         from app import cache
         cache.force_refresh()
+    # Auto-predict when moved to queue without a prediction
+    if entry.status == "want_to_consume" and entry.predicted_rating is None:
+        background_tasks.add_task(_predict_single_item, user.id, entry.id)
     return entry
 
 
