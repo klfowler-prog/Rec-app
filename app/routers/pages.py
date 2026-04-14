@@ -349,6 +349,10 @@ async def quick_start_tv_page(request: Request, user: User = Depends(require_use
 
 @router.get("/quick-start/books")
 async def quick_start_books_page(request: Request, user: User = Depends(require_user)):
+    """Legacy combined books quiz — fiction + nonfiction in one flow.
+    Still here for users who want to do both modules in one sitting,
+    but the welcome modal and quick-start picker now point at the
+    split routes below by default."""
     return templates.TemplateResponse(
         "quick_start_quiz.html",
         {
@@ -357,6 +361,44 @@ async def quick_start_books_page(request: Request, user: User = Depends(require_
             "quiz_slug": "books",
             "quiz_title": "Book taste quiz",
             "quiz_blurb": "Two modules — 20 fiction titles, then 10 nonfiction. We'll learn how you read (prose vs plot, ideas vs feelings, how dark you can go) and figure out which module is really driving your taste.",
+            "item_label": "Book",
+        },
+    )
+
+
+@router.get("/quick-start/books/fiction")
+async def quick_start_books_fiction_page(request: Request, user: User = Depends(require_user)):
+    """Fiction-only books quiz. The quick_start_quiz template already
+    knows how to render a single-module book quiz — the API endpoint
+    /api/media/taste-quiz/books_fiction returns the same shape as the
+    combined endpoint with only the fiction module included, so the
+    JS works without changes."""
+    return templates.TemplateResponse(
+        "quick_start_quiz.html",
+        {
+            "request": request,
+            "user": user,
+            "quiz_slug": "books_fiction",
+            "quiz_title": "Fiction taste quiz",
+            "quiz_blurb": "20 novels, one at a time. We'll figure out how you read fiction — prose vs plot, ideas vs feelings, how dark you can go — and lock in your reader profile.",
+            "item_label": "Book",
+        },
+    )
+
+
+@router.get("/quick-start/books/nonfiction")
+async def quick_start_books_nonfiction_page(request: Request, user: User = Depends(require_user)):
+    """Nonfiction-only books quiz. The unblocker for readers who only
+    do nonfiction (history, science, memoir, true stories) and don't
+    want to click 'Haven't read' through 20 novels first."""
+    return templates.TemplateResponse(
+        "quick_start_quiz.html",
+        {
+            "request": request,
+            "user": user,
+            "quiz_slug": "books_nonfiction",
+            "quiz_title": "Nonfiction taste quiz",
+            "quiz_blurb": "10 nonfiction titles spanning memoir, ideas, science, history, and true crime. We'll figure out whether you read for the story, the argument, or the voice.",
             "item_label": "Book",
         },
     )

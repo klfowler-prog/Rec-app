@@ -830,6 +830,85 @@ class BookQuizSubmission(BaseModel):
     responses: list[BookQuizResponseItem]
 
 
+@router.get("/taste-quiz/books_fiction")
+async def taste_quiz_books_fiction_items():
+    """Fiction-only books quiz. Returns the same shape as
+    /taste-quiz/books but with only the fiction module so the
+    quick_start_quiz template's two-module rendering picks up the
+    single module and the user only sees novels (not nonfiction).
+    Cached separately so we don't redo the Open Library enrichment."""
+    from app import cache
+    from app.services.books_taste_quiz import FICTION, RESPONSE_OPTIONS, AXES, FICTION_MIN
+
+    cached = cache.get("book_taste_quiz_items_fiction")
+    if cached is not None:
+        return cached
+
+    fiction_items = await _enrich_books_via_open_library(FICTION)
+    for it in fiction_items:
+        it["module"] = "fiction"
+
+    result = {
+        "modules": [
+            {
+                "id": "fiction",
+                "label": "Fiction",
+                "items": fiction_items,
+                "min_answered": FICTION_MIN,
+            },
+        ],
+        "options": RESPONSE_OPTIONS,
+        "axes": AXES,
+        "media_type": "book",
+        "media_label": "book",
+        "media_label_plural": "books",
+        "verb": "read",
+        "min_answered": FICTION_MIN,
+        "total_questions": len(fiction_items),
+    }
+    cache.set("book_taste_quiz_items_fiction", result, ttl_seconds=86400 * 7)
+    return result
+
+
+@router.get("/taste-quiz/books_nonfiction")
+async def taste_quiz_books_nonfiction_items():
+    """Nonfiction-only books quiz. Same idea as books_fiction but
+    with only the nonfiction module. The unblocker for nonfiction-only
+    readers (e.g. memoir / history / true-crime fans) who don't want
+    to wade through 20 novels first."""
+    from app import cache
+    from app.services.books_taste_quiz import NONFICTION, RESPONSE_OPTIONS, AXES, NONFICTION_MIN
+
+    cached = cache.get("book_taste_quiz_items_nonfiction")
+    if cached is not None:
+        return cached
+
+    nonfiction_items = await _enrich_books_via_open_library(NONFICTION)
+    for it in nonfiction_items:
+        it["module"] = "nonfiction"
+
+    result = {
+        "modules": [
+            {
+                "id": "nonfiction",
+                "label": "Nonfiction",
+                "items": nonfiction_items,
+                "min_answered": NONFICTION_MIN,
+            },
+        ],
+        "options": RESPONSE_OPTIONS,
+        "axes": AXES,
+        "media_type": "book",
+        "media_label": "book",
+        "media_label_plural": "books",
+        "verb": "read",
+        "min_answered": NONFICTION_MIN,
+        "total_questions": len(nonfiction_items),
+    }
+    cache.set("book_taste_quiz_items_nonfiction", result, ttl_seconds=86400 * 7)
+    return result
+
+
 @router.get("/taste-quiz/podcast-bonus")
 async def taste_quiz_podcast_bonus(
     user: User = Depends(require_user),
@@ -1007,6 +1086,60 @@ async def score_book_quiz(
         result.get("nonfiction_answered", 0),
         result["profiles"][0]["id"] if result.get("profiles") else "none",
         result.get("dominant_module"),
+    )
+    return result
+
+
+@router.post("/taste-quiz/books_fiction/score")
+async def score_book_quiz_fiction(
+    submission: BookQuizSubmission,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Score the fiction-only books quiz. Routes through the same
+    score_book_responses function as the combined endpoint, which
+    handles a fiction-only payload by falling back to fiction-only
+    profile matching. Persisted under the 'books' slug so the rest
+    of the app (taste DNA page, recommendation prompts) sees a books
+    profile regardless of whether the user took the combined quiz
+    or just one module."""
+    from app.services.books_taste_quiz import score_book_responses
+    from app.services.taste_quiz_scoring import compute_next_quiz, persist_quiz_result
+
+    result = score_book_responses([r.model_dump() for r in submission.responses])
+    persist_quiz_result(db, user.id, "books", result)
+    if result.get("has_enough_data"):
+        result["next_quiz"] = compute_next_quiz(db, user.id, current_slug="books")
+    log.info(
+        "book_taste_quiz_fiction [user=%d]: fic=%d top=%s",
+        user.id,
+        result.get("fiction_answered", 0),
+        result["profiles"][0]["id"] if result.get("profiles") else "none",
+    )
+    return result
+
+
+@router.post("/taste-quiz/books_nonfiction/score")
+async def score_book_quiz_nonfiction(
+    submission: BookQuizSubmission,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Score the nonfiction-only books quiz. Same path as the fiction
+    split — score_book_responses sees only nonfiction responses and
+    uses nonfiction-only profile matching. Persisted under 'books'."""
+    from app.services.books_taste_quiz import score_book_responses
+    from app.services.taste_quiz_scoring import compute_next_quiz, persist_quiz_result
+
+    result = score_book_responses([r.model_dump() for r in submission.responses])
+    persist_quiz_result(db, user.id, "books", result)
+    if result.get("has_enough_data"):
+        result["next_quiz"] = compute_next_quiz(db, user.id, current_slug="books")
+    log.info(
+        "book_taste_quiz_nonfiction [user=%d]: non=%d top=%s",
+        user.id,
+        result.get("nonfiction_answered", 0),
+        result["profiles"][0]["id"] if result.get("profiles") else "none",
     )
     return result
 
