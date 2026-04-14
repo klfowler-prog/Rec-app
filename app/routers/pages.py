@@ -69,19 +69,21 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
 
     total = db.query(MediaEntry).filter(MediaEntry.user_id == user.id).count()
 
-    # "Just finished something?" — items marked consumed in the last 14
-    # days that still don't have a rating. Without the recency window
-    # this surfaces ancient imports and abandoned books that the user
-    # never intended to rate.
+    # "Just finished something?" — items the user actively moved to
+    # consumed (not bulk imports). We detect this by checking that
+    # updated_at differs from created_at by more than 10 seconds,
+    # meaning the user interacted with the item after it was added.
+    # Bulk imports and quick-adds land with updated_at == created_at
+    # and should not nag the user for a rating.
     from datetime import timedelta
-    cutoff = datetime.now(ZoneInfo("America/New_York")) - timedelta(days=14)
+    from sqlalchemy import func
     unrated_recent = (
         db.query(MediaEntry)
         .filter(
             MediaEntry.user_id == user.id,
             MediaEntry.status == "consumed",
             MediaEntry.rating.is_(None),
-            MediaEntry.updated_at >= cutoff,
+            func.abs(func.extract('epoch', MediaEntry.updated_at) - func.extract('epoch', MediaEntry.created_at)) > 10,
         )
         .order_by(MediaEntry.updated_at.desc())
         .limit(6)
