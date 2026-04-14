@@ -3,123 +3,187 @@
 
 {% block head %}
 <style>
-    /* Reused from index.html for the themed swim lanes. */
     .swim-lane { overflow-x: auto; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
     .swim-lane::-webkit-scrollbar { display: none; }
-    .collapsible.collapsed { max-height: 20rem; overflow: hidden; position: relative; }
-    .collapsible.expanded { max-height: none; overflow: visible; }
-    .collapsible.collapsed::after {
-        content: "";
-        position: absolute;
-        inset: auto 0 0 0;
-        height: 3rem;
-        background: linear-gradient(to bottom, transparent, var(--surface-bg, rgba(255,255,255,0.9)));
-        pointer-events: none;
-    }
     .section-divider { height: 2px; background: linear-gradient(to right, transparent, rgba(139,158,107,0.3), transparent); }
-    /* The chat panel sits inline on Discover (instead of fullscreen as
-       on the old /recommend page) so it can coexist with the chips,
-       Mad Lib, Best Bets and themes sections. The fixed height keeps
-       the page scrollable while the chat scrolls internally. */
-    .discover-chat { height: 28rem; }
-    @media (min-width: 768px) { .discover-chat { height: 32rem; } }
+
+    /* Mood cards — tall, visual, clickable */
+    .mood-card {
+        position: relative; overflow: hidden; border-radius: 1rem;
+        min-height: 10rem; cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .mood-card:hover { transform: translateY(-3px); box-shadow: 0 12px 30px rgba(0,0,0,0.12); }
+    .dark .mood-card:hover { box-shadow: 0 12px 30px rgba(0,0,0,0.4); }
+    .mood-card .mood-overlay {
+        position: absolute; inset: 0;
+        background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.2) 60%, rgba(0,0,0,0.05) 100%);
+        z-index: 1;
+    }
+    .mood-card .mood-posters {
+        position: absolute; inset: 0; display: flex; z-index: 0;
+    }
+    .mood-card .mood-posters img {
+        flex: 1; object-fit: cover; min-width: 0;
+    }
+    .mood-card .mood-label {
+        position: absolute; bottom: 0; left: 0; right: 0;
+        padding: 1rem 1.25rem; z-index: 2; color: white;
+    }
+
+    /* Mad lib — bigger, bolder */
+    .madlib-wrap {
+        background: linear-gradient(135deg, #8B9E6B 0%, #6E8350 60%, #5A7040 100%);
+        border-radius: 1.25rem; padding: 2rem 1.75rem;
+        position: relative; overflow: hidden;
+    }
+    .madlib-wrap::before {
+        content: ""; position: absolute; top: -3rem; right: -3rem;
+        width: 10rem; height: 10rem; border-radius: 50%;
+        background: rgba(255,255,255,0.08);
+    }
+    .madlib-wrap::after {
+        content: ""; position: absolute; bottom: -2rem; left: 2rem;
+        width: 6rem; height: 6rem; border-radius: 50%;
+        background: rgba(255,255,255,0.05);
+    }
+    .madlib-input {
+        background: rgba(255,255,255,0.15); border: none; border-bottom: 2px solid rgba(255,255,255,0.5);
+        color: white; font-size: 1.25rem; font-weight: 600;
+        padding: 0.25rem 0.5rem; border-radius: 0.25rem 0.25rem 0 0;
+        outline: none; transition: border-color 0.2s, background 0.2s;
+    }
+    .madlib-input:focus { border-bottom-color: white; background: rgba(255,255,255,0.25); }
+    .madlib-input::placeholder { color: rgba(255,255,255,0.4); }
+    .madlib-select {
+        background: rgba(255,255,255,0.15); border: none; border-bottom: 2px solid rgba(255,255,255,0.5);
+        color: white; font-size: 1.25rem; font-weight: 600;
+        padding: 0.25rem 0.5rem; border-radius: 0.25rem 0.25rem 0 0;
+        outline: none; cursor: pointer; appearance: none;
+    }
+    .madlib-select option { color: #2B3A4E; background: white; }
+
+    /* Chat — collapsed by default, expands on focus */
+    .chat-collapsed { height: 3.5rem; overflow: hidden; transition: height 0.3s ease; }
+    .chat-expanded { height: 32rem; transition: height 0.3s ease; }
+    @media (max-width: 767px) { .chat-expanded { height: 28rem; } }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="space-y-10">
+<div class="space-y-8">
 
     <div>
         <h2 class="text-2xl font-semibold mb-1">Discover</h2>
-        <p class="text-txt-muted">Three ways to find your next thing — pick a moment, mix two things you love, or just tell me what you want.</p>
+        <p class="text-txt-muted text-sm">Find your next thing.</p>
     </div>
 
-    <!-- 1. Activity chips. Each chip routes back to /discover with a
-         ?context=<slug> param; the route resolves it to a mood query
-         and the chat auto-sends. Slugs match _CONTEXT_TO_MOOD in
-         app/routers/pages.py. -->
+    <!-- 1. Mood cards — visual, poster-backed, clickable -->
     <div>
-        <p class="text-xs text-txt-muted uppercase tracking-wide mb-2">What are you up for?</p>
-        <div class="flex gap-2 flex-wrap">
-            <a href="/discover?context=tonight_binge" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Tonight's binge</a>
-            <a href="/discover?context=wind_down" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Wind down before bed</a>
-            <a href="/discover?context=walking_the_dog" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">While walking the dog</a>
-            <a href="/discover?context=background_work" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Background while I work</a>
-            <a href="/discover?context=quick_escape" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Quick escape</a>
-            <a href="/discover?context=weekend_binge" class="px-4 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-txt-muted hover:border-sage hover:text-sage transition-base">Lose the weekend</a>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-3" id="mood-cards">
+            <a href="/discover?context=tonight_binge" class="mood-card">
+                <div class="mood-overlay"></div>
+                <div class="mood-posters" data-mood-posters="tonight_binge"></div>
+                <div class="mood-label">
+                    <p class="text-lg font-bold leading-tight">Tonight's binge</p>
+                    <p class="text-xs opacity-75 mt-0.5">One more episode. Then one more.</p>
+                </div>
+            </a>
+            <a href="/discover?context=wind_down" class="mood-card">
+                <div class="mood-overlay"></div>
+                <div class="mood-posters" data-mood-posters="wind_down"></div>
+                <div class="mood-label">
+                    <p class="text-lg font-bold leading-tight">Wind down</p>
+                    <p class="text-xs opacity-75 mt-0.5">Easy, cozy, nothing demanding.</p>
+                </div>
+            </a>
+            <a href="/discover?context=walking_the_dog" class="mood-card">
+                <div class="mood-overlay"></div>
+                <div class="mood-posters" data-mood-posters="walking_the_dog"></div>
+                <div class="mood-label">
+                    <p class="text-lg font-bold leading-tight">Walking the dog</p>
+                    <p class="text-xs opacity-75 mt-0.5">Something for your ears.</p>
+                </div>
+            </a>
+            <a href="/discover?context=background_work" class="mood-card">
+                <div class="mood-overlay"></div>
+                <div class="mood-posters" data-mood-posters="background_work"></div>
+                <div class="mood-label">
+                    <p class="text-lg font-bold leading-tight">Background noise</p>
+                    <p class="text-xs opacity-75 mt-0.5">On while you work.</p>
+                </div>
+            </a>
+            <a href="/discover?context=quick_escape" class="mood-card">
+                <div class="mood-overlay"></div>
+                <div class="mood-posters" data-mood-posters="quick_escape"></div>
+                <div class="mood-label">
+                    <p class="text-lg font-bold leading-tight">Quick escape</p>
+                    <p class="text-xs opacity-75 mt-0.5">90 minutes or less.</p>
+                </div>
+            </a>
+            <a href="/discover?context=weekend_binge" class="mood-card">
+                <div class="mood-overlay"></div>
+                <div class="mood-posters" data-mood-posters="weekend_binge"></div>
+                <div class="mood-label">
+                    <p class="text-lg font-bold leading-tight">Lose the weekend</p>
+                    <p class="text-xs opacity-75 mt-0.5">Get pulled in and don't come back.</p>
+                </div>
+            </a>
         </div>
     </div>
 
-    <!-- 2. Mad Libs. The wiring at the bottom forwards the structured
-         pick to the chat below as a single message. -->
-    <div class="relative bg-gradient-to-br from-sage/10 to-sage/5 dark:from-sage/15 dark:to-sage/5 border border-sage/25 rounded-2xl px-5 py-4 overflow-hidden">
-        <div class="absolute top-0 right-0 w-32 h-32 bg-sage/5 rounded-full -translate-y-12 translate-x-12 pointer-events-none"></div>
-        <p class="text-[11px] font-bold text-sage uppercase tracking-widest mb-3">Mix two things you love</p>
-        <div class="flex flex-wrap items-baseline gap-x-3 gap-y-4">
-            <span class="text-lg text-txt dark:text-txt-light font-light">I want a</span>
-            <select id="madlib-type" class="border-b-2 border-sage bg-transparent text-lg text-sage font-semibold focus:outline-none pb-0.5 cursor-pointer appearance-none hover:border-sage-dark transition-colors">
+    <!-- 2. Mad Lib — bold, colorful, inviting -->
+    <div class="madlib-wrap">
+        <p class="text-white/60 text-xs font-bold uppercase tracking-widest mb-4">Mix two things you love</p>
+        <div class="flex flex-wrap items-baseline gap-x-3 gap-y-5 relative z-10">
+            <span class="text-xl text-white/80 font-light">I want a</span>
+            <select id="madlib-type" class="madlib-select">
                 <option value="">anything</option>
                 <option value="movie">movie</option>
                 <option value="tv">TV show</option>
                 <option value="book">book</option>
                 <option value="podcast">podcast</option>
             </select>
-            <span class="text-lg text-txt dark:text-txt-light font-light">that's like</span>
-            <input id="madlib-ref1" type="text" placeholder="The Matrix" autocomplete="off"
-                class="border-b-2 border-sage bg-transparent text-lg text-txt dark:text-txt-light font-semibold placeholder-sage/30 focus:outline-none focus:border-sage-dark pb-0.5 min-w-[100px] w-40 transition-colors" />
-            <span class="text-lg text-txt dark:text-txt-light font-light">meets</span>
-            <input id="madlib-ref2" type="text" placeholder="Harry Potter" autocomplete="off"
-                class="border-b-2 border-sage bg-transparent text-lg text-txt dark:text-txt-light font-semibold placeholder-sage/30 focus:outline-none focus:border-sage-dark pb-0.5 min-w-[120px] w-52 transition-colors" />
+            <span class="text-xl text-white/80 font-light">that's like</span>
+            <input id="madlib-ref1" type="text" placeholder="The Matrix" autocomplete="off" class="madlib-input min-w-[120px] w-44" />
+            <span class="text-xl text-white/80 font-light">meets</span>
+            <input id="madlib-ref2" type="text" placeholder="Harry Potter" autocomplete="off" class="madlib-input min-w-[140px] w-56" />
             <button id="madlib-send"
-                class="ml-1 px-5 py-2 bg-sage text-white rounded-xl text-base font-semibold transition-base hover:bg-sage-dark hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 shadow-sm">
+                class="ml-1 px-6 py-2.5 bg-white text-sage-dark rounded-xl text-base font-bold transition-all hover:bg-cream hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 shadow-lg">
                 Find it &rarr;
             </button>
         </div>
     </div>
 
-    <!-- 3. Chat — the full /recommend experience inlined as a section.
-         Same DOM IDs (chat-messages, rec-input, rec-send, rec-type-filter)
-         that recommend.js expects, so the existing JS works as-is. -->
+    <!-- 3. Chat — collapsed search bar that expands on interaction -->
     <div>
-        <p class="text-xs text-txt-muted uppercase tracking-wide mb-2">Just tell me what you want</p>
-        <div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-2xl flex flex-col discover-chat overflow-hidden">
-            <div id="chat-messages" class="flex-1 overflow-y-auto space-y-4 p-4">
-                <div class="flex gap-3">
-                    <div class="w-8 h-8 bg-sage/10 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <svg class="w-4 h-4 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-                    </div>
-                    <div class="bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg rounded-tl-sm px-4 py-3 max-w-2xl">
-                        <p class="text-sm">Tell me what you're in the mood for and I'll pull from your taste profile. Try "a sci-fi book that won't depress me" or "something to watch with my partner who hates anything dark".</p>
-                    </div>
+        <div id="chat-panel" class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-2xl flex flex-col chat-collapsed overflow-hidden">
+            <!-- Input bar (always visible) -->
+            <div class="p-3 flex gap-2" id="chat-input-bar">
+                <select id="rec-type-filter" class="px-3 py-2.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm text-txt dark:text-txt-light">
+                    <option value="">Any type</option>
+                    <option value="movie">Movies</option>
+                    <option value="tv">TV Shows</option>
+                    <option value="book">Books</option>
+                    <option value="podcast">Podcasts</option>
+                </select>
+                <div class="flex-1 relative">
+                    <textarea id="rec-input" rows="1" placeholder="Or just tell me what you're in the mood for..."
+                        class="w-full px-4 py-2.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sage/40 focus:border-sage transition-base resize-none"
+                        style="max-height: 120px;"></textarea>
                 </div>
+                <button id="rec-send" class="px-5 py-2.5 bg-sage text-white rounded-lg text-sm font-medium transition-base hover:bg-sage-dark disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                </button>
             </div>
-            <div class="border-t border-border-light dark:border-border-dark p-3">
-                <div class="flex gap-2">
-                    <select id="rec-type-filter" class="px-3 py-2.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm text-txt dark:text-txt-light">
-                        <option value="">Any type</option>
-                        <option value="movie">Movies</option>
-                        <option value="tv">TV Shows</option>
-                        <option value="book">Books</option>
-                        <option value="podcast">Podcasts</option>
-                    </select>
-                    <div class="flex-1 relative">
-                        <textarea id="rec-input" rows="1" placeholder="What are you in the mood for?"
-                            class="w-full px-4 py-2.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sage/40 focus:border-sage transition-base resize-none"
-                            style="max-height: 120px;"></textarea>
-                    </div>
-                    <button id="rec-send" class="px-5 py-2.5 bg-sage text-white rounded-lg text-sm font-medium transition-base hover:bg-sage-dark disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
-                        Send
-                    </button>
-                </div>
-            </div>
+            <!-- Chat messages (hidden until expanded) -->
+            <div id="chat-messages" class="flex-1 overflow-y-auto space-y-4 p-4 border-t border-border-light dark:border-border-dark"></div>
         </div>
     </div>
 
     <div class="section-divider"></div>
 
-    <!-- 4. Your best bets — one hero pick per media type. Driven by
-         loadBestBets() in discover_widgets.js. -->
+    <!-- 4. Best bets -->
     <div>
         <h2 class="text-xl font-bold mb-1 flex items-center gap-2">
             <span class="w-8 h-8 rounded-lg gradient-coral flex items-center justify-center">
@@ -127,7 +191,7 @@
             </span>
             Your best bets
         </h2>
-        <p class="text-sm text-txt-muted mb-4">One pick per category, each tied to a specific thing you recently loved.</p>
+        <p class="text-sm text-txt-muted mb-4">One pick per category, tied to something you loved.</p>
         <div id="best-bets" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div class="col-span-full text-center py-8">
                 <div class="inline-block w-5 h-5 border-2 border-coral/30 border-t-coral rounded-full animate-spin"></div>
@@ -138,8 +202,7 @@
 
     <div class="section-divider"></div>
 
-    <!-- 5. For your day — themed swim lanes. Driven by loadThemes() in
-         discover_widgets.js. -->
+    <!-- 5. For your day -->
     <div>
         <h2 class="text-xl font-bold mb-1 flex items-center gap-2">
             <span class="w-8 h-8 rounded-lg gradient-sage flex items-center justify-center">
@@ -147,7 +210,7 @@
             </span>
             For your day
         </h2>
-        <p class="text-sm text-txt-muted mb-5">Picks framed around moments — not just vibes. Tap through to save or skip.</p>
+        <p class="text-sm text-txt-muted mb-5">Picks framed around moments.</p>
         <div id="themes-wrap" class="space-y-6">
             <div class="text-center py-8 text-sm text-txt-muted">
                 <div class="inline-block w-5 h-5 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
@@ -164,8 +227,68 @@
 <script src="/static/js/discover_widgets.js"></script>
 <script src="/static/js/recommend.js"></script>
 <script>
-    // Mad Lib → fire as a chat message. Identical to the wiring on the
-    // old /recommend page so behavior is unchanged.
+    // ---------------------------------------------------------------
+    // Mood card poster backgrounds — pull from the user's library or
+    // home bundle to make the cards feel personal and visual.
+    // ---------------------------------------------------------------
+    async function populateMoodPosters() {
+        try {
+            const resp = await fetch('/api/media/home-bundle');
+            if (!resp.ok) return;
+            const data = await resp.json();
+            const all = [
+                ...(data.top_picks || []),
+                ...(data.right_now || []),
+            ].filter(i => i.image_url);
+
+            // Assign 3 posters per mood card, cycling through available images
+            const cards = document.querySelectorAll('[data-mood-posters]');
+            let idx = 0;
+            cards.forEach(container => {
+                const imgs = [];
+                for (let i = 0; i < 3; i++) {
+                    if (all.length === 0) break;
+                    const item = all[idx % all.length];
+                    imgs.push(`<img src="${item.image_url}" alt="" loading="lazy">`);
+                    idx++;
+                }
+                if (imgs.length > 0) {
+                    container.innerHTML = imgs.join('');
+                } else {
+                    // Fallback gradient
+                    const gradients = ['gradient-sage', 'gradient-coral', 'gradient-navy', 'gradient-purple', 'gradient-amber', 'gradient-blue'];
+                    const slug = container.dataset.moodPosters;
+                    const gi = Array.from(slug).reduce((a, c) => a + c.charCodeAt(0), 0) % gradients.length;
+                    container.classList.add(gradients[gi]);
+                }
+            });
+        } catch {
+            // Fallback to gradient backgrounds
+            document.querySelectorAll('[data-mood-posters]').forEach(c => {
+                c.classList.add('gradient-navy');
+            });
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // Chat panel — starts collapsed as a search bar, expands on focus
+    // or when a message is sent.
+    // ---------------------------------------------------------------
+    const chatPanel = document.getElementById('chat-panel');
+    const recInput = document.getElementById('rec-input');
+
+    function expandChat() {
+        if (chatPanel.classList.contains('chat-collapsed')) {
+            chatPanel.classList.remove('chat-collapsed');
+            chatPanel.classList.add('chat-expanded');
+        }
+    }
+
+    recInput.addEventListener('focus', expandChat);
+
+    // ---------------------------------------------------------------
+    // Mad Lib → fire as a chat message
+    // ---------------------------------------------------------------
     document.getElementById('madlib-send').addEventListener('click', function() {
         const type = document.getElementById('madlib-type').value;
         const ref1 = document.getElementById('madlib-ref1').value.trim();
@@ -182,10 +305,10 @@
             prompt = `Find me ${typeLabel === 'something' ? 'something' : 'a ' + typeLabel} that feels like ${ref1 || ref2}.`;
         }
         if (type) document.getElementById('rec-type-filter').value = type;
+        expandChat();
         recInput.value = prompt;
         sendMessage();
-        // Scroll the chat panel into view so the user sees the response.
-        document.getElementById('chat-messages').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        chatPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
 
     ['madlib-ref1', 'madlib-ref2'].forEach(id => {
@@ -200,13 +323,14 @@
     // Auto-send mood from URL params (chip click via /discover?context=...)
     const urlMood = new URLSearchParams(window.location.search).get('mood');
     if (urlMood) {
+        expandChat();
         recInput.value = urlMood;
-        // Scroll the chat into view so the user sees the streaming response.
-        document.getElementById('chat-messages').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        chatPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
         setTimeout(sendMessage, 300);
     }
 
-    // Kick off the AI-curated sections.
+    // Kick off loading
+    populateMoodPosters();
     Promise.all([loadBestBets(), loadThemes()]);
 </script>
 {% endblock %}
