@@ -168,7 +168,7 @@
             const rendered = [];
             for (const slug of THEME_ORDER) {
                 const items = themes[slug];
-                if (!Array.isArray(items) || items.length === 0) continue;
+                if (!Array.isArray(items) || items.length < 2) continue;
                 rendered.push(renderThemeRow(slug, items));
             }
             if (rendered.length === 0) {

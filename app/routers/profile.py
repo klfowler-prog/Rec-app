@@ -77,6 +77,11 @@ def update_entry(entry_id: int, updates: MediaEntryUpdate, user: User = Depends(
         setattr(entry, field, value)
     db.commit()
     db.refresh(entry)
+    # Rating/status changes should bust recommendation caches so rated
+    # items stop appearing in best bets / themes immediately.
+    if "rating" in update_data or "status" in update_data:
+        from app import cache
+        cache.force_refresh()
     return entry
 
 
