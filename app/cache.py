@@ -1,126 +1,180 @@
-"""Simple in-memory cache with TTL for expensive AI/API results.
+"""Two-tier cache: fast in-memory dict + persistent DB fallback.
 
-Recommendations are cached with long TTLs (24h) and only refreshed when:
-1. The user explicitly clicks "Refresh recommendations"
-2. The cache has expired AND the profile changed since last generation
-3. No cached results exist yet (first time)
+The in-memory tier is identical to the previous implementation — fast,
+thread-safe, no I/O. The DB tier (CacheEntry table) catches misses
+after a deploy or instance restart so expensive AI results don't need
+to be recomputed. Writes go to both tiers; reads check memory first,
+then DB, then return None.
 """
 
+import json
+import logging
 import threading
 import time
+from datetime import datetime, timedelta
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 MAX_CACHE_SIZE = 500
 
 _cache: dict[str, tuple[float, Any]] = {}
 _profile_changed_at: float = 0.0
 _recs_generated_at: float = 0.0
-# Per-user rolling log of recently-recommended titles (lowercased). Used
-# to diversify related_items so the AI can't keep serving the same
-# prestige-TV fallbacks (Fleabag, Succession, The Bear…) across every
-# detail page a user opens.
 _recent_recs: dict[int, list[str]] = {}
 _RECENT_RECS_MAX = 60
 _lock = threading.Lock()
 
+# Prefixes that get smart re-use (don't regenerate if profile unchanged)
+_SMART_PREFIXES = ("top_picks", "suggestions_home", "home_bundle", "related_items")
+
 
 def _cleanup_expired() -> None:
-    """Remove expired entries to prevent unbounded growth."""
     if len(_cache) < MAX_CACHE_SIZE:
         return
     now = time.time()
     expired = [k for k, (exp, _) in _cache.items() if exp < now]
     for k in expired:
         _cache.pop(k, None)
-    # If still too large, remove oldest entries
     if len(_cache) >= MAX_CACHE_SIZE:
         sorted_keys = sorted(_cache.items(), key=lambda x: x[1][0])
         for k, _ in sorted_keys[: len(_cache) - MAX_CACHE_SIZE + 50]:
             _cache.pop(k, None)
 
 
+def _db_get(key: str) -> Any | None:
+    """Try to read from the persistent DB cache."""
+    try:
+        from app.database import SessionLocal
+        from app.models import CacheEntry
+        db = SessionLocal()
+        try:
+            entry = db.query(CacheEntry).filter(CacheEntry.key == key).first()
+            if entry and entry.expires_at > datetime.utcnow():
+                value = json.loads(entry.value)
+                # Warm the in-memory cache so subsequent reads are fast
+                with _lock:
+                    _cache[key] = (entry.expires_at.timestamp(), value)
+                return value
+            elif entry:
+                db.delete(entry)
+                db.commit()
+        finally:
+            db.close()
+    except Exception as e:
+        log.debug("DB cache read failed for %s: %s", key, e)
+    return None
+
+
+def _db_set(key: str, value: Any, ttl_seconds: int) -> None:
+    """Persist to the DB cache. Fire-and-forget — failures don't break the caller."""
+    try:
+        from app.database import SessionLocal
+        from app.models import CacheEntry
+        db = SessionLocal()
+        try:
+            expires = datetime.utcnow() + timedelta(seconds=ttl_seconds)
+            entry = db.query(CacheEntry).filter(CacheEntry.key == key).first()
+            serialized = json.dumps(value, default=str)
+            if entry:
+                entry.value = serialized
+                entry.expires_at = expires
+            else:
+                db.add(CacheEntry(key=key, value=serialized, expires_at=expires))
+            db.commit()
+        finally:
+            db.close()
+    except Exception as e:
+        log.debug("DB cache write failed for %s: %s", key, e)
+
+
+def _db_invalidate(prefix: str) -> None:
+    """Remove DB cache entries by prefix."""
+    try:
+        from app.database import SessionLocal
+        from app.models import CacheEntry
+        db = SessionLocal()
+        try:
+            if not prefix:
+                db.query(CacheEntry).delete()
+            else:
+                db.query(CacheEntry).filter(CacheEntry.key.startswith(prefix)).delete()
+            db.commit()
+        finally:
+            db.close()
+    except Exception as e:
+        log.debug("DB cache invalidate failed: %s", e)
+
+
 def get(key: str) -> Any | None:
-    """Get a cached value if it exists and hasn't expired."""
+    """Get a cached value. Checks in-memory first, then DB."""
     with _lock:
         if key in _cache:
             expires_at, value = _cache[key]
             if time.time() < expires_at:
                 return value
-            # Expired — but only regenerate if profile changed since last generation
-            if (
-                key.startswith("top_picks")
-                or key.startswith("suggestions_home")
-                or key.startswith("home_bundle")
-                or key.startswith("related_items")
-            ):
+            if any(key.startswith(p) for p in _SMART_PREFIXES):
                 if _profile_changed_at <= _recs_generated_at:
                     _cache[key] = (time.time() + 86400, value)
                     return value
             _cache.pop(key, None)
-        return None
+
+    # Miss in memory — try DB
+    return _db_get(key)
 
 
 def set(key: str, value: Any, ttl_seconds: int = 86400) -> None:
-    """Cache a value. Default TTL is 24 hours."""
+    """Cache a value in both memory and DB."""
     global _recs_generated_at
     with _lock:
         _cleanup_expired()
         _cache[key] = (time.time() + ttl_seconds, value)
-        if (
-            key.startswith("top_picks")
-            or key.startswith("suggestions_home")
-            or key.startswith("home_bundle")
-            or key.startswith("related_items")
-        ):
+        if any(key.startswith(p) for p in _SMART_PREFIXES):
             _recs_generated_at = time.time()
+
+    # Persist to DB for cross-deploy survival
+    _db_set(key, value, ttl_seconds)
 
 
 def mark_profile_changed() -> None:
-    """Record that the profile was modified. Does NOT bust the cache."""
     global _profile_changed_at
     with _lock:
         _profile_changed_at = time.time()
 
 
 def force_refresh() -> None:
-    """Explicitly clear recommendation caches. Called by user action only."""
+    """Clear all recommendation caches (memory + DB)."""
     with _lock:
-        prefixes = ("top_picks", "suggestions_home", "home_bundle", "related_items", "insights")
+        prefixes = ("top_picks", "suggestions_home", "home_bundle", "related_items", "insights", "new_releases", "best_bet")
         keys_to_delete = [k for k in _cache if any(k.startswith(p) for p in prefixes)]
         for k in keys_to_delete:
             _cache.pop(k, None)
+    # Also clear from DB
+    for p in ("top_picks", "suggestions_home", "home_bundle", "related_items", "insights", "new_releases", "best_bet"):
+        _db_invalidate(p)
 
 
 def invalidate(prefix: str = "") -> None:
-    """Invalidate all cache entries matching a prefix, or all if empty."""
     with _lock:
         if not prefix:
             _cache.clear()
-            return
-        keys_to_delete = [k for k in _cache if k.startswith(prefix)]
-        for k in keys_to_delete:
-            _cache.pop(k, None)
+        else:
+            keys_to_delete = [k for k in _cache if k.startswith(prefix)]
+            for k in keys_to_delete:
+                _cache.pop(k, None)
+    _db_invalidate(prefix)
 
 
 def get_recent_recs(user_id: int) -> list[str]:
-    """Return the list of titles recently surfaced to this user (lowercased).
-    Used to diversify subsequent recommendations — the caller passes these
-    to the AI as an avoid list and post-filters the response."""
     with _lock:
         return list(_recent_recs.get(user_id, []))
 
 
 def add_recent_recs(user_id: int, titles: list[str]) -> None:
-    """Append freshly-recommended titles to the user's rolling log.
-    Caps at _RECENT_RECS_MAX; oldest entries fall off first."""
     if not titles:
         return
     with _lock:
         bucket = _recent_recs.setdefault(user_id, [])
-        # Use a set literal, NOT `set(bucket)` — the module defines a
-        # top-level `def set(...)` for the cache setter, which shadows
-        # Python's builtin `set` inside this file. Calling `set(bucket)`
-        # would invoke the cache setter instead of constructing a set.
         seen = {*bucket}
         for t in titles:
             key = (t or "").lower().strip()
@@ -128,6 +182,5 @@ def add_recent_recs(user_id: int, titles: list[str]) -> None:
                 continue
             bucket.append(key)
             seen.add(key)
-        # Keep only the most recent N
         if len(bucket) > _RECENT_RECS_MAX:
             del bucket[: len(bucket) - _RECENT_RECS_MAX]

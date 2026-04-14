@@ -105,6 +105,19 @@ class DismissedItem(Base):
     )
 
 
+class CacheEntry(Base):
+    """Persistent cache that survives deploys. The in-memory cache in
+    cache.py reads from here on miss, so AI results computed before a
+    deploy don't need to be recomputed."""
+    __tablename__ = "cache_entries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    key: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
+    value: Mapped[str] = mapped_column(Text, nullable=False)  # JSON
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+
+
 class Collection(Base):
     __tablename__ = "collections"
 

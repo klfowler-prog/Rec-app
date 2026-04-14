@@ -113,9 +113,16 @@
          next thing" label.
          ============================================================ -->
     <div class="discover-hero">
-        <p class="text-[11px] text-white/60 uppercase tracking-[0.18em] font-semibold mb-2">Discover</p>
-        <h1 class="text-3xl md:text-4xl font-bold leading-tight mb-2">What looks good, {{ (user.name or 'friend').split(' ')[0] }}?</h1>
-        <p class="text-sm md:text-base text-white/80 max-w-2xl leading-relaxed">We pulled one pick from every category we think you'll love today. Scroll down for moods, mix-two-things, or just ask us straight up.</p>
+        <div class="flex items-start justify-between">
+            <div>
+                <p class="text-[11px] text-white/60 uppercase tracking-[0.18em] font-semibold mb-2">Discover</p>
+                <h1 class="text-3xl md:text-4xl font-bold leading-tight mb-2">What looks good, {{ (user.name or 'friend').split(' ')[0] }}?</h1>
+                <p class="text-sm md:text-base text-white/80 max-w-2xl leading-relaxed">We pulled one pick from every category we think you'll love today. Scroll down for moods, mix-two-things, or just ask us straight up.</p>
+            </div>
+            <button onclick="refreshDiscover(this)" title="Shuffle — get fresh picks" class="flex-shrink-0 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/60 hover:text-white transition-base mt-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h4.586M20 20v-5h-4.586M4.929 9A8 8 0 0119.07 9M19.071 15A8 8 0 014.93 15"/></svg>
+            </button>
+        </div>
     </div>
 
     <!-- ============================================================
@@ -324,6 +331,16 @@
         setTimeout(() => {
             if (typeof sendMessage === 'function') sendMessage();
         }, 300);
+    }
+
+    // Refresh — bust caches and reload
+    async function refreshDiscover(btn) {
+        btn.disabled = true;
+        btn.querySelector('svg').classList.add('animate-spin');
+        try {
+            await fetch('/api/media/refresh-recommendations', { method: 'POST' });
+        } catch {}
+        window.location.reload();
     }
 
     // Kick off the async sections
