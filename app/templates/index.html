@@ -50,6 +50,10 @@
         border-color: rgba(139,158,107,0.15);
     }
 
+    /* Resonance heart on progress cards */
+    .resonance-heart[data-resonating="true"] { color: #E8734A !important; }
+    .resonance-heart[data-resonating="true"] svg { fill: currentColor; }
+
     /* Rate section — playful, not clinical */
     .rate-section {
         background: linear-gradient(135deg, rgba(232,115,74,0.06) 0%, rgba(139,158,107,0.06) 100%);
@@ -100,32 +104,33 @@
     <div class="home-hero">
         <h1 class="text-2xl md:text-3xl font-bold mb-1">{{ greeting }}</h1>
         <p id="right-now-commentary" class="text-sm md:text-base text-white/75 leading-relaxed max-w-2xl">{{ suggestion }}</p>
-        <div id="right-now-items" class="hidden mt-4 pt-4 border-t border-white/15">
-            <p class="text-[11px] text-white/50 uppercase tracking-wide mb-2">Tap what's hitting hardest — we'll lean your recs that way</p>
-            <div id="right-now-chips" class="flex flex-wrap gap-2"></div>
-        </div>
     </div>
 
     <!-- ============================================================
-         In progress — tall cinematic poster cards
+         In progress — cinematic poster cards with resonance toggle.
+         Tap the heart icon to mark what's hitting hardest right now.
          ============================================================ -->
     {% if currently %}
     <div>
         <p class="text-[11px] text-coral uppercase tracking-[0.18em] font-bold mb-3">Currently into</p>
         <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
             {% for item in currently %}
-            <a href="{% if item.external_id %}/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}{% else %}/profile{% endif %}" class="progress-card">
+            <div class="progress-card relative" data-entry-id="{{ item.id }}">
                 {% if item.image_url %}
                 <div class="progress-bg" style="background-image: url('{{ item.image_url }}')"></div>
                 {% else %}
                 <div class="progress-bg {% if item.media_type == 'tv' %}gradient-purple{% elif item.media_type == 'book' %}gradient-amber{% elif item.media_type == 'podcast' %}bg-green-500{% else %}gradient-blue{% endif %}"></div>
                 {% endif %}
                 <div class="progress-overlay"></div>
-                <div class="progress-label">
+                <a href="{% if item.external_id %}/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}{% else %}/profile{% endif %}" class="progress-label">
                     <p class="text-[10px] uppercase tracking-wide opacity-60 mb-0.5">{{ {'movie':'Movie','tv':'TV Show','book':'Book','podcast':'Podcast'}.get(item.media_type, item.media_type) }}</p>
                     <p class="text-base font-bold leading-tight line-clamp-2">{{ item.title }}</p>
-                </div>
-            </a>
+                </a>
+                <button onclick="toggleResonance(this, {{ item.id }})" data-resonating="false"
+                    class="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-black/40 backdrop-blur flex items-center justify-center text-white/60 hover:text-white hover:bg-black/60 transition-base resonance-heart">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                </button>
+            </div>
             {% endfor %}
         </div>
     </div>
@@ -215,26 +220,88 @@
     </div>
     {% endif %}
 
-    <div class="section-divider"></div>
+    <!-- ============================================================
+         Discover teaser — woven between content sections
+         ============================================================ -->
+    <a href="/discover" class="block relative overflow-hidden rounded-2xl min-h-[8rem] transition-all hover:scale-[1.01] hover:shadow-xl group">
+        <div class="absolute inset-0 flex">
+            {% for poster_url in nav_posters[:4] %}
+            <div class="flex-1 bg-cover bg-center" style="background-image: url('{{ poster_url }}')"></div>
+            {% endfor %}
+            {% if nav_posters|length < 4 %}
+            {% for _ in range(4 - nav_posters|length) %}
+            <div class="flex-1 gradient-sage"></div>
+            {% endfor %}
+            {% endif %}
+        </div>
+        <div class="absolute inset-0 bg-gradient-to-r from-black/80 via-black/60 to-black/40"></div>
+        <div class="relative z-10 p-5 md:p-6 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-sage/30 backdrop-blur flex items-center justify-center flex-shrink-0">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16zM11 8v6M8 11h6"/></svg>
+            </div>
+            <div class="text-white">
+                <p class="text-base font-bold group-hover:text-sage-light transition-base">Discover something new</p>
+                <p class="text-sm text-white/70">{% if queue_count == 0 %}Your queue is empty — let's fix that.{% else %}Best bets, mood picks, and AI-powered recs waiting for you.{% endif %}</p>
+            </div>
+            <svg class="w-5 h-5 text-white/50 ml-auto flex-shrink-0 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </div>
+    </a>
 
-    <!-- Navigation cards — compact row -->
-    <div class="grid grid-cols-3 gap-3">
-        <a href="/discover" class="relative overflow-hidden rounded-xl p-4 text-white transition-all hover:scale-[1.02] hover:shadow-lg" style="background: linear-gradient(135deg, #8B9E6B 0%, #5A7040 100%);">
-            <div class="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full -translate-y-6 translate-x-6"></div>
-            <svg class="w-5 h-5 mb-1.5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16zM11 8v6M8 11h6"/></svg>
-            <p class="text-xs font-bold">Discover</p>
+    <!-- ============================================================
+         My Taste + Add — side by side teasers
+         ============================================================ -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <a href="/taste" class="block relative overflow-hidden rounded-2xl transition-all hover:scale-[1.01] hover:shadow-xl group" style="background: linear-gradient(135deg, #E8734A 0%, #C55A34 100%);">
+            <div class="absolute top-0 right-0 w-28 h-28 bg-white/10 rounded-full -translate-y-10 translate-x-10"></div>
+            <div class="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full translate-y-6 -translate-x-6"></div>
+            <div class="relative z-10 p-5">
+                <svg class="w-6 h-6 text-white/80 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                <p class="text-base font-bold text-white group-hover:text-cream transition-base">My Taste</p>
+                <p class="text-sm text-white/70 mt-0.5">
+                    {% if quizzes_done == 0 %}Take your first quiz to unlock your taste profile.
+                    {% elif quizzes_done < 3 %}{{ quizzes_done }}/3 quizzes done — finish the rest to sharpen your profile.
+                    {% else %}{{ rated_count }} items rated. See what your taste says about you.
+                    {% endif %}
+                </p>
+            </div>
         </a>
-        <a href="/taste" class="relative overflow-hidden rounded-xl p-4 text-white transition-all hover:scale-[1.02] hover:shadow-lg" style="background: linear-gradient(135deg, #E8734A 0%, #C55A34 100%);">
-            <div class="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full -translate-y-6 translate-x-6"></div>
-            <svg class="w-5 h-5 mb-1.5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-            <p class="text-xs font-bold">My Taste</p>
-        </a>
-        <a href="/add" class="relative overflow-hidden rounded-xl p-4 text-white transition-all hover:scale-[1.02] hover:shadow-lg" style="background: linear-gradient(135deg, #2B3A4E 0%, #1E2A3A 100%);">
-            <div class="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full -translate-y-6 translate-x-6"></div>
-            <svg class="w-5 h-5 mb-1.5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-            <p class="text-xs font-bold">Add</p>
+        <a href="/add" class="block relative overflow-hidden rounded-2xl transition-all hover:scale-[1.01] hover:shadow-xl group" style="background: linear-gradient(135deg, #2B3A4E 0%, #1E2A3A 100%);">
+            <div class="absolute top-0 right-0 w-28 h-28 bg-white/10 rounded-full -translate-y-10 translate-x-10"></div>
+            <div class="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full translate-y-6 -translate-x-6"></div>
+            <div class="relative z-10 p-5">
+                <svg class="w-6 h-6 text-white/80 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                <p class="text-base font-bold text-white group-hover:text-sage-light transition-base">Add to your library</p>
+                <p class="text-sm text-white/70 mt-0.5">
+                    {% set types_present = type_counts.keys()|list %}
+                    {% if 'book' not in types_present and 'podcast' not in types_present %}No books or podcasts yet — bulk add or import to round out your profile.
+                    {% elif total < 20 %}{{ total }} items so far. The more you add, the better your recs get.
+                    {% else %}Bulk add, import from Goodreads or Plex, or search for something specific.
+                    {% endif %}
+                </p>
+            </div>
         </a>
     </div>
+
+    <!-- My Library teaser -->
+    <a href="/profile" class="block relative overflow-hidden rounded-2xl min-h-[5rem] transition-all hover:scale-[1.01] hover:shadow-lg group bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark">
+        <div class="p-5 flex items-center gap-4">
+            <div class="flex -space-x-2 flex-shrink-0">
+                {% for poster_url in nav_posters[:3] %}
+                <div class="w-10 h-14 rounded-lg overflow-hidden border-2 border-surface-light dark:border-surface-dark shadow-sm">
+                    <img src="{{ poster_url }}" alt="" class="w-full h-full object-cover">
+                </div>
+                {% endfor %}
+                {% if nav_posters|length == 0 %}
+                <div class="w-10 h-14 rounded-lg bg-sage/10 border-2 border-surface-light dark:border-surface-dark flex items-center justify-center"><span class="text-sage text-xs font-bold">?</span></div>
+                {% endif %}
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-bold group-hover:text-sage transition-base">My Library</p>
+                <p class="text-xs text-txt-muted">{{ total }} items{% if rated_count > 0 %}, {{ rated_count }} rated{% endif %}{% if type_counts.get('movie', 0) > 0 %} · {{ type_counts.movie }} movies{% endif %}{% if type_counts.get('tv', 0) > 0 %} · {{ type_counts.tv }} shows{% endif %}{% if type_counts.get('book', 0) > 0 %} · {{ type_counts.book }} books{% endif %}</p>
+            </div>
+            <svg class="w-5 h-5 text-txt-muted flex-shrink-0 group-hover:translate-x-1 group-hover:text-sage transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </div>
+    </a>
 
     {% endif %}
 </div>
@@ -291,34 +358,31 @@ async function homeQuickStatus(entryId, newStatus, btn) {
     } catch { btn.disabled = false; }
 }
 
-// Right Now — AI insight + resonance chips
+// Right Now — just update the AI commentary in the hero
 async function loadRightNow() {
     const el = document.getElementById('right-now-commentary');
-    const wrap = document.getElementById('right-now-items');
-    const chips = document.getElementById('right-now-chips');
     if (!el) return;
     try {
         const resp = await fetch('/api/media/home/right-now');
         if (!resp.ok) return;
         const data = await resp.json();
         if (data.commentary) el.textContent = data.commentary;
-        const items = data.items || [];
-        if (!items.length) { wrap.classList.add('hidden'); return; }
-        chips.innerHTML = items.map(renderChip).join('');
-        wrap.classList.remove('hidden');
+        // Mark resonating hearts on the progress cards
+        for (const item of (data.items || [])) {
+            if (item.is_resonating) {
+                const card = document.querySelector(`.progress-card[data-entry-id="${item.id}"] .resonance-heart`);
+                if (card) {
+                    card.dataset.resonating = 'true';
+                    card.classList.remove('text-white/60');
+                    card.classList.add('text-coral');
+                    card.querySelector('svg').setAttribute('fill', 'currentColor');
+                }
+            }
+        }
     } catch {}
 }
 
-function renderChip(item) {
-    const poster = item.image_url
-        ? `<img src="${item.image_url}" alt="" class="w-8 h-10 object-cover rounded ${item.media_type === 'podcast' ? 'object-contain' : ''}">`
-        : `<span class="w-8 h-10 flex items-center justify-center rounded bg-white/15 text-white text-xs font-bold">${escapeHtml((item.title || '?')[0])}</span>`;
-    const check = item.is_resonating ? '<svg class="w-3.5 h-3.5 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>' : '';
-    return `<button type="button" onclick="toggleResonance(this, ${item.id})" data-resonating="${item.is_resonating ? 'true' : 'false'}"
-        class="flex items-center gap-2 pl-1 pr-3 py-1 border border-white/25 rounded-full text-xs text-white/85 hover:bg-white/10 transition-base"
-        style="transition: background-color 0.2s, border-color 0.2s; ${item.is_resonating ? 'background:rgba(139,158,107,0.28);border-color:rgba(139,158,107,0.8);' : ''}">${poster}<span class="truncate max-w-[11rem]">${escapeHtml(item.title)}</span>${check}</button>`;
-}
-
+// Toggle resonance via the heart button on progress cards
 async function toggleResonance(btn, entryId) {
     btn.disabled = true;
     try {
@@ -326,11 +390,16 @@ async function toggleResonance(btn, entryId) {
         if (!resp.ok) { btn.disabled = false; return; }
         const data = await resp.json();
         btn.dataset.resonating = data.resonating ? 'true' : 'false';
-        btn.style.background = data.resonating ? 'rgba(139,158,107,0.28)' : '';
-        btn.style.borderColor = data.resonating ? 'rgba(139,158,107,0.8)' : '';
         const svg = btn.querySelector('svg');
-        if (data.resonating && !svg) btn.insertAdjacentHTML('beforeend', '<svg class="w-3.5 h-3.5 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>');
-        else if (!data.resonating && svg) svg.remove();
+        if (data.resonating) {
+            btn.classList.remove('text-white/60');
+            btn.classList.add('text-coral');
+            if (svg) svg.setAttribute('fill', 'currentColor');
+        } else {
+            btn.classList.remove('text-coral');
+            btn.classList.add('text-white/60');
+            if (svg) svg.setAttribute('fill', 'none');
+        }
     } catch {}
     btn.disabled = false;
 }

@@ -117,6 +117,34 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
 
     greeting_ctx = _get_greeting_context(user.name)
 
+    # Contextual data for navigation teasers
+    rated_count = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None)).count()
+    queue_count = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.status == "want_to_consume").count()
+
+    # Type breakdown for "Add" card context
+    from sqlalchemy import func as sqlfunc
+    type_counts = dict(
+        db.query(MediaEntry.media_type, sqlfunc.count())
+        .filter(MediaEntry.user_id == user.id)
+        .group_by(MediaEntry.media_type)
+        .all()
+    )
+
+    # Quiz status for taste card
+    from app.services.taste_quiz_scoring import load_quiz_results
+    quiz_results = load_quiz_results(db, user.id)
+    quizzes_done = sum(1 for t in ("movies", "tv", "books") if quiz_results and quiz_results.get(t, {}).get("profiles"))
+
+    # Grab a few poster URLs for card backgrounds
+    poster_items = (
+        db.query(MediaEntry.image_url, MediaEntry.media_type)
+        .filter(MediaEntry.user_id == user.id, MediaEntry.image_url.isnot(None), MediaEntry.rating >= 8)
+        .order_by(MediaEntry.rating.desc())
+        .limit(6)
+        .all()
+    )
+    nav_posters = [p.image_url for p in poster_items if p.image_url]
+
     return templates.TemplateResponse(
         "index.html",
         {
@@ -129,6 +157,11 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
             "unrated_total": unrated_total,
             "up_next": up_next,
             "best_bet_media_type": best_bet_media_type,
+            "rated_count": rated_count,
+            "queue_count": queue_count,
+            "type_counts": type_counts,
+            "quizzes_done": quizzes_done,
+            "nav_posters": nav_posters,
             **greeting_ctx,
         },
     )
