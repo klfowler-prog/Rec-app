@@ -21,16 +21,25 @@
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica Neue, Arial, sans-serif; }
         .hero-gradient {
-            background: linear-gradient(135deg, #2B3A4E 0%, #1E2A3A 50%, #2B3A4E 100%);
             position: relative; overflow: hidden;
         }
+        .hero-poster-grid {
+            position: absolute; inset: 0; display: grid;
+            grid-template-columns: repeat(6, 1fr); grid-template-rows: repeat(2, 1fr);
+            gap: 4px; filter: blur(2px); opacity: 0.15;
+        }
+        .hero-poster-grid img { width: 100%; height: 100%; object-fit: cover; }
+        .hero-overlay {
+            position: absolute; inset: 0;
+            background: linear-gradient(135deg, rgba(43,58,78,0.92) 0%, rgba(30,42,58,0.95) 50%, rgba(43,58,78,0.92) 100%);
+        }
         .hero-gradient::before {
-            content: ""; position: absolute; top: -8rem; right: -5rem;
+            content: ""; position: absolute; top: -8rem; right: -5rem; z-index: 1;
             width: 24rem; height: 24rem; border-radius: 50%;
             background: radial-gradient(circle, rgba(139,158,107,0.3) 0%, transparent 70%);
         }
         .hero-gradient::after {
-            content: ""; position: absolute; bottom: -10rem; left: 10%;
+            content: ""; position: absolute; bottom: -10rem; left: 10%; z-index: 1;
             width: 20rem; height: 20rem; border-radius: 50%;
             background: radial-gradient(circle, rgba(232,115,74,0.2) 0%, transparent 70%);
         }
@@ -42,6 +51,21 @@
 
     <!-- Hero -->
     <div class="hero-gradient text-white">
+        <div class="hero-poster-grid">
+            <img src="https://image.tmdb.org/t/p/w300/d5NXSklXo0qyIYkgV94XAgMIckC.jpg" alt="" loading="eager">
+            <img src="https://image.tmdb.org/t/p/w300/7WsyChQLEftFiDhRDpZFHSPwrpo.jpg" alt="" loading="eager">
+            <img src="https://books.google.com/books/content?id=-Ff2DwAAQBAJ&printsec=frontcover&img=1&zoom=1&source=gbs_api" alt="" loading="eager">
+            <img src="https://image.tmdb.org/t/p/w300/uDgy6hyPd82kOHh6I95FLtLnj6p.jpg" alt="" loading="eager">
+            <img src="https://image.tmdb.org/t/p/w300/qJ2tW6WMUDux911BytUTf7lLYJr.jpg" alt="" loading="eager">
+            <img src="https://books.google.com/books/content?id=1q_xAwAAQBAJ&printsec=frontcover&img=1&zoom=1&source=gbs_api" alt="" loading="eager">
+            <img src="https://image.tmdb.org/t/p/w300/eKfVzzEazSIjJMrw9ADa2x8ksLz.jpg" alt="" loading="eager">
+            <img src="https://image.tmdb.org/t/p/w300/ztkUQFLlC19CCMYHW73K22TqXR2.jpg" alt="" loading="eager">
+            <img src="https://books.google.com/books/content?id=FzVjBgAAQBAJ&printsec=frontcover&img=1&zoom=1&source=gbs_api" alt="" loading="eager">
+            <img src="https://image.tmdb.org/t/p/w300/uKvVjHNqB5VmOrdxqAt2F7J78ED.jpg" alt="" loading="eager">
+            <img src="https://image.tmdb.org/t/p/w300/4HWAQu28e2yaWKaDLiiMbLcf0MC.jpg" alt="" loading="eager">
+            <img src="https://image.tmdb.org/t/p/w300/suopoADq0k8YZr4dQXcU6pToj6s.jpg" alt="" loading="eager">
+        </div>
+        <div class="hero-overlay"></div>
         <div class="max-w-4xl mx-auto px-6 py-16 md:py-24 relative z-10">
             <div class="flex items-center gap-3 mb-8">
                 <img src="/static/img/a_vector_style_digital_vector_logo_for_nextup_fe.png" alt="NextUp" class="w-32">
