@@ -29,6 +29,8 @@ def list_profile(
         query = query.filter(MediaEntry.status == status)
     if sort == "rating":
         query = query.order_by(MediaEntry.rating.desc().nullslast())
+    elif sort == "predicted":
+        query = query.order_by(MediaEntry.predicted_rating.desc().nullslast(), MediaEntry.title.asc())
     elif sort == "title":
         query = query.order_by(MediaEntry.title.asc())
     else:
