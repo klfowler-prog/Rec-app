@@ -69,19 +69,21 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
 
     total = db.query(MediaEntry).filter(MediaEntry.user_id == user.id).count()
 
-    # "Just finished something?" — items the user added or marked as done
-    # but never rated. The default status for a new entry is 'consumed',
-    # so this naturally captures imports, bulk-adds, and quick-saves that
-    # never got a rating. We pull the most recent six so the user can
-    # close the loop in one click each.
+    # "Just finished something?" — items marked consumed in the last 14
+    # days that still don't have a rating. Without the recency window
+    # this surfaces ancient imports and abandoned books that the user
+    # never intended to rate.
+    from datetime import timedelta
+    cutoff = datetime.now(ZoneInfo("America/New_York")) - timedelta(days=14)
     unrated_recent = (
         db.query(MediaEntry)
         .filter(
             MediaEntry.user_id == user.id,
             MediaEntry.status == "consumed",
             MediaEntry.rating.is_(None),
+            MediaEntry.updated_at >= cutoff,
         )
-        .order_by(MediaEntry.updated_at.desc(), MediaEntry.created_at.desc())
+        .order_by(MediaEntry.updated_at.desc())
         .limit(6)
         .all()
     )
