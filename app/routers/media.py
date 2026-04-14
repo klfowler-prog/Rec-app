@@ -2068,8 +2068,8 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
         theme_catalog = [
             ("walking_the_dog", "Something to listen to while walking the dog, cooking, cleaning the house, or running errands", "podcast", "podcast: 30-60 min, conversational or narrative, one you can drop in and out of without losing the thread"),
             ("tonight_binge",    "Tonight's binge",                                                                                "tv",      "tv: 1-2 hour episodes, propulsive, something the user will be eager to engage with and that feels well aligned with their taste"),
-            ("wind_down",        "Wind down before bed",                                                                           "book",    "book or slow tv: low stakes, light and entertaining, not super high energy, cozy"),
-            ("background_work",  "Background while you work",                                                                      "podcast", "podcast or comfort tv rewatch: familiar or conversational, doesn't demand your attention but rewards it when you lean in"),
+            ("wind_down",        "Wind down before bed",                                                                           "book",    "book or slow tv: low stakes, light and entertaining, cozy. MIX familiar comfort picks from the user's library (things they've already watched/read and would happily revisit) with new suggestions they haven't tried. Aim for roughly half familiar, half new."),
+            ("background_work",  "Background while you work",                                                                      "podcast", "podcast or comfort tv: familiar or conversational, doesn't demand attention but rewards it when you lean in. MIX comfort rewatches from the user's library (shows they know and love) with new suggestions. Aim for roughly half familiar, half new."),
             ("weekend_binge",    "Weekend binge",                                                                                  "any",     "movie, tv limited series, OR book (any length). This category can ask more of the user than the weeknight binge — engaging, something worth sitting with on a Saturday. Mix the media types across the 4 picks — don't return all one category."),
             ("quick_escape",     "Quick escape",                                                                                   "movie",   "movie or short-form tv: 15-90 min, fun, the thing you'd watch when you have a pocket of time and need out of your own head, a laugh, or to feel inspired or positive"),
         ]
@@ -2161,9 +2161,11 @@ Return ONLY valid JSON, no markdown:
                 raw_suggestions[mt] = [
                     it for it in items if not _is_known(it.get("title", ""), known_normalized)
                 ]
+        # Themes that allow familiar/comfort rewatches skip the known-title filter
+        COMFORT_THEMES = {"wind_down", "background_work"}
         for theme_slug in list(raw_themes.keys()):
             items = raw_themes[theme_slug]
-            if isinstance(items, list):
+            if isinstance(items, list) and theme_slug not in COMFORT_THEMES:
                 raw_themes[theme_slug] = [
                     it for it in items if not _is_known(it.get("title", ""), known_normalized)
                 ]
@@ -2178,7 +2180,7 @@ Return ONLY valid JSON, no markdown:
                 return None
             return round(pr, 1)
 
-        async def enrich_pick(pick: dict) -> dict | None:
+        async def enrich_pick(pick: dict, allow_known: bool = False) -> dict | None:
             title = pick.get("title", "")
             mt = pick.get("media_type")
             pr = _coerce_pr(pick.get("predicted_rating"))
@@ -2186,7 +2188,7 @@ Return ONLY valid JSON, no markdown:
             matches = _rank_by_title_match(title, matches)
             if matches:
                 best = matches[0]
-                if _is_known(best.title, known_normalized):
+                if not allow_known and _is_known(best.title, known_normalized):
                     return None
                 return {
                     "title": best.title,
@@ -2261,7 +2263,7 @@ Return ONLY valid JSON, no markdown:
             if not isinstance(items, list):
                 continue
             for it in items[:8]:  # cap input per theme at 8
-                theme_tasks.append(enrich_pick(it))
+                theme_tasks.append(enrich_pick(it, allow_known=(theme_slug in COMFORT_THEMES)))
                 theme_keys.append(theme_slug)
 
         all_results = await asyncio.gather(*pick_tasks, *suggestion_tasks, *theme_tasks)
