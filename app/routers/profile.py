@@ -107,11 +107,13 @@ def check_in_profile(source: str, external_id: str, user: User = Depends(require
 
 @router.get("/top", response_model=list[MediaEntryResponse])
 def profile_top(limit: int = 10, user: User = Depends(require_user), db: Session = Depends(get_db)):
-    """Top rated items across all media types, sorted by rating then recency."""
+    """Top rated items across all media types. Sorted by rating only —
+    ties are broken by title alphabetically so the list is stable and
+    doesn't shift based on when items were rated."""
     return (
         db.query(MediaEntry)
         .filter(MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None))
-        .order_by(MediaEntry.rating.desc(), MediaEntry.rated_at.desc().nullslast(), MediaEntry.created_at.desc())
+        .order_by(MediaEntry.rating.desc(), MediaEntry.title.asc())
         .limit(limit)
         .all()
     )

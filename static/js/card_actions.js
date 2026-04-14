@@ -286,27 +286,39 @@ function buildActionBar(item, size = 'md') {
     function swap(img) {
         if (img._fallbackSwapped) return;
         img._fallbackSwapped = true;
-        const frame = img.closest('.poster-frame');
-        if (!frame) return;
+
         // Pull a title for the fallback letter from: alt attribute,
         // data-title, or the closest card's first title-bearing text node.
         let title = img.getAttribute('alt') || img.getAttribute('data-title') || '';
         if (!title) {
-            const card = img.closest('[data-rec-card], .swim-lane-item, .rounded-lg');
+            const card = img.closest('[data-rec-card], .swim-lane-item, .rounded-lg, .flex');
             if (card) {
-                const t = card.querySelector('.card-title, [data-title], p.font-medium, a.font-semibold, h3, h4');
+                const t = card.querySelector('.card-title, [data-title], p.font-medium, a.font-semibold, p.font-semibold, h3, h4');
                 if (t) title = t.textContent || '';
             }
         }
-        const div = document.createElement('div');
-        div.className = 'poster-fallback bg-sage/10';
-        div.innerHTML = `<span class="text-sage text-2xl font-bold">${firstChar(title)}</span>`;
-        img.replaceWith(div);
+
+        const frame = img.closest('.poster-frame');
+        if (frame) {
+            // Inside a poster-frame: replace with the standard fallback div
+            const div = document.createElement('div');
+            div.className = 'poster-fallback bg-sage/10';
+            div.innerHTML = `<span class="text-sage text-2xl font-bold">${firstChar(title)}</span>`;
+            img.replaceWith(div);
+        } else {
+            // Standalone img (e.g. profile list items): replace with
+            // an inline fallback that inherits the img's sizing classes
+            const div = document.createElement('div');
+            const classes = Array.from(img.classList).filter(c => /^(w-|h-|rounded|flex-shrink)/.test(c));
+            div.className = `${classes.join(' ')} bg-sage/10 flex items-center justify-center`;
+            div.innerHTML = `<span class="text-sage text-sm font-bold">${firstChar(title)}</span>`;
+            img.replaceWith(div);
+        }
     }
 
     document.addEventListener('error', function (ev) {
         const t = ev.target;
-        if (t && t.tagName === 'IMG' && t.closest('.poster-frame')) {
+        if (t && t.tagName === 'IMG') {
             swap(t);
         }
     }, true);  // capture — img error does not bubble
@@ -316,7 +328,7 @@ function buildActionBar(item, size = 'md') {
     // After load, check for that and swap too.
     document.addEventListener('load', function (ev) {
         const t = ev.target;
-        if (t && t.tagName === 'IMG' && t.closest('.poster-frame')) {
+        if (t && t.tagName === 'IMG') {
             if (t.naturalWidth === 0 || t.naturalHeight === 0) swap(t);
         }
     }, true);
