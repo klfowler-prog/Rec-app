@@ -2095,7 +2095,7 @@ You are producing FOUR outputs in one JSON response — do NOT repeat the same i
 
 1. top_picks: 8 recommendations total — 2 movies, 2 TV shows, 2 books, 2 podcasts. List the strongest pick first in each pair. The app will drop anything the user already has and keep the strongest surviving pick per category.
 2. suggestions: 5 items for each of these categories: {', '.join(missing_types_list) if missing_types_list else '(none needed)'}. These should be DIFFERENT from top_picks. The app filters these too and keeps the top 3 survivors per category.
-3. themes: 6 picks for EACH of these life-context themes — each theme is framed around a moment in the user's day, not a vibe in the abstract. Pick items that actually match the moment AND the user's taste profile. Don't repeat items across themes or with top_picks / suggestions. Theme slugs + what each is asking for:
+3. themes: 8 picks for EACH of these life-context themes — each theme is framed around a moment in the user's day, not a vibe in the abstract. Pick items that actually match the moment AND the user's taste profile. Don't repeat items across themes or with top_picks / suggestions. Theme slugs + what each is asking for:
 {theme_guide}
 4. insights: 3 sharp, specific observations about cross-medium patterns in their profile.
 
@@ -2260,7 +2260,7 @@ Return ONLY valid JSON, no markdown:
         for theme_slug, items in raw_themes.items():
             if not isinstance(items, list):
                 continue
-            for it in items[:6]:  # cap input per theme at 6
+            for it in items[:8]:  # cap input per theme at 8
                 theme_tasks.append(enrich_pick(it))
                 theme_keys.append(theme_slug)
 
@@ -2312,13 +2312,16 @@ Return ONLY valid JSON, no markdown:
 
         enriched_themes: dict[str, list] = {}
         for key, result in zip(theme_keys, all_results[sugg_end:]):
-            if result is None or not _has_min_pr(result):
+            if result is None:
                 continue
+            # For themes, keep items even without a predicted_rating —
+            # the AI already matched them to the user's taste + the
+            # moment. Dropping them leaves sparse sections.
             enriched_themes.setdefault(key, []).append(result)
-        # Sort desc by predicted_rating, then cap at 4 per theme
+        # Sort scored items first (desc), unscored at end, cap at 6
         for key in list(enriched_themes.keys()):
             enriched_themes[key].sort(key=_pr_sort_key)
-            enriched_themes[key] = enriched_themes[key][:4]
+            enriched_themes[key] = enriched_themes[key][:6]
 
         log.info(
             "home_bundle [user=%d]: %d top_picks, suggestions=%s, themes=%s, %d insights",
