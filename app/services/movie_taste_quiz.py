@@ -266,6 +266,43 @@ FILMS: list[dict] = [
      "weights": {"comedy": 2, "emotional": 1, "irony": 1},
      "generation": ["millennial", "gen_z", "universal"],
      "scenes": ["comedy", "romance"]},
+    # Horror (Phase D3c) — elevated horror + mainstream scares.
+    # The pool previously had Get Out, The Shining, and FNAF which
+    # covered three corners of the space. These add the A24 literary
+    # horror wave, the Conjuring/IT supernatural franchise canon, and
+    # Scream-style meta-horror.
+    {"order": 49, "title": "Hereditary",                              "year": 2018,
+     "weights": {"genre": 2, "darkness": 2, "pace": 1, "ambiguity": 1},
+     "generation": ["gen_z", "millennial"],
+     "scenes": ["horror", "prestige_drama", "indie_arthouse"]},
+    {"order": 50, "title": "Midsommar",                               "year": 2019,
+     "weights": {"genre": 2, "darkness": 2, "pace": 2, "ambiguity": 1},
+     "generation": ["gen_z", "millennial"],
+     "scenes": ["horror", "prestige_drama", "indie_arthouse"]},
+    {"order": 51, "title": "A Quiet Place",                           "year": 2018,
+     "weights": {"genre": 2, "emotional": 1, "pace": 1},
+     "generation": ["gen_z", "millennial", "universal"],
+     "scenes": ["horror", "scifi_fantasy"]},
+    {"order": 52, "title": "IT",                                      "year": 2017,
+     "weights": {"genre": 1, "darkness": 1, "emotional": 1},
+     "generation": ["gen_z", "millennial"],
+     "scenes": ["horror"]},
+    {"order": 53, "title": "The Conjuring",                           "year": 2013,
+     "weights": {"genre": 1, "darkness": 1},
+     "generation": ["millennial", "gen_z"],
+     "scenes": ["horror"]},
+    {"order": 54, "title": "Scream",                                  "year": 1996,
+     "weights": {"genre": 1, "irony": 1, "darkness": 1},
+     "generation": ["classic", "millennial", "universal"],
+     "scenes": ["horror"]},
+    {"order": 55, "title": "Nope",                                    "year": 2022,
+     "weights": {"genre": 2, "ambiguity": 1, "emotional": 1},
+     "generation": ["gen_z"],
+     "scenes": ["horror", "scifi_fantasy"]},
+    {"order": 56, "title": "The Babadook",                            "year": 2014,
+     "weights": {"genre": 2, "darkness": 2, "emotional": 1, "ambiguity": 1},
+     "generation": ["millennial"],
+     "scenes": ["horror", "prestige_drama", "indie_arthouse"]},
 ]
 
 

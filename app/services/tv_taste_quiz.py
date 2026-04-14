@@ -249,6 +249,25 @@ SHOWS: list[dict] = [
      "weights": {"comedy": 2, "irony": 2, "emotional": 1},
      "generation": ["millennial"],
      "scenes": ["comedy"]},
+    # Horror (Phase D3c) — the TV horror anchors. Previously only
+    # True Detective (barely horror) and Castlevania (gaming) and
+    # What We Do in the Shadows (comedy-horror) carried the tag.
+    {"order": 47, "title": "Stranger Things",            "tmdb_year": 2016, "years": "2016–",
+     "weights": {"genre": 2, "emotional": 1, "darkness": 1, "serialization": 1},
+     "generation": ["gen_z", "millennial", "universal"],
+     "scenes": ["horror", "scifi_fantasy", "kids_family"]},
+    {"order": 48, "title": "The Haunting of Hill House", "tmdb_year": 2018, "years": "2018",
+     "weights": {"genre": 2, "darkness": 2, "emotional": 2, "serialization": 1},
+     "generation": ["gen_z", "millennial"],
+     "scenes": ["horror", "prestige_drama"]},
+    {"order": 49, "title": "American Horror Story",      "tmdb_year": 2011, "years": "2011–",
+     "weights": {"genre": 1, "darkness": 2, "moral_ambiguity": 1},
+     "generation": ["millennial", "gen_z"],
+     "scenes": ["horror"]},
+    {"order": 50, "title": "Yellowjackets",              "tmdb_year": 2021, "years": "2021–",
+     "weights": {"genre": 1, "darkness": 2, "moral_ambiguity": 2, "serialization": 1, "ambiguity": 1},
+     "generation": ["gen_z"],
+     "scenes": ["horror", "prestige_drama"]},
 ]
 
 
