@@ -33,7 +33,11 @@ class BulkSearchRequest(BaseModel):
 
 @router.post("/bulk-search")
 async def bulk_search(req: BulkSearchRequest):
-    """Search for multiple titles with explicit media types — in parallel."""
+    """Search for multiple titles with explicit media types.
+
+    Uses a semaphore to cap concurrency at 5, preventing API rate-limit
+    failures that silently drop entire categories (e.g. books).
+    """
     import asyncio
 
     from app.services.unified_search import unified_search
@@ -42,10 +46,16 @@ async def bulk_search(req: BulkSearchRequest):
     if not items:
         return {}
 
+    sem = asyncio.Semaphore(5)
+
     async def search_one(title, media_type):
-        matches = await unified_search(title, media_type)
-        matches = _rank_by_title_match(title, matches)
-        return title, matches[:3] if matches else []
+        async with sem:
+            try:
+                matches = await unified_search(title, media_type)
+                matches = _rank_by_title_match(title, matches)
+                return title, matches[:3] if matches else []
+            except Exception:
+                return title, []
 
     found = await asyncio.gather(*[search_one(t, mt) for t, mt in items])
     return {title: matches for title, matches in found}
