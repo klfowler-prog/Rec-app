@@ -3035,35 +3035,16 @@ Return ONLY a JSON object mapping each exact candidate title to either a number 
             "predicted_rating": predicted_map.get(item.title.lower()),
         }
 
-    STRONG_SCORE = 7.0
-    CLOSE_SCORE = 5.5
+    MIN_SCORE = 5.5
+    MAX_PER_SECTION = 8
     serialized_sections = []
     for label, items in filtered_sections:
         rows = [_serialize(it) for it in items]
         # Drop nulls — AI couldn't score confidently, don't guess.
-        scored = [r for r in rows if r["predicted_rating"] is not None]
+        scored = [r for r in rows if r["predicted_rating"] is not None and r["predicted_rating"] >= MIN_SCORE]
         scored.sort(key=lambda r: r["predicted_rating"], reverse=True)
-
-        strong = [r for r in scored if r["predicted_rating"] >= STRONG_SCORE][:5]
-        # "Close matches" tier — items the AI thought were plausible
-        # but not slam-dunks. We only surface these if the strong tier
-        # didn't fill up, so the user always has SOMETHING per list
-        # instead of an empty state. Capped so the strong tier + close
-        # tier never exceeds 5 total.
-        close_quota = max(0, 5 - len(strong))
-        close = [
-            r for r in scored
-            if STRONG_SCORE > r["predicted_rating"] >= CLOSE_SCORE
-        ][:close_quota]
-
-        if strong:
-            serialized_sections.append({"label": label, "items": strong, "tier": "strong"})
-        if close:
-            serialized_sections.append({
-                "label": f"{label} — closer matches",
-                "items": close,
-                "tier": "close",
-            })
+        if scored:
+            serialized_sections.append({"label": label, "items": scored[:MAX_PER_SECTION]})
 
     from datetime import datetime as _dt
     result = {"sections": serialized_sections, "updated_at": _dt.utcnow().isoformat()}
