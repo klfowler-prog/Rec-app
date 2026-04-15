@@ -3,6 +3,97 @@ const detailContent = document.getElementById('detail-content');
 
 let currentMedia = null;
 
+// --- Description rendering --------------------------------------------
+// Descriptions from TMDB / Open Library / Google Books / iTunes come in
+// three wildly inconsistent shapes:
+//   1. Plain text with \n\n paragraph breaks (Open Library, TMDB TV)
+//   2. HTML with <p>, <br>, <i>, <b> tags (Google Books, some podcasts)
+//   3. Plain text with no breaks at all (TMDB movies, some books)
+// The old code set textContent on a single <p>, which collapsed all of
+// these into one wall of text. This helper normalizes the input to a
+// list of plain-text paragraphs, escapes them, and renders each as its
+// own <p> with the prose container's vertical spacing.
+function renderDescription(raw) {
+    const container = document.getElementById('detail-description');
+    const fadeEl = document.getElementById('detail-description-fade');
+    const toggleBtn = document.getElementById('detail-description-toggle');
+    if (!container) return;
+
+    if (!raw || !raw.trim()) {
+        container.innerHTML = '<p class="text-txt-muted italic">No description available.</p>';
+        if (fadeEl) fadeEl.style.display = 'none';
+        if (toggleBtn) toggleBtn.classList.add('hidden');
+        container.style.maxHeight = 'none';
+        return;
+    }
+
+    // Step 1: strip HTML tags via the browser's own parser so we decode
+    // entities (&#39;, &amp;, &quot;) and don't leave <i>/<br> leaking
+    // through. innerHTML on a detached element + textContent out gives
+    // us the safest round-trip.
+    const sandbox = document.createElement('div');
+    sandbox.innerHTML = raw;
+    // Replace <br> with newlines before extracting text so single-line
+    // breaks aren't silently lost.
+    sandbox.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
+    // Turn block-level tags into paragraph markers.
+    sandbox.querySelectorAll('p, div, li').forEach(el => {
+        el.insertAdjacentText('afterend', '\n\n');
+    });
+    let text = sandbox.textContent || '';
+
+    // Step 2: normalize line endings and split into paragraphs.
+    text = text.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+    const paragraphs = text
+        .split(/\n\s*\n/)
+        .map(p => p.replace(/\s+/g, ' ').trim())
+        .filter(p => p.length > 0);
+
+    if (paragraphs.length === 0) {
+        container.innerHTML = '<p class="text-txt-muted italic">No description available.</p>';
+        return;
+    }
+
+    // Step 3: render as escaped <p> elements. escapeHtml is defined in
+    // card_actions.js (loaded before this script).
+    container.innerHTML = paragraphs
+        .map(p => `<p>${escapeHtml(p)}</p>`)
+        .join('');
+
+    // Step 4: if the rendered content overflows the clamped max-height,
+    // reveal the Show more toggle and the fade overlay. Otherwise hide
+    // both and let the content expand naturally.
+    requestAnimationFrame(() => {
+        const clampedHeight = 14 * 16; // 14rem in px, matches the template
+        const actualHeight = container.scrollHeight;
+        if (actualHeight > clampedHeight + 8) {
+            if (toggleBtn) {
+                toggleBtn.classList.remove('hidden');
+                toggleBtn.textContent = 'Show more';
+                toggleBtn.onclick = () => {
+                    const expanded = container.style.maxHeight !== `${clampedHeight}px`;
+                    if (expanded) {
+                        container.style.maxHeight = `${clampedHeight}px`;
+                        toggleBtn.textContent = 'Show more';
+                        if (fadeEl) fadeEl.style.display = '';
+                    } else {
+                        container.style.maxHeight = `${container.scrollHeight}px`;
+                        toggleBtn.textContent = 'Show less';
+                        if (fadeEl) fadeEl.style.display = 'none';
+                    }
+                };
+            }
+        } else {
+            // Content fits in the clamp — drop the clamp and hide the
+            // fade/toggle so shorter descriptions don't have awkward
+            // empty space below them.
+            container.style.maxHeight = 'none';
+            if (fadeEl) fadeEl.style.display = 'none';
+            if (toggleBtn) toggleBtn.classList.add('hidden');
+        }
+    });
+}
+
 async function loadDetail() {
     try {
         const resp = await fetch(`/api/media/${MEDIA_TYPE}/${EXTERNAL_ID}?source=${SOURCE}`);
@@ -14,7 +105,7 @@ async function loadDetail() {
         document.getElementById('detail-type-badge').textContent = currentMedia.media_type;
         document.getElementById('detail-year').textContent = currentMedia.year || '';
         document.getElementById('detail-creator').textContent = currentMedia.creator || '';
-        document.getElementById('detail-description').textContent = currentMedia.description || 'No description available.';
+        renderDescription(currentMedia.description);
 
         // Image
         const img = document.getElementById('detail-image');

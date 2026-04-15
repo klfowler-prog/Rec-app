@@ -30,7 +30,19 @@
 
             <div id="detail-genres" class="flex gap-2 flex-wrap"></div>
 
-            <p id="detail-description" class="text-sm leading-relaxed text-txt dark:text-txt-light/80"></p>
+            <!-- Description — rendered by renderDescription() in
+                 media_detail.js. Wrapped in a max-width constrained
+                 container so long prose doesn't stretch the full
+                 viewport width. space-y-3 gives each paragraph
+                 breathing room. The "Show more" fade + toggle is
+                 wired up when the rendered content exceeds 14rem. -->
+            <div class="max-w-prose">
+                <div id="detail-description" class="text-sm leading-relaxed text-txt dark:text-txt-light/80 space-y-3 relative overflow-hidden transition-[max-height] duration-300" style="max-height: 14rem;"></div>
+                <div id="detail-description-fade" class="h-10 -mt-10 pointer-events-none bg-gradient-to-t from-bg-light dark:from-bg-dark to-transparent relative z-10"></div>
+                <button type="button" id="detail-description-toggle" class="hidden mt-2 text-xs font-semibold text-sage hover:text-sage-dark transition-base">
+                    Show more
+                </button>
+            </div>
 
             <!-- Watch providers -->
             <div id="watch-providers-section" class="hidden">
