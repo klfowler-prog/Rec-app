@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ first_name }}'s Taste DNA — NextUp</title>
+
+    <!-- Open Graph tags — this is what Facebook, Twitter, LinkedIn, iMessage etc. render -->
+    <meta property="og:title" content="{{ first_name }}'s Taste DNA">
+    <meta property="og:description" content="See how {{ first_name }} engages with movies, TV, books, and podcasts — mapped by NextUp. What's yours?">
+    <meta property="og:image" content="{{ image_url }}">
+    <meta property="og:image:width" content="1080">
+    <meta property="og:image:height" content="1350">
+    <meta property="og:url" content="{{ page_url }}">
+    <meta property="og:type" content="website">
+
+    <!-- Twitter card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ first_name }}'s Taste DNA">
+    <meta name="twitter:description" content="See how {{ first_name }} engages with movies, TV, books, and podcasts — mapped by NextUp.">
+    <meta name="twitter:image" content="{{ image_url }}">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: { extend: { colors: {
+                sage: { DEFAULT: '#8B9E6B', dark: '#6E8350' },
+                navy: { DEFAULT: '#2B3A4E', dark: '#1E2A3A' },
+                txt: { DEFAULT: '#2B3A4E', muted: '#7A8494' },
+                bg: { light: '#FAF9F6' },
+            }}}
+        }
+    </script>
+</head>
+<body class="bg-bg-light min-h-screen flex items-center justify-center p-4">
+    <div class="max-w-lg w-full space-y-6">
+        <!-- The card image -->
+        <img src="{{ image_url }}" alt="{{ first_name }}'s Taste DNA" class="w-full rounded-2xl shadow-2xl">
+
+        <!-- CTA -->
+        <div class="text-center space-y-3">
+            <h1 class="text-xl font-bold text-navy">What's your Taste DNA?</h1>
+            <p class="text-txt-muted text-sm">NextUp maps how you engage with movies, TV, books, and podcasts — then recommends across all of them.</p>
+            <a href="/welcome" class="inline-flex items-center gap-2 px-6 py-3 bg-sage text-white rounded-xl text-sm font-semibold hover:bg-sage-dark transition-all">
+                Find out — it's free
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+            </a>
+        </div>
+    </div>
+</body>
+</html>

@@ -60,6 +60,26 @@ def _get_greeting_context(user_name: str) -> dict:
     }
 
 
+@router.get("/share/{share_user_id}")
+async def share_page(request: Request, share_user_id: int, db: Session = Depends(get_db)):
+    """Public shareable Taste DNA page with Open Graph meta tags."""
+    share_user = db.query(User).filter(User.id == share_user_id).first()
+    if not share_user:
+        return RedirectResponse("/welcome")
+    first_name = share_user.name.split()[0] if share_user.name else "Someone"
+    base_url = str(request.base_url).rstrip("/")
+    if "localhost" not in base_url and "127.0.0.1" not in base_url:
+        base_url = base_url.replace("http://", "https://")
+    image_url = f"{base_url}/api/media/taste-dna/share-image?user_id={share_user_id}"
+    return templates.TemplateResponse("share_card_page.html", {
+        "request": request,
+        "share_user": share_user,
+        "first_name": first_name,
+        "image_url": image_url,
+        "page_url": f"{base_url}/share/{share_user_id}",
+    })
+
+
 @router.get("/welcome")
 async def welcome_page(request: Request):
     """Public landing page for unauthenticated users."""

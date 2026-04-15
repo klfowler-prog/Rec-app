@@ -3683,14 +3683,27 @@ Return ONLY valid JSON, no markdown:
 
 
 @router.get("/taste-dna/share-image")
-async def taste_dna_share_image(user: User = Depends(require_user), db: Session = Depends(get_db)):
-    """Generate a shareable PNG image of the user's Taste DNA card."""
+async def taste_dna_share_image(
+    request: Request,
+    user_id: int | None = None,
+    user: User | None = Depends(lambda request: __import__("app.auth", fromlist=["get_current_user"]).get_current_user(request, next(get_db()))),
+    db: Session = Depends(get_db),
+):
+    """Generate a shareable PNG image of the user's Taste DNA card.
+    Accepts ?user_id= for public OG tag crawling (no auth required)."""
     from fastapi.responses import Response
 
     from app import cache
 
-    # Get the cached taste DNA data
-    cache_key = f"taste_dna:{user.id}"
+    target_user_id = user_id or (user.id if user else None)
+    if not target_user_id:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    target_user = db.query(User).filter(User.id == target_user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    cache_key = f"taste_dna:{target_user_id}"
     data = cache.get(cache_key)
     if not data or not data.get("themes"):
         raise HTTPException(status_code=404, detail="No taste DNA data — visit My Taste first")
@@ -3706,7 +3719,7 @@ async def taste_dna_share_image(user: User = Depends(require_user), db: Session 
     poster_urls = []
     top_items = (
         db.query(MediaEntry.image_url)
-        .filter(MediaEntry.user_id == user.id, MediaEntry.image_url.isnot(None), MediaEntry.rating >= 8)
+        .filter(MediaEntry.user_id == target_user_id, MediaEntry.image_url.isnot(None), MediaEntry.rating >= 8)
         .order_by(MediaEntry.rating.desc())
         .limit(6)
         .all()
@@ -3715,7 +3728,7 @@ async def taste_dna_share_image(user: User = Depends(require_user), db: Session 
 
     from app.services.share_card import generate_share_card
     png_bytes = generate_share_card(
-        user_name=user.name or "Anonymous",
+        user_name=target_user.name or "Anonymous",
         summary=data.get("summary", ""),
         themes=themes,
         signature_items=(data.get("signature_items") or [])[:5],

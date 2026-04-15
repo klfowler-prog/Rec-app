@@ -384,23 +384,26 @@ function closeShareCard() {
     document.getElementById('share-overlay').classList.remove('flex');
 }
 
-function shareTo(platform) {
+async function shareTo(platform) {
     const text = encodeURIComponent('Check out my Taste DNA — it maps how I engage with movies, TV, books, and podcasts. What\'s yours?');
-    const url = encodeURIComponent(window.location.origin + '/welcome');
-    const shareUrl = window.location.origin + '/api/media/taste-dna/share-image';
+    const url = encodeURIComponent(window.location.origin + '/share/{{ user.id }}');
 
     switch (platform) {
         case 'instagram':
-            // Instagram doesn't have a web share URL — download the image
-            // and prompt the user to share it as a story or post.
-            downloadShareImage();
-            // On mobile, try native share with the image file
+            // Instagram requires native share with image file on mobile.
+            // On desktop, download the image for manual upload.
             if (_shareImageBlob && navigator.share) {
                 const file = new File([_shareImageBlob], 'taste-dna.png', { type: 'image/png' });
+                const shareData = { files: [file], title: 'My Taste DNA', text: 'Check out my Taste DNA from NextUp!' };
                 try {
-                    navigator.share({ files: [file], title: 'My Taste DNA' });
+                    if (navigator.canShare && navigator.canShare(shareData)) {
+                        await navigator.share(shareData);
+                        break;
+                    }
                 } catch {}
             }
+            // Fallback: download the image
+            downloadShareImage();
             break;
         case 'facebook':
             window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${text}`, '_blank', 'width=600,height=400');
