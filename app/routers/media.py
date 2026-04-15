@@ -2115,6 +2115,9 @@ NONFICTION IS WELCOME:
 - Podcasts can be interview, science, news, explainer
 Match the user's fiction/nonfiction balance.
 
+GENRE DEPTH vs EXPOSURE — CRITICAL:
+One or two items in a genre does NOT mean the user is a fan of that genre. Someone who watched Spirited Away does not want niche anime. Someone who read one thriller does not want serial-killer deep cuts. Look at DENSITY: how many items in the genre, how highly rated, how recently consumed. A single 7/10 in a genre means casual exposure. Five 9/10s in a genre means genuine enthusiasm. Only recommend deep-genre picks when the profile shows genuine depth in that genre. Otherwise, stick to accessible, widely-known titles.
+
 CRITICAL RULES:
 - Each "reason" field for top_picks and suggestions MUST cite at least ONE specific item from a DIFFERENT media type in their profile, by name. Connection must be CONCRETE — shared theme, idea, emotional beat, narrative approach. Never match on surface features like setting, demographic, or keyword.
 - The no-surface-match rule applies to themes too. A shared word in the title is NOT a connection. A shared setting alone is NOT a connection. A shared genre label is NOT a connection. Example of what NOT to do: anchor is "The Florida Project" (a Sean Baker movie about poverty and childhood on the margins of Orlando); picking "Probate and Settle an Estate in Florida" (a legal how-to guide) is a surface match on the word "Florida" — it is NOT a valid theme pick. A valid match would be something like "Random Family" by Adrian Nicole LeBlanc, which shares the concrete themes of marginalized families and structural precarity.
