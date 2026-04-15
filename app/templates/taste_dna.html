@@ -376,30 +376,37 @@ async function loadDna(forceRefresh = false) {
             for (const e of profile) {
                 if (e && e.title) profileMap[e.title.toLowerCase()] = e;
             }
+            // Fuzzy match: find profile entry whose title starts with
+            // or contains the signature title (handles subtitles, colons, etc.)
+            function findEntry(title) {
+                const t = title.toLowerCase().trim();
+                // Exact match first
+                if (profileMap[t]) return profileMap[t];
+                // Starts-with match (handles "Title: Subtitle" in profile)
+                for (const [key, entry] of Object.entries(profileMap)) {
+                    if (key.startsWith(t) || t.startsWith(key)) return entry;
+                }
+                return null;
+            }
+
             const sigEl = document.getElementById('dna-signature');
             sigEl.innerHTML = data.signature_items.slice(0, 5).map(title => {
-                const entry = profileMap[title.toLowerCase()];
-                if (entry) {
-                    const fit = entry.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
-                    const image = entry.image_url
-                        ? `<div class="poster-frame"><img src="${entry.image_url}" alt="" class="${fit}" loading="lazy"></div>`
-                        : `<div class="poster-frame"><div class="poster-fallback bg-sage/10"><span class="text-sage text-2xl">${escapeHtml((title || '?')[0])}</span></div></div>`;
-                    return `
-                        <a href="/media/${entry.media_type}/${entry.external_id}?source=${entry.source}" class="block">
-                            <div class="bg-surface-light dark:bg-surface-dark rounded-lg border border-border-light dark:border-border-dark overflow-hidden transition-base card-hover">
-                                ${image}
-                                <div class="p-2">
-                                    <p class="text-xs font-medium truncate">${escapeHtml(title)}</p>
-                                </div>
+                const entry = findEntry(title);
+                const fit = entry && entry.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
+                const image = entry && entry.image_url
+                    ? `<div class="poster-frame"><img src="${entry.image_url}" alt="${escapeHtml(title)}" class="${fit}" loading="lazy"></div>`
+                    : `<div class="poster-frame"><div class="poster-fallback bg-sage/10"><span class="text-sage text-2xl font-bold">${escapeHtml((title || '?')[0])}</span></div></div>`;
+                const link = entry ? `/media/${entry.media_type}/${entry.external_id}?source=${entry.source}` : `/search`;
+                return `
+                    <a href="${link}" class="block">
+                        <div class="bg-surface-light dark:bg-surface-dark rounded-lg border border-border-light dark:border-border-dark overflow-hidden transition-base card-hover">
+                            ${image}
+                            <div class="p-2">
+                                <p class="text-xs font-medium truncate">${escapeHtml(title)}</p>
                             </div>
-                        </a>
-                    `;
-                } else {
-                    return `
-                        <div class="bg-surface-light dark:bg-surface-dark rounded-lg border border-border-light dark:border-border-dark p-3 flex items-center justify-center min-h-[140px]">
-                            <p class="text-xs text-center font-medium">${escapeHtml(title)}</p>
                         </div>
-                    `;
+                    </a>
+                `;
                 }
             }).join('');
         }
