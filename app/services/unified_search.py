@@ -120,14 +120,40 @@ async def get_detail(media_type: str, external_id: str, source: str) -> MediaRes
             except Exception:
                 pass
             return None
+        result = None
         try:
             result = await open_library.get_details(external_id)
-            if result:
-                return result
         except Exception:
             pass
-        # Fallback: if external_id looks like a Google Books volume ID
-        # (not an OL work key), try Google Books
+
+        # If OL returned nothing or is missing description/cover,
+        # try Google Books to fill gaps
+        needs_supplement = (
+            not result
+            or not result.description
+            or not result.image_url
+        )
+        if needs_supplement:
+            try:
+                # Search GB by title to find a matching volume
+                query = result.title if result else external_id
+                gb_results = await google_books.search(query)
+                if gb_results:
+                    gb = gb_results[0]
+                    if not result:
+                        return gb
+                    # Patch missing fields from GB
+                    if not result.description and gb.description:
+                        result.description = gb.description
+                    if not result.image_url and gb.image_url:
+                        result.image_url = gb.image_url
+            except Exception:
+                pass
+
+        if result:
+            return result
+
+        # Last resort: try GB detail by volume ID
         if not external_id.startswith("OL"):
             try:
                 return await google_books.get_details(external_id)
