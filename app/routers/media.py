@@ -3686,6 +3686,7 @@ Return ONLY valid JSON, no markdown:
 async def taste_dna_share_image(
     request: Request,
     user_id: int | None = None,
+    refresh: bool = False,
     db: Session = Depends(get_db),
 ):
     """Generate a shareable PNG image. Public when user_id is provided
@@ -3712,7 +3713,9 @@ async def taste_dna_share_image(
 
     # Check if we have a cached image already
     img_cache_key = f"share_image:{target_user_id}"
-    cached_img = cache.get(img_cache_key)
+    if refresh:
+        cache.invalidate(img_cache_key)
+    cached_img = cache.get(img_cache_key) if not refresh else None
     if cached_img:
         png_bytes = base64.b64decode(cached_img)
         return Response(content=png_bytes, media_type="image/png",

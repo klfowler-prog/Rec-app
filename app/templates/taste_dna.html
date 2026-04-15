@@ -361,7 +361,7 @@ async function openShareCard() {
 
     // Fetch the server-generated image
     try {
-        const resp = await fetch('/api/media/taste-dna/share-image');
+        const resp = await fetch('/api/media/taste-dna/share-image?refresh=1');
         if (!resp.ok) throw new Error('Failed');
         _shareImageBlob = await resp.blob();
         img.src = URL.createObjectURL(_shareImageBlob);
