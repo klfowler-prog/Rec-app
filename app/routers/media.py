@@ -3732,7 +3732,8 @@ async def taste_dna_share_image(
         elif isinstance(t, dict):
             themes.append(t.get("label") or t.get("name") or "")
 
-    # Pick posters across media types for visual diversity — 1-2 per type
+    # Pick 2 posters per media type (movie, TV, book) for a visual mix.
+    # Prefer Google Books/TMDB URLs but include OL as fallback.
     poster_urls = []
     for mt in ["movie", "tv", "book"]:
         items = (
@@ -3744,10 +3745,13 @@ async def taste_dna_share_image(
                 MediaEntry.rating >= 8,
             )
             .order_by(MediaEntry.rating.desc())
-            .limit(2)
+            .limit(4)
             .all()
         )
-        poster_urls.extend(r.image_url for r in items if r.image_url)
+        # Prefer non-OL first, then OL
+        good = [r.image_url for r in items if r.image_url and "openlibrary.org" not in r.image_url]
+        fallback = [r.image_url for r in items if r.image_url and "openlibrary.org" in r.image_url]
+        poster_urls.extend((good + fallback)[:2])
     poster_urls = poster_urls[:6]
 
     from app.services.share_card import generate_share_card

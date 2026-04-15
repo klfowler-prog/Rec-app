@@ -51,13 +51,14 @@ def _get_italic_font(size: int):
 def _fetch_poster(url: str, size: tuple[int, int] = (140, 200)) -> Image.Image | None:
     """Download a poster image and resize it. Returns None on failure."""
     try:
-        resp = httpx.get(url, timeout=5, follow_redirects=True)
-        if resp.status_code == 200 and len(resp.content) > 1000:
+        resp = httpx.get(url, timeout=8, follow_redirects=True)
+        ct = resp.headers.get("content-type", "")
+        if resp.status_code == 200 and "image" in ct and len(resp.content) > 2000:
             poster = Image.open(io.BytesIO(resp.content)).convert("RGBA")
             poster = poster.resize(size, Image.LANCZOS)
             return poster
-    except Exception:
-        pass
+    except Exception as e:
+        log.debug("Poster fetch failed for %s: %s", url[:60], e)
     return None
 
 
@@ -143,7 +144,7 @@ def generate_share_card(
         draw.text((80, y), "SIGNATURE THEMES", fill=(255, 255, 255, 80), font=font_label)
         y += 38
         for theme in themes[:3]:
-            draw.text((80, y), f"—  {theme}", fill=(255, 255, 255, 190), font=font_theme)
+            draw.text((80, y), f"-  {theme}", fill=(255, 255, 255, 190), font=font_theme)
             y += 40
         y += 15
 
