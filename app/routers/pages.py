@@ -70,7 +70,7 @@ async def share_page(request: Request, share_user_id: int, db: Session = Depends
     base_url = str(request.base_url).rstrip("/")
     if "localhost" not in base_url and "127.0.0.1" not in base_url:
         base_url = base_url.replace("http://", "https://")
-    image_url = f"{base_url}/api/media/taste-dna/share-image?user_id={share_user_id}"
+    image_url = f"{base_url}/api/media/taste-dna/share-image?user_id={share_user_id}&layout=landscape"
     return templates.TemplateResponse("share_card_page.html", {
         "request": request,
         "share_user": share_user,

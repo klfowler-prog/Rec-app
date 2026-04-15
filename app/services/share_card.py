@@ -68,8 +68,13 @@ def generate_share_card(
     themes: list[str],
     signature_items: list[str],
     poster_urls: list[str] | None = None,
+    layout: str = "portrait",
 ) -> bytes:
-    """Generate a shareable PNG card and return the bytes."""
+    """Generate a shareable PNG card. layout='portrait' (1080x1350 for
+    Instagram/download) or 'landscape' (1200x630 for Facebook/OG)."""
+    if layout == "landscape":
+        return _generate_landscape(user_name, summary, themes, poster_urls)
+
     img = Image.new("RGBA", (W, H))
     draw = ImageDraw.Draw(img)
 
@@ -181,6 +186,105 @@ def generate_share_card(
     draw.text((80, footer_y), "Find yours at nextup.app", fill=(255, 255, 255, 80), font=font_footer)
 
     # Output
+    buf = io.BytesIO()
+    img.convert("RGB").save(buf, format="PNG", quality=95)
+    buf.seek(0)
+    return buf.getvalue()
+
+
+def _generate_landscape(
+    user_name: str,
+    summary: str,
+    themes: list[str],
+    poster_urls: list[str] | None = None,
+) -> bytes:
+    """1200x630 landscape card for Facebook/Twitter OG previews."""
+    LW, LH = 1200, 630
+    img = Image.new("RGBA", (LW, LH))
+    draw = ImageDraw.Draw(img)
+
+    # Gradient background
+    for y in range(LH):
+        ratio = y / LH
+        r = int(38 * (1 - ratio) + 25 * ratio)
+        g = int(52 * (1 - ratio) + 35 * ratio)
+        b = int(72 * (1 - ratio) + 52 * ratio)
+        draw.line([(0, y), (LW, y)], fill=(r, g, b, 255))
+
+    # Decorative orb
+    overlay = Image.new("RGBA", (LW, LH), (0, 0, 0, 0))
+    od = ImageDraw.Draw(overlay)
+    for i in range(200):
+        a = int(40 * (1 - i / 200))
+        od.ellipse([LW - 200 + i // 2, -80 + i // 2, LW + 200 - i // 2, 320 - i // 2],
+                    fill=(SAGE[0], SAGE[1], SAGE[2], a))
+    img = Image.alpha_composite(img, overlay)
+    draw = ImageDraw.Draw(img)
+
+    # Posters on the right side
+    poster_x = LW - 380
+    if poster_urls:
+        posters = []
+        for url in poster_urls[:3]:
+            p = _fetch_poster(url, (100, 150))
+            if p:
+                posters.append(p)
+        for i, poster in enumerate(posters):
+            x = poster_x + i * 112
+            y = (LH - 150) // 2
+            mask = Image.new("L", (100, 150), 0)
+            ImageDraw.Draw(mask).rounded_rectangle([0, 0, 100, 150], radius=8, fill=255)
+            img.paste(poster, (x, y), mask)
+        draw = ImageDraw.Draw(img)
+
+    # Text on the left
+    font_brand = _get_font(28, bold=True)
+    font_name = _get_font(40, bold=True)
+    font_summary = _get_italic_font(24)
+    font_theme = _get_font(20)
+    font_footer = _get_font(16)
+
+    text_right = poster_x - 40 if poster_urls else LW - 60
+
+    y = 50
+    draw.text((50, y), "NextUp", fill=SAGE, font=font_brand)
+    y += 50
+
+    first_name = user_name.split()[0] if user_name else "Your"
+    draw.text((50, y), f"{first_name}'s Taste DNA", fill=(255, 255, 255, 255), font=font_name)
+    y += 55
+
+    draw.rounded_rectangle([50, y, 130, y + 3], radius=2, fill=SAGE)
+    y += 20
+
+    # Summary — truncated to fit
+    if summary:
+        import re
+        sentences = re.split(r'(?<=[.!?])\s+', summary.strip())
+        truncated = ""
+        for s in sentences:
+            if len(truncated) + len(s) + 1 > 180:
+                break
+            truncated = (truncated + " " + s).strip()
+        if not truncated and sentences:
+            truncated = sentences[0][:180]
+
+        max_chars = int((text_right - 50) / 10)
+        wrapped = textwrap.wrap(truncated, width=max_chars)
+        for line in wrapped[:4]:
+            draw.text((50, y), line, fill=(255, 255, 255, 200), font=font_summary)
+            y += 32
+
+    y += 10
+    # Themes
+    if themes:
+        for theme in themes[:2]:
+            draw.text((50, y), f"-  {theme}", fill=(255, 255, 255, 160), font=font_theme)
+            y += 28
+
+    # Footer
+    draw.text((50, LH - 40), "Find yours at nextup.app", fill=(255, 255, 255, 60), font=font_footer)
+
     buf = io.BytesIO()
     img.convert("RGB").save(buf, format="PNG", quality=95)
     buf.seek(0)

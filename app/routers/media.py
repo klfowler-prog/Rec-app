@@ -3687,6 +3687,7 @@ async def taste_dna_share_image(
     request: Request,
     user_id: int | None = None,
     refresh: bool = False,
+    layout: str = "portrait",
     db: Session = Depends(get_db),
 ):
     """Generate a shareable PNG image. Public when user_id is provided
@@ -3712,7 +3713,7 @@ async def taste_dna_share_image(
     import base64
 
     # Check if we have a cached image already
-    img_cache_key = f"share_image:{target_user_id}"
+    img_cache_key = f"share_image:{target_user_id}:{layout}"
     if refresh:
         cache.invalidate(img_cache_key)
     cached_img = cache.get(img_cache_key) if not refresh else None
@@ -3781,6 +3782,7 @@ async def taste_dna_share_image(
         themes=themes,
         signature_items=(data.get("signature_items") or [])[:5],
         poster_urls=poster_urls,
+        layout=layout if layout in ("portrait", "landscape") else "portrait",
     )
 
     # Cache the generated image (base64) for 7 days so OG crawlers can fetch it
