@@ -119,10 +119,21 @@ def generate_share_card(
     draw.rounded_rectangle([80, y, 180, y + 4], radius=2, fill=SAGE)
     y += 35
 
-    # Summary — the hook. Wrapped to fit.
+    # Summary — truncate to complete sentences that fit the card
     if summary:
-        wrapped = textwrap.wrap(summary, width=40)
-        for line in wrapped[:7]:
+        # Split into sentences and take as many as fit in ~250 chars
+        import re
+        sentences = re.split(r'(?<=[.!?])\s+', summary.strip())
+        truncated = ""
+        for s in sentences:
+            if len(truncated) + len(s) + 1 > 260:
+                break
+            truncated = (truncated + " " + s).strip()
+        if not truncated and sentences:
+            truncated = sentences[0][:260]
+
+        wrapped = textwrap.wrap(truncated, width=40)
+        for line in wrapped[:6]:
             draw.text((80, y), line, fill=(255, 255, 255, 220), font=font_summary)
             y += 42
     y += 35

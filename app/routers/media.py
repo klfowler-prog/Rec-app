@@ -3732,15 +3732,23 @@ async def taste_dna_share_image(
         elif isinstance(t, dict):
             themes.append(t.get("label") or t.get("name") or "")
 
+    # Pick posters across media types for visual diversity — 1-2 per type
     poster_urls = []
-    top_items = (
-        db.query(MediaEntry.image_url)
-        .filter(MediaEntry.user_id == target_user_id, MediaEntry.image_url.isnot(None), MediaEntry.rating >= 8)
-        .order_by(MediaEntry.rating.desc())
-        .limit(6)
-        .all()
-    )
-    poster_urls = [r.image_url for r in top_items if r.image_url]
+    for mt in ["movie", "tv", "book"]:
+        items = (
+            db.query(MediaEntry.image_url)
+            .filter(
+                MediaEntry.user_id == target_user_id,
+                MediaEntry.media_type == mt,
+                MediaEntry.image_url.isnot(None),
+                MediaEntry.rating >= 8,
+            )
+            .order_by(MediaEntry.rating.desc())
+            .limit(2)
+            .all()
+        )
+        poster_urls.extend(r.image_url for r in items if r.image_url)
+    poster_urls = poster_urls[:6]
 
     from app.services.share_card import generate_share_card
     png_bytes = generate_share_card(
