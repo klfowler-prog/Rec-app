@@ -3686,16 +3686,21 @@ Return ONLY valid JSON, no markdown:
 async def taste_dna_share_image(
     request: Request,
     user_id: int | None = None,
-    user: User | None = Depends(lambda request: __import__("app.auth", fromlist=["get_current_user"]).get_current_user(request, next(get_db()))),
     db: Session = Depends(get_db),
 ):
-    """Generate a shareable PNG image of the user's Taste DNA card.
-    Accepts ?user_id= for public OG tag crawling (no auth required)."""
+    """Generate a shareable PNG image. Public when user_id is provided
+    (so Facebook/Twitter crawlers can fetch it for OG previews)."""
     from fastapi.responses import Response
 
     from app import cache
+    from app.auth import get_current_user
 
-    target_user_id = user_id or (user.id if user else None)
+    # Resolve target user: explicit user_id param OR logged-in session
+    target_user_id = user_id
+    if not target_user_id:
+        current = get_current_user(request, db)
+        if current:
+            target_user_id = current.id
     if not target_user_id:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
