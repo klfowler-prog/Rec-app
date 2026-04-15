@@ -3742,7 +3742,7 @@ async def taste_dna_share_image(
                 MediaEntry.user_id == target_user_id,
                 MediaEntry.media_type == mt,
                 MediaEntry.image_url.isnot(None),
-                MediaEntry.rating >= 8,
+                MediaEntry.rating >= 9,
             )
             .order_by(MediaEntry.rating.desc())
             .limit(4)
