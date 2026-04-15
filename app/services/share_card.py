@@ -238,52 +238,57 @@ def _generate_landscape(
         draw = ImageDraw.Draw(img)
 
     # Text on the left
-    font_brand = _get_font(28, bold=True)
-    font_name = _get_font(40, bold=True)
-    font_summary = _get_italic_font(24)
-    font_theme = _get_font(20)
-    font_footer = _get_font(16)
+    font_brand = _get_font(32, bold=True)
+    font_name = _get_font(46, bold=True)
+    font_summary = _get_italic_font(28)
+    font_theme = _get_font(24)
+    font_footer = _get_font(18)
 
-    text_right = poster_x - 40 if poster_urls else LW - 60
+    text_right = poster_x - 50 if poster_urls else LW - 60
+    max_chars = int((text_right - 60) / 12)
 
-    y = 50
-    draw.text((50, y), "NextUp", fill=SAGE, font=font_brand)
-    y += 50
+    y = 40
+    draw.text((60, y), "NextUp", fill=SAGE, font=font_brand)
+    y += 48
 
     first_name = user_name.split()[0] if user_name else "Your"
-    draw.text((50, y), f"{first_name}'s Taste DNA", fill=(255, 255, 255, 255), font=font_name)
-    y += 55
+    draw.text((60, y), f"{first_name}'s Taste DNA", fill=(255, 255, 255, 255), font=font_name)
+    y += 58
 
-    draw.rounded_rectangle([50, y, 130, y + 3], radius=2, fill=SAGE)
-    y += 20
+    draw.rounded_rectangle([60, y, 150, y + 3], radius=2, fill=SAGE)
+    y += 22
 
-    # Summary — truncated to fit
+    # Summary — fit as many complete sentences as possible
     if summary:
         import re
         sentences = re.split(r'(?<=[.!?])\s+', summary.strip())
         truncated = ""
         for s in sentences:
-            if len(truncated) + len(s) + 1 > 180:
+            candidate = (truncated + " " + s).strip()
+            # Check if it fits: wrap and see if it's <= 5 lines
+            test_wrap = textwrap.wrap(candidate, width=max_chars)
+            if len(test_wrap) > 5:
                 break
-            truncated = (truncated + " " + s).strip()
+            truncated = candidate
         if not truncated and sentences:
-            truncated = sentences[0][:180]
+            truncated = sentences[0][:200]
 
-        max_chars = int((text_right - 50) / 10)
         wrapped = textwrap.wrap(truncated, width=max_chars)
-        for line in wrapped[:4]:
-            draw.text((50, y), line, fill=(255, 255, 255, 200), font=font_summary)
+        for line in wrapped[:5]:
+            draw.text((60, y), line, fill=(255, 255, 255, 210), font=font_summary)
+            y += 36
+
+    y += 12
+    # Themes — if room
+    if themes and y < LH - 80:
+        for theme in themes[:2]:
+            if y > LH - 60:
+                break
+            draw.text((60, y), f"-  {theme}", fill=(255, 255, 255, 150), font=font_theme)
             y += 32
 
-    y += 10
-    # Themes
-    if themes:
-        for theme in themes[:2]:
-            draw.text((50, y), f"-  {theme}", fill=(255, 255, 255, 160), font=font_theme)
-            y += 28
-
     # Footer
-    draw.text((50, LH - 40), "Find yours at nextup.app", fill=(255, 255, 255, 60), font=font_footer)
+    draw.text((60, LH - 38), "Find yours at nextup.app", fill=(255, 255, 255, 60), font=font_footer)
 
     buf = io.BytesIO()
     img.convert("RGB").save(buf, format="PNG", quality=95)
