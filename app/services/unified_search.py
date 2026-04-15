@@ -103,8 +103,23 @@ async def get_detail(media_type: str, external_id: str, source: str) -> MediaRes
     if source == "tmdb" or (media_type in ("movie", "tv") and source not in ("open_library", "google_books", "itunes")):
         return await tmdb.get_details(media_type, external_id)
     elif source == "google_books":
-        return await google_books.get_details(external_id)
-    elif source == "open_library" or media_type == "book":
+        try:
+            return await google_books.get_details(external_id)
+        except Exception:
+            pass
+        return None
+    elif source in ("open_library", "nyt") or media_type == "book":
+        # If external_id is an ISBN (all digits), search by title instead
+        # of treating it as a work ID — OL and GB detail endpoints don't
+        # accept ISBNs directly.
+        if external_id.isdigit() or (external_id.replace("-", "").isdigit()):
+            try:
+                results = await search_books(external_id)
+                if results:
+                    return results[0]
+            except Exception:
+                pass
+            return None
         try:
             result = await open_library.get_details(external_id)
             if result:
