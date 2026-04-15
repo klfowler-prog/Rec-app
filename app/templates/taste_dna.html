@@ -391,7 +391,10 @@ async function shareTo(platform) {
 
     switch (platform) {
         case 'facebook':
-            window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${text}`, '_blank', 'width=600,height=400');
+            // Use m.facebook.com on mobile for reliable sharing without the app
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            const fbBase = isMobile ? 'https://m.facebook.com/sharer.php' : 'https://www.facebook.com/sharer/sharer.php';
+            window.open(`${fbBase}?u=${url}`, '_blank', 'width=600,height=400');
             break;
         case 'twitter':
             window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank', 'width=600,height=400');
