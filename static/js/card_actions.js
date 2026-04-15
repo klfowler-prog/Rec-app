@@ -36,6 +36,57 @@ async function quickAdd(btn, data) {
     }
 }
 
+// startConsuming — create the entry with status='consuming' so the user
+// can flag something they're in the middle of without having to click
+// "Save for later" first and then dig through the profile page to flip
+// the status. Mirrors quickAdd's POST flow but skips the rating-dots
+// swap since the user hasn't finished yet. On success the action bar
+// collapses to a "Started ✓" chip and the full page (if any) should
+// ideally re-check the entry state, but the chip alone is enough to
+// confirm the action worked.
+async function startConsuming(btn, data) {
+    btn.disabled = true;
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '...';
+    // Force the payload status even if the caller forgot to flip it.
+    const payload = { ...data, status: 'consuming' };
+    try {
+        const resp = await fetch('/api/profile/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+
+        // 409 = already in profile. Flip that existing entry's status
+        // to 'consuming' so "Start" still works when the user had
+        // previously saved it for later.
+        if (resp.status === 409) {
+            try {
+                const checkResp = await fetch(`/api/profile/check/${encodeURIComponent(data.source || '_')}/${encodeURIComponent(data.external_id || '_')}`);
+                const checkData = await checkResp.json();
+                if (checkData.entry) {
+                    await fetch(`/api/profile/${checkData.entry.id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: 'consuming' }),
+                    });
+                }
+            } catch {}
+        } else if (!resp.ok) {
+            btn.innerHTML = originalHTML;
+            btn.disabled = false;
+            return;
+        }
+
+        const container = btn.parentElement;
+        const verb = { movie: "watching", tv: "watching", book: "reading", podcast: "listening" }[data.media_type] || "it";
+        container.innerHTML = `<span class="text-xs font-medium text-coral">✓ Started ${verb}</span>`;
+    } catch {
+        btn.innerHTML = originalHTML;
+        btn.disabled = false;
+    }
+}
+
 function showRatingDots(container, entryId) {
     container.innerHTML = `
         <div class="flex items-center gap-0.5 flex-wrap">
@@ -220,36 +271,47 @@ async function changeStatus(entryId, newStatus, btn) {
 
 // Helper to build the three-button action bar HTML used in cards
 function buildActionBar(item, size = 'md') {
-    const consumeData = escapeAttr(JSON.stringify({
+    const baseData = {
         external_id: item.external_id || '', source: item.source || '', title: item.title,
         media_type: item.media_type, image_url: item.image_url || null, year: item.year || null,
         creator: item.creator || null,
         genres: (item.genres && Array.isArray(item.genres)) ? item.genres.join(', ') : (item.genres || null),
-        description: item.description || null, status: 'consumed',
-    }));
-    const saveData = escapeAttr(JSON.stringify({
-        external_id: item.external_id || '', source: item.source || '', title: item.title,
-        media_type: item.media_type, image_url: item.image_url || null, year: item.year || null,
-        creator: item.creator || null,
-        genres: (item.genres && Array.isArray(item.genres)) ? item.genres.join(', ') : (item.genres || null),
-        description: item.description || null, status: 'want_to_consume',
-    }));
+        description: item.description || null,
+    };
+    const consumeData = escapeAttr(JSON.stringify({ ...baseData, status: 'consumed' }));
+    const consumingData = escapeAttr(JSON.stringify({ ...baseData, status: 'consuming' }));
+    const saveData = escapeAttr(JSON.stringify({ ...baseData, status: 'want_to_consume' }));
     const dismissData = escapeAttr(JSON.stringify({
         external_id: item.external_id || '', source: item.source || '',
         title: item.title, media_type: item.media_type,
     }));
-    const verb = {movie:'Watched',tv:'Watched',book:'Read',podcast:'Listened'}[item.media_type] || 'Done';
+    const doneVerb = {movie:'Watched',tv:'Watched',book:'Read',podcast:'Listened'}[item.media_type] || 'Done';
+    const startVerb = {movie:'watching',tv:'watching',book:'reading',podcast:'listening'}[item.media_type] || 'it';
 
     const btnSize = size === 'sm' ? 'px-2 py-1 text-[10px]' : 'px-2.5 py-1.5 text-xs';
     const iconBtnSize = size === 'sm' ? 'p-1' : 'p-1.5';
     const iconSize = size === 'sm' ? 'w-3 h-3' : 'w-3.5 h-3.5';
 
+    // On md (detail page, best-bet hero) we render the Start button as a
+    // labeled pill so "Start watching" is front and center. On sm (rec
+    // cards where space is tight) it's an icon-only play button so the
+    // row still fits 4 actions.
+    const startBtn = size === 'sm'
+        ? `<button onclick="startConsuming(this, ${consumingData})" class="${iconBtnSize} bg-coral/10 hover:bg-coral hover:text-white text-coral rounded-lg transition-base" title="Start ${startVerb}">
+               <svg class="${iconSize}" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+           </button>`
+        : `<button onclick="startConsuming(this, ${consumingData})" class="${btnSize} bg-coral/10 hover:bg-coral hover:text-white text-coral font-medium rounded-lg transition-base inline-flex items-center gap-1">
+               <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+               Start ${startVerb}
+           </button>`;
+
     return `
-        <div class="flex items-center gap-1.5">
+        <div class="flex items-center gap-1.5 flex-wrap">
             <button onclick="saveForLater(this, ${saveData})" class="${iconBtnSize} bg-sage/10 hover:bg-sage hover:text-white text-sage rounded-lg transition-base" title="Save for later">
                 <svg class="${iconSize}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
             </button>
-            <button onclick="quickAdd(this, ${consumeData})" class="${btnSize} bg-sage/10 hover:bg-sage hover:text-white text-sage font-medium rounded-lg transition-base">${verb} it</button>
+            ${startBtn}
+            <button onclick="quickAdd(this, ${consumeData})" class="${btnSize} bg-sage/10 hover:bg-sage hover:text-white text-sage font-medium rounded-lg transition-base">${doneVerb} it</button>
             <button onclick="dismissItem(this, ${dismissData})" class="${iconBtnSize} bg-gray-100 dark:bg-gray-800 hover:bg-coral hover:text-white text-txt-muted rounded-lg transition-base" title="Not interested">
                 <svg class="${iconSize}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
