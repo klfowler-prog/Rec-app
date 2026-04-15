@@ -263,6 +263,37 @@ async function renderCards(container, items) {
     }));
 
     resultsEl.innerHTML = enriched.map(item => chatRecCard(item)).join('');
+
+    // "Save all" button — queue every recommendation at once
+    const saveableItems = enriched.filter(i => i.external_id);
+    if (saveableItems.length > 1) {
+        const saveAllBtn = document.createElement('button');
+        saveAllBtn.className = 'mt-2 w-full px-3 py-2 bg-sage/10 hover:bg-sage hover:text-white text-sage text-xs font-medium rounded-lg transition-base inline-flex items-center justify-center gap-1.5';
+        saveAllBtn.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg> Save all ${saveableItems.length} to queue`;
+        saveAllBtn.onclick = async () => {
+            saveAllBtn.disabled = true;
+            saveAllBtn.textContent = 'Saving...';
+            let saved = 0;
+            for (const item of saveableItems) {
+                try {
+                    const resp = await fetch('/api/profile/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            external_id: item.external_id, source: item.source, title: item.title,
+                            media_type: item.media_type, image_url: item.image_url || null,
+                            year: item.year || null, creator: item.creator || null,
+                            genres: item.genres ? (Array.isArray(item.genres) ? item.genres.join(', ') : item.genres) : null,
+                            description: item.description || null, status: 'want_to_consume',
+                        }),
+                    });
+                    if (resp.ok || resp.status === 409) saved++;
+                } catch {}
+            }
+            saveAllBtn.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> ${saved} saved to queue`;
+        };
+        container.appendChild(saveAllBtn);
+    }
 }
 
 function chatRecCard(item) {

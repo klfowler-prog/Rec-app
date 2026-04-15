@@ -114,6 +114,25 @@
     </div>
 
     <!-- ============================================================
+         Quick add — capture a title fast, like jotting down a note
+         ============================================================ -->
+    <div class="relative">
+        <div class="flex items-center gap-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl p-2 shadow-sm">
+            <svg class="w-5 h-5 text-txt-muted ml-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            <input id="quick-add-input" type="text" placeholder="Heard about something good? Add it to your list..." autocomplete="off"
+                class="flex-1 px-2 py-2 bg-transparent text-sm focus:outline-none placeholder:text-txt-muted">
+            <select id="quick-add-type" class="px-2 py-1.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-[11px] text-txt-muted flex-shrink-0">
+                <option value="">Any</option>
+                <option value="movie">Movie</option>
+                <option value="tv">TV</option>
+                <option value="book">Book</option>
+                <option value="podcast">Podcast</option>
+            </select>
+        </div>
+        <div id="quick-add-results" class="hidden absolute left-0 right-0 top-full mt-1 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl shadow-lg z-30 max-h-64 overflow-y-auto"></div>
+    </div>
+
+    <!-- ============================================================
          In progress — cinematic poster cards with resonance toggle.
          Tap the heart icon to mark what's hitting hardest right now.
          ============================================================ -->
@@ -558,6 +577,93 @@ async function refreshAll(btn) {
         await fetch('/api/media/refresh-recommendations', { method: 'POST' });
     } catch {}
     window.location.reload();
+}
+
+// Quick-add bar — search as you type, one tap to save
+(function initQuickAdd() {
+    const input = document.getElementById('quick-add-input');
+    const typeFilter = document.getElementById('quick-add-type');
+    const results = document.getElementById('quick-add-results');
+    if (!input) return;
+
+    let debounce = null;
+
+    input.addEventListener('input', () => {
+        clearTimeout(debounce);
+        const q = input.value.trim();
+        if (q.length < 2) { results.classList.add('hidden'); return; }
+        debounce = setTimeout(() => searchQuickAdd(q), 300);
+    });
+
+    input.addEventListener('focus', () => {
+        if (input.value.trim().length >= 2) searchQuickAdd(input.value.trim());
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#quick-add-input') && !e.target.closest('#quick-add-results')) {
+            results.classList.add('hidden');
+        }
+    });
+
+    async function searchQuickAdd(q) {
+        const mt = typeFilter.value;
+        const url = `/api/media/search?q=${encodeURIComponent(q)}${mt ? '&media_type=' + mt : ''}`;
+        try {
+            const resp = await fetch(url);
+            if (!resp.ok) return;
+            const items = await resp.json();
+            if (!items.length) {
+                results.innerHTML = '<p class="p-3 text-xs text-txt-muted">No results found.</p>';
+                results.classList.remove('hidden');
+                return;
+            }
+            results.innerHTML = items.slice(0, 6).map(item => {
+                const badge = {movie:'bg-blue-50 text-blue-600',tv:'bg-purple-50 text-purple-600',book:'bg-amber-50 text-amber-600',podcast:'bg-green-50 text-green-600'}[item.media_type] || 'bg-gray-100 text-gray-600';
+                const img = item.image_url
+                    ? `<img src="${item.image_url}" alt="" class="w-8 h-11 object-cover rounded flex-shrink-0">`
+                    : `<div class="w-8 h-11 bg-sage/10 rounded flex items-center justify-center flex-shrink-0"><span class="text-sage text-xs font-bold">${escapeHtml((item.title||'?')[0])}</span></div>`;
+                const data = escapeAttr(JSON.stringify({
+                    external_id: item.external_id || '', source: item.source || '', title: item.title,
+                    media_type: item.media_type, image_url: item.image_url || null, year: item.year || null,
+                    creator: item.creator || null,
+                    genres: item.genres ? (Array.isArray(item.genres) ? item.genres.join(', ') : item.genres) : null,
+                    description: item.description || null, status: 'want_to_consume',
+                }));
+                return `
+                    <button onclick="quickAddSave(this, ${data})" class="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-sage/5 transition-base text-left">
+                        ${img}
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium truncate">${escapeHtml(item.title)}</p>
+                            <p class="text-[10px] text-txt-muted">${item.year || ''} ${item.creator ? '· ' + escapeHtml(item.creator) : ''}</p>
+                        </div>
+                        <span class="px-1.5 py-0.5 ${badge} text-[9px] font-medium rounded capitalize flex-shrink-0">${item.media_type}</span>
+                        <svg class="w-4 h-4 text-sage flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+                    </button>`;
+            }).join('');
+            results.classList.remove('hidden');
+        } catch {}
+    }
+})();
+
+async function quickAddSave(btn, data) {
+    btn.disabled = true;
+    try {
+        const resp = await fetch('/api/profile/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+        if (resp.ok || resp.status === 409) {
+            btn.innerHTML = '<span class="text-xs text-sage font-medium px-3">Saved ✓</span>';
+            setTimeout(() => btn.remove(), 1500);
+        } else {
+            btn.disabled = false;
+        }
+    } catch { btn.disabled = false; }
+}
+
+function escapeAttr(str) {
+    return str.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 wireRatingSlots();
