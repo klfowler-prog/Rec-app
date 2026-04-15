@@ -3702,12 +3702,24 @@ async def taste_dna_share_image(user: User = Depends(require_user), db: Session 
         elif isinstance(t, dict):
             themes.append(t.get("label") or t.get("name") or "")
 
+    # Grab poster URLs from top-rated items for the visual strip
+    poster_urls = []
+    top_items = (
+        db.query(MediaEntry.image_url)
+        .filter(MediaEntry.user_id == user.id, MediaEntry.image_url.isnot(None), MediaEntry.rating >= 8)
+        .order_by(MediaEntry.rating.desc())
+        .limit(6)
+        .all()
+    )
+    poster_urls = [r.image_url for r in top_items if r.image_url]
+
     from app.services.share_card import generate_share_card
     png_bytes = generate_share_card(
         user_name=user.name or "Anonymous",
         summary=data.get("summary", ""),
         themes=themes,
         signature_items=(data.get("signature_items") or [])[:5],
+        poster_urls=poster_urls,
     )
     return Response(content=png_bytes, media_type="image/png",
                     headers={"Content-Disposition": "inline; filename=taste-dna.png"})

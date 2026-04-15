@@ -1,35 +1,28 @@
 """Generate a shareable Taste DNA image card using Pillow.
 
-Produces a 1080x1350 PNG (Instagram portrait ratio) with:
-- Dark gradient background
-- User name + "Taste DNA" header
-- The "who you are" summary paragraph
-- Top 3 signature themes
-- Signature items as pills
-- NextUp branding at the bottom
+Produces a 1080x1350 PNG (Instagram portrait ratio) designed to
+look great when screenshotted or shared to social media. Bold
+headline, readable summary, minimal clutter, poster strip.
 """
 
 import io
+import logging
 import textwrap
 from pathlib import Path
 
+import httpx
 from PIL import Image, ImageDraw, ImageFont
 
+log = logging.getLogger(__name__)
+
 W, H = 1080, 1350
-BG_TOP = (43, 58, 78)       # navy
-BG_BOT = (30, 42, 58)       # darker navy
 SAGE = (139, 158, 107)
 CORAL = (232, 115, 74)
-WHITE = (255, 255, 255)
-WHITE_DIM = (255, 255, 255, 180)
-WHITE_FAINT = (255, 255, 255, 100)
 
 
-def _get_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
-    """Try system fonts, fall back to Pillow default."""
+def _get_font(size: int, bold: bool = False):
     candidates = [
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/System/Library/Fonts/Helvetica.ttc",
         "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
     ]
     for path in candidates:
@@ -41,7 +34,7 @@ def _get_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
     return ImageFont.load_default(size)
 
 
-def _get_italic_font(size: int) -> ImageFont.FreeTypeFont:
+def _get_italic_font(size: int):
     candidates = [
         "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Italic.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationSerif-Italic.ttf",
@@ -55,116 +48,127 @@ def _get_italic_font(size: int) -> ImageFont.FreeTypeFont:
     return _get_font(size)
 
 
+def _fetch_poster(url: str, size: tuple[int, int] = (140, 200)) -> Image.Image | None:
+    """Download a poster image and resize it. Returns None on failure."""
+    try:
+        resp = httpx.get(url, timeout=5, follow_redirects=True)
+        if resp.status_code == 200 and len(resp.content) > 1000:
+            poster = Image.open(io.BytesIO(resp.content)).convert("RGBA")
+            poster = poster.resize(size, Image.LANCZOS)
+            return poster
+    except Exception:
+        pass
+    return None
+
+
 def generate_share_card(
     user_name: str,
     summary: str,
     themes: list[str],
     signature_items: list[str],
+    poster_urls: list[str] | None = None,
 ) -> bytes:
     """Generate a shareable PNG card and return the bytes."""
-    img = Image.new("RGBA", (W, H), BG_TOP)
+    img = Image.new("RGBA", (W, H))
     draw = ImageDraw.Draw(img)
 
-    # Gradient background
+    # Rich gradient background — navy to deep navy with warm tint
     for y in range(H):
         ratio = y / H
-        r = int(BG_TOP[0] * (1 - ratio) + BG_BOT[0] * ratio)
-        g = int(BG_TOP[1] * (1 - ratio) + BG_BOT[1] * ratio)
-        b = int(BG_TOP[2] * (1 - ratio) + BG_BOT[2] * ratio)
+        r = int(38 * (1 - ratio) + 25 * ratio)
+        g = int(52 * (1 - ratio) + 35 * ratio)
+        b = int(72 * (1 - ratio) + 52 * ratio)
         draw.line([(0, y), (W, y)], fill=(r, g, b, 255))
 
-    # Decorative circles
+    # Decorative gradient orbs
     overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     od = ImageDraw.Draw(overlay)
-    # Sage orb top-right
+    for i in range(250):
+        a = int(50 * (1 - i / 250))
+        od.ellipse([W - 250 + i // 2, -120 + i // 2, W + 250 - i // 2, 380 - i // 2],
+                    fill=(SAGE[0], SAGE[1], SAGE[2], a))
     for i in range(200):
-        alpha = int(40 * (1 - i / 200))
-        od.ellipse([W - 200 + i // 2, -100 + i // 2, W + 200 - i // 2, 300 - i // 2],
-                    fill=(SAGE[0], SAGE[1], SAGE[2], alpha))
-    # Coral orb bottom-left
-    for i in range(150):
-        alpha = int(30 * (1 - i / 150))
-        od.ellipse([50 + i // 2, H - 350 + i // 2, 350 - i // 2, H - 50 - i // 2],
-                    fill=(CORAL[0], CORAL[1], CORAL[2], alpha))
+        a = int(35 * (1 - i / 200))
+        od.ellipse([-50 + i // 2, H - 400 + i // 2, 400 - i // 2, H + 50 - i // 2],
+                    fill=(CORAL[0], CORAL[1], CORAL[2], a))
     img = Image.alpha_composite(img, overlay)
     draw = ImageDraw.Draw(img)
 
     # Fonts
-    font_tiny = _get_font(20)
-    font_small = _get_font(24)
-    font_label = _get_font(22, bold=True)
-    font_name = _get_font(28, bold=True)
-    font_header = _get_font(16, bold=True)
-    font_summary = _get_italic_font(32)
-    font_theme = _get_font(26)
-    font_pill = _get_font(20)
-    font_brand = _get_font(36, bold=True)
+    font_brand = _get_font(32, bold=True)
+    font_label = _get_font(18, bold=True)
+    font_name = _get_font(52, bold=True)
+    font_summary = _get_italic_font(30)
+    font_theme = _get_font(28)
+    font_footer = _get_font(20)
 
-    y = 80
+    y = 70
 
-    # NextUp branding
+    # Brand
     draw.text((80, y), "NextUp", fill=SAGE, font=font_brand)
-    draw.text((80 + draw.textlength("NextUp  ", font=font_brand), y + 10),
-              "Taste DNA", fill=WHITE_FAINT, font=font_small)
-    y += 80
-
-    # User name
-    draw.text((80, y), f"{user_name}'s Taste DNA", fill=WHITE_DIM, font=font_name)
     y += 60
 
-    # Divider
-    draw.line([(80, y), (W - 80, y)], fill=(255, 255, 255, 40), width=1)
-    y += 40
+    # Big headline — user's first name
+    first_name = user_name.split()[0] if user_name else "Your"
+    draw.text((80, y), f"{first_name}'s", fill=(255, 255, 255, 120), font=font_name)
+    y += 65
+    draw.text((80, y), "Taste DNA", fill=(255, 255, 255, 255), font=font_name)
+    y += 90
 
-    # Summary — wrapped
-    if summary:
-        wrapped = textwrap.wrap(summary, width=42)
-        for line in wrapped[:8]:
-            draw.text((80, y), line, fill=(255, 255, 255, 230), font=font_summary)
-            y += 44
-    y += 30
-
-    # Divider
-    draw.line([(80, y), (W - 80, y)], fill=(255, 255, 255, 40), width=1)
+    # Accent line
+    draw.rounded_rectangle([80, y, 180, y + 4], radius=2, fill=SAGE)
     y += 35
 
-    # Themes
-    if themes:
-        draw.text((80, y), "SIGNATURE THEMES", fill=WHITE_FAINT, font=font_header)
-        y += 40
-        for theme in themes[:3]:
-            # Sage dot
-            draw.ellipse([80, y + 8, 92, y + 20], fill=SAGE)
-            draw.text((105, y), theme, fill=(255, 255, 255, 210), font=font_theme)
+    # Summary — the hook. Wrapped to fit.
+    if summary:
+        wrapped = textwrap.wrap(summary, width=40)
+        for line in wrapped[:7]:
+            draw.text((80, y), line, fill=(255, 255, 255, 220), font=font_summary)
             y += 42
-        y += 20
+    y += 35
 
-    # Signature items as pills
-    if signature_items:
-        draw.text((80, y), "DEFINING ITEMS", fill=WHITE_FAINT, font=font_header)
-        y += 40
-        x = 80
-        for item in signature_items[:5]:
-            tw = draw.textlength(item, font=font_pill)
-            pill_w = tw + 30
-            if x + pill_w > W - 80:
-                x = 80
-                y += 42
-            # Pill background
-            draw.rounded_rectangle([x, y, x + pill_w, y + 34], radius=17,
-                                    fill=(255, 255, 255, 25))
-            draw.text((x + 15, y + 5), item, fill=(255, 255, 255, 180), font=font_pill)
-            x += pill_w + 10
-        y += 60
+    # Themes — clean, minimal
+    if themes:
+        draw.text((80, y), "SIGNATURE THEMES", fill=(255, 255, 255, 80), font=font_label)
+        y += 38
+        for theme in themes[:3]:
+            draw.text((80, y), f"—  {theme}", fill=(255, 255, 255, 190), font=font_theme)
+            y += 40
+        y += 15
+
+    # Poster strip at the bottom — fetched from URLs
+    if poster_urls:
+        poster_y = H - 280
+        poster_w, poster_h = 140, 200
+        posters_fetched = []
+        for url in poster_urls[:6]:
+            p = _fetch_poster(url, (poster_w, poster_h))
+            if p:
+                posters_fetched.append(p)
+
+        if posters_fetched:
+            # Dark overlay strip behind posters
+            strip_overlay = Image.new("RGBA", (W, poster_h + 40), (0, 0, 0, 80))
+            img.paste(strip_overlay, (0, poster_y - 20), strip_overlay)
+
+            # Center the posters
+            total_w = len(posters_fetched) * (poster_w + 12) - 12
+            start_x = (W - total_w) // 2
+            for i, poster in enumerate(posters_fetched):
+                x = start_x + i * (poster_w + 12)
+                # Rounded corners
+                mask = Image.new("L", (poster_w, poster_h), 0)
+                mask_draw = ImageDraw.Draw(mask)
+                mask_draw.rounded_rectangle([0, 0, poster_w, poster_h], radius=10, fill=255)
+                img.paste(poster, (x, poster_y), mask)
+
+            draw = ImageDraw.Draw(img)
 
     # Footer
-    y = H - 80
-    draw.line([(80, y - 20), (W - 80, y - 20)], fill=(255, 255, 255, 30), width=1)
-    draw.text((80, y), "Find your next thing", fill=WHITE_FAINT, font=font_tiny)
-    draw.text((W - 80 - draw.textlength("nextup.app", font=font_tiny), y),
-              "nextup.app", fill=WHITE_FAINT, font=font_tiny)
+    footer_y = H - 60
+    draw.text((80, footer_y), "Find yours at nextup.app", fill=(255, 255, 255, 80), font=font_footer)
 
-    # Convert to PNG bytes
+    # Output
     buf = io.BytesIO()
     img.convert("RGB").save(buf, format="PNG", quality=95)
     buf.seek(0)
