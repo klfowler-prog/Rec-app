@@ -141,6 +141,21 @@
             {% endfor %}
         </div>
     </div>
+    {% else %}
+    <!-- No items in progress — prompt user to add what they're into -->
+    <a href="/search" class="block relative overflow-hidden rounded-2xl transition-all hover:scale-[1.01] hover:shadow-lg group" style="background: linear-gradient(135deg, #E8734A 0%, #C55A34 100%);">
+        <div class="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-8 translate-x-8"></div>
+        <div class="relative z-10 p-5 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center flex-shrink-0">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <div class="text-white flex-1">
+                <p class="text-base font-bold group-hover:text-cream transition-base">What are you into right now?</p>
+                <p class="text-sm text-white/70">Tell us the show you're binging, the book on your nightstand, or the podcast in your ears. We'll use it to find your next thing.</p>
+            </div>
+            <svg class="w-5 h-5 text-white/50 flex-shrink-0 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </div>
+    </a>
     {% endif %}
 
     <!-- ============================================================
@@ -315,7 +330,7 @@
                 <p class="text-base md:text-lg font-bold">Invite your people to unlock Together mode</p>
                 <p class="text-sm text-white/75 leading-relaxed mt-0.5">Together finds movies, shows, and books everyone will love — but it needs your friends and family on NextUp first. Share the link and I'll add them for access.</p>
                 {% else %}
-                <p class="text-base md:text-lg font-bold">Find something to watch with someone</p>
+                <p class="text-base md:text-lg font-bold">Find something to enjoy together</p>
                 <p class="text-sm text-white/75 leading-relaxed mt-0.5">You're paired with <span class="font-semibold text-white">{{ together_partner_count }}</span> {% if together_partner_count == 1 %}person{% else %}people{% endif %} on NextUp. Compare your taste to land on picks you'll both love — or invite more family to join.</p>
                 {% endif %}
             </div>

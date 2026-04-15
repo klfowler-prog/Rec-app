@@ -214,10 +214,12 @@ def load_quiz_results(db, user_id: int) -> dict:
 # item scene tags. Keep this list in sync with the chip list in
 # templates/onboarding.html.
 ONBOARDING_SCENES = [
-    "anime", "action_thriller", "comedy", "horror", "scifi_fantasy",
-    "prestige_drama", "romance", "true_crime", "sports", "music",
-    "gaming_culture", "k_content", "reality_tv", "indie_arthouse",
-    "docs_nonfiction", "kids_family",
+    "feelgood_comfort", "comedy", "romance", "action_thriller",
+    "suspense_mystery", "horror", "scifi_fantasy", "prestige_drama",
+    "true_crime", "history_war", "cooking_food", "self_improvement",
+    "faith_family", "docs_nonfiction", "sports", "anime",
+    "k_content", "gaming_culture", "music", "reality_tv",
+    "indie_arthouse", "kids_family",
 ]
 ONBOARDING_GENERATIONS = ["gen_z", "millennial", "classic", "mix"]
 ONBOARDING_MEDIA_TYPES = ["movie", "tv", "book_fiction", "book_nonfiction", "podcast"]
