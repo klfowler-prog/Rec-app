@@ -3747,7 +3747,7 @@ async def taste_dna_share_image(
                 MediaEntry.image_url.isnot(None),
                 MediaEntry.rating >= 9,
             )
-            .order_by(MediaEntry.rating.desc())
+            .order_by(MediaEntry.rated_at.desc().nullslast())
             .limit(4)
             .all()
         )

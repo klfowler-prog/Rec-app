@@ -95,13 +95,13 @@ def generate_share_card(
     img = Image.alpha_composite(img, overlay)
     draw = ImageDraw.Draw(img)
 
-    # Fonts
-    font_brand = _get_font(32, bold=True)
-    font_label = _get_font(18, bold=True)
-    font_name = _get_font(52, bold=True)
-    font_summary = _get_italic_font(30)
-    font_theme = _get_font(28)
-    font_footer = _get_font(20)
+    # Fonts — sized for readability on phone screens
+    font_brand = _get_font(40, bold=True)
+    font_label = _get_font(22, bold=True)
+    font_name = _get_font(62, bold=True)
+    font_summary = _get_italic_font(36)
+    font_theme = _get_font(32)
+    font_footer = _get_font(24)
 
     y = 70
 
@@ -133,10 +133,10 @@ def generate_share_card(
         if not truncated and sentences:
             truncated = sentences[0][:260]
 
-        wrapped = textwrap.wrap(truncated, width=40)
+        wrapped = textwrap.wrap(truncated, width=35)
         for line in wrapped[:6]:
             draw.text((80, y), line, fill=(255, 255, 255, 220), font=font_summary)
-            y += 42
+            y += 48
     y += 35
 
     # Themes — clean, minimal
@@ -145,7 +145,7 @@ def generate_share_card(
         y += 38
         for theme in themes[:3]:
             draw.text((80, y), f"-  {theme}", fill=(255, 255, 255, 190), font=font_theme)
-            y += 40
+            y += 46
         y += 15
 
     # Poster strip at the bottom — fetched from URLs
