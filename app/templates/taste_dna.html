@@ -262,41 +262,41 @@
         </div>
     </div>
 
-    <!-- Share card overlay — designed for screenshots -->
-    <div id="share-overlay" class="fixed inset-0 bg-black/60 z-50 hidden items-center justify-center p-4" onclick="if(event.target===this)closeShareCard()">
-        <div class="relative max-w-lg w-full">
-            <button onclick="closeShareCard()" class="absolute -top-10 right-0 text-white/60 hover:text-white text-sm">Close</button>
-            <div id="share-card" class="rounded-2xl overflow-hidden shadow-2xl" style="background: linear-gradient(135deg, #2B3A4E 0%, #1E2A3A 60%, #2B3A4E 100%);">
-                <div class="relative p-8 pb-6">
-                    <!-- Decorative orbs -->
-                    <div class="absolute top-0 right-0 w-32 h-32 rounded-full -translate-y-12 translate-x-12" style="background: radial-gradient(circle, rgba(139,158,107,0.3) 0%, transparent 70%);"></div>
-                    <div class="absolute bottom-0 left-8 w-20 h-20 rounded-full translate-y-8" style="background: radial-gradient(circle, rgba(232,115,74,0.2) 0%, transparent 70%);"></div>
-
-                    <div class="relative z-10">
-                        <div class="flex items-center gap-2 mb-5">
-                            <img src="/static/img/a_vector_style_digital_vector_logo_for_nextup_fe.png" alt="NextUp" class="w-20 opacity-80">
-                            <span class="text-white/40 text-xs">Taste DNA</span>
+    <!-- Share overlay — preview + share buttons -->
+    <div id="share-overlay" class="fixed inset-0 bg-black/70 z-50 hidden items-center justify-center p-4" onclick="if(event.target===this)closeShareCard()">
+        <div class="relative max-w-md w-full">
+            <button onclick="closeShareCard()" class="absolute -top-10 right-0 text-white/60 hover:text-white text-sm inline-flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                Close
+            </button>
+            <div class="bg-surface-light dark:bg-surface-dark rounded-2xl overflow-hidden shadow-2xl">
+                <!-- Preview image -->
+                <div class="relative">
+                    <img id="share-card-img" src="" alt="Your Taste DNA" class="w-full rounded-t-2xl">
+                    <div id="share-card-loading" class="absolute inset-0 flex items-center justify-center bg-navy rounded-t-2xl">
+                        <div class="text-center">
+                            <div class="inline-block w-6 h-6 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
+                            <p class="text-white/60 text-xs mt-2">Generating your card...</p>
                         </div>
-
-                        <p id="share-card-name" class="text-white/50 text-xs uppercase tracking-widest font-semibold mb-3"></p>
-                        <p id="share-card-summary" class="text-white/95 text-base md:text-lg leading-relaxed font-serif italic mb-6"></p>
-
-                        <div id="share-card-themes" class="space-y-2 mb-6"></div>
-
-                        <div id="share-card-signatures" class="flex gap-2 overflow-hidden"></div>
                     </div>
                 </div>
-                <div class="px-8 py-4 border-t border-white/10 flex items-center justify-between">
-                    <p class="text-white/30 text-[10px]">nextup-92258609954.us-central1.run.app</p>
-                    <p class="text-white/30 text-[10px]">Find your next thing</p>
+                <!-- Share buttons -->
+                <div class="p-5 space-y-3">
+                    <button onclick="nativeShare()" id="native-share-btn" class="w-full px-5 py-3 bg-sage hover:bg-sage-dark text-white rounded-xl text-sm font-semibold transition-base inline-flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+                        Share to...
+                    </button>
+                    <div class="flex gap-2">
+                        <button onclick="downloadShareImage()" class="flex-1 px-4 py-2.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-xl text-xs font-medium hover:border-sage transition-base inline-flex items-center justify-center gap-1.5">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                            Save image
+                        </button>
+                        <button onclick="copyShareText()" class="flex-1 px-4 py-2.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-xl text-xs font-medium hover:border-sage transition-base inline-flex items-center justify-center gap-1.5">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                            Copy text
+                        </button>
+                    </div>
                 </div>
-            </div>
-            <div class="flex justify-center gap-3 mt-4">
-                <button onclick="copyShareText()" class="px-5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm font-medium transition-base inline-flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10"/></svg>
-                    Copy text
-                </button>
-                <p class="text-white/40 text-xs self-center">Screenshot this card to share</p>
             </div>
         </div>
     </div>
@@ -323,47 +323,81 @@
 // Share card state — populated when DNA loads
 let _dnaData = null;
 
-function openShareCard() {
+let _shareImageBlob = null;
+
+async function openShareCard() {
     if (!_dnaData) return;
     const overlay = document.getElementById('share-overlay');
-
-    // Name
-    document.getElementById('share-card-name').textContent = "{{ user.name }}'s Taste DNA";
-
-    // Summary
-    document.getElementById('share-card-summary').textContent = _dnaData.summary || '';
-
-    // Top 3 themes
-    const themes = (_dnaData.themes || []).slice(0, 3);
-    document.getElementById('share-card-themes').innerHTML = themes.map(t => {
-        const label = typeof t === 'string' ? t : (t.label || t.name || '');
-        return `<div class="flex items-center gap-2">
-            <span class="w-1.5 h-1.5 rounded-full bg-sage flex-shrink-0"></span>
-            <span class="text-white/80 text-sm">${escapeHtml(label)}</span>
-        </div>`;
-    }).join('');
-
-    // Signature items as small poster tiles
-    const sigs = (_dnaData.signature_items || []).slice(0, 5);
-    document.getElementById('share-card-signatures').innerHTML = sigs.map(title => {
-        return `<span class="px-2.5 py-1 bg-white/10 rounded-full text-white/70 text-[11px] font-medium whitespace-nowrap">${escapeHtml(title)}</span>`;
-    }).join('');
+    const img = document.getElementById('share-card-img');
+    const loading = document.getElementById('share-card-loading');
 
     overlay.classList.remove('hidden');
     overlay.classList.add('flex');
+    loading.classList.remove('hidden');
+    img.classList.add('hidden');
+
+    // Fetch the server-generated image
+    try {
+        const resp = await fetch('/api/media/taste-dna/share-image');
+        if (!resp.ok) throw new Error('Failed');
+        _shareImageBlob = await resp.blob();
+        img.src = URL.createObjectURL(_shareImageBlob);
+        img.onload = () => {
+            loading.classList.add('hidden');
+            img.classList.remove('hidden');
+        };
+    } catch {
+        loading.innerHTML = '<p class="text-white/60 text-sm">Could not generate card. Try again.</p>';
+    }
+
+    // Hide native share button if not supported
+    if (!navigator.share || !navigator.canShare) {
+        document.getElementById('native-share-btn').classList.add('hidden');
+    }
 }
 
 function closeShareCard() {
-    const overlay = document.getElementById('share-overlay');
-    overlay.classList.add('hidden');
-    overlay.classList.remove('flex');
+    document.getElementById('share-overlay').classList.add('hidden');
+    document.getElementById('share-overlay').classList.remove('flex');
 }
 
-async function copyShareText() {
-    if (!_dnaData) return;
+async function nativeShare() {
+    if (!_shareImageBlob) return;
+    const file = new File([_shareImageBlob], 'taste-dna.png', { type: 'image/png' });
+    const shareData = {
+        title: 'My Taste DNA',
+        text: 'Check out my Taste DNA from NextUp — it maps how I engage with movies, TV, books, and podcasts.',
+        files: [file],
+    };
+    try {
+        if (navigator.canShare && navigator.canShare(shareData)) {
+            await navigator.share(shareData);
+        } else {
+            // Fallback: share without image
+            await navigator.share({
+                title: 'My Taste DNA',
+                text: _getShareText(),
+                url: window.location.origin + '/welcome',
+            });
+        }
+    } catch {}
+}
+
+function downloadShareImage() {
+    if (!_shareImageBlob) return;
+    const url = URL.createObjectURL(_shareImageBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'taste-dna.png';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function _getShareText() {
+    if (!_dnaData) return '';
     const themes = (_dnaData.themes || []).slice(0, 3).map(t => typeof t === 'string' ? t : (t.label || t.name || '')).filter(Boolean);
     const sigs = (_dnaData.signature_items || []).slice(0, 5);
-    const text = [
+    return [
         "My Taste DNA (via NextUp)",
         "",
         _dnaData.summary || '',
@@ -373,11 +407,15 @@ async function copyShareText() {
         "",
         `What's yours? ${window.location.origin}/welcome`,
     ].filter(Boolean).join("\n");
+}
 
+async function copyShareText() {
     try {
-        await navigator.clipboard.writeText(text);
-        event.target.textContent = 'Copied ✓';
-        setTimeout(() => { event.target.textContent = 'Copy text'; }, 2000);
+        await navigator.clipboard.writeText(_getShareText());
+        const btn = event.currentTarget;
+        const original = btn.innerHTML;
+        btn.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Copied';
+        setTimeout(() => { btn.innerHTML = original; }, 2000);
     } catch {}
 }
 

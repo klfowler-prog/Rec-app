@@ -3682,6 +3682,37 @@ Return ONLY valid JSON, no markdown:
         return {"related": {}, "adaptation": None}
 
 
+@router.get("/taste-dna/share-image")
+async def taste_dna_share_image(user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """Generate a shareable PNG image of the user's Taste DNA card."""
+    from fastapi.responses import Response
+
+    from app import cache
+
+    # Get the cached taste DNA data
+    cache_key = f"taste_dna:{user.id}"
+    data = cache.get(cache_key)
+    if not data or not data.get("themes"):
+        raise HTTPException(status_code=404, detail="No taste DNA data — visit My Taste first")
+
+    themes = []
+    for t in (data.get("themes") or [])[:3]:
+        if isinstance(t, str):
+            themes.append(t)
+        elif isinstance(t, dict):
+            themes.append(t.get("label") or t.get("name") or "")
+
+    from app.services.share_card import generate_share_card
+    png_bytes = generate_share_card(
+        user_name=user.name or "Anonymous",
+        summary=data.get("summary", ""),
+        themes=themes,
+        signature_items=(data.get("signature_items") or [])[:5],
+    )
+    return Response(content=png_bytes, media_type="image/png",
+                    headers={"Content-Disposition": "inline; filename=taste-dna.png"})
+
+
 @router.get("/{media_type}/{external_id}")
 async def get_media_detail(media_type: str, external_id: str, source: str = ""):
     """Get detailed info for a specific media item."""
