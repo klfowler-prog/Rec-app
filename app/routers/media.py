@@ -3708,8 +3708,20 @@ async def taste_dna_share_image(
     if not target_user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    cache_key = f"taste_dna:{target_user_id}"
-    data = cache.get(cache_key)
+    import base64
+
+    # Check if we have a cached image already
+    img_cache_key = f"share_image:{target_user_id}"
+    cached_img = cache.get(img_cache_key)
+    if cached_img:
+        png_bytes = base64.b64decode(cached_img)
+        return Response(content=png_bytes, media_type="image/png",
+                        headers={"Content-Disposition": "inline; filename=taste-dna.png",
+                                 "Cache-Control": "public, max-age=86400"})
+
+    # Generate from taste DNA data
+    dna_key = f"taste_dna:{target_user_id}"
+    data = cache.get(dna_key)
     if not data or not data.get("themes"):
         raise HTTPException(status_code=404, detail="No taste DNA data — visit My Taste first")
 
@@ -3720,7 +3732,6 @@ async def taste_dna_share_image(
         elif isinstance(t, dict):
             themes.append(t.get("label") or t.get("name") or "")
 
-    # Grab poster URLs from top-rated items for the visual strip
     poster_urls = []
     top_items = (
         db.query(MediaEntry.image_url)
@@ -3739,8 +3750,13 @@ async def taste_dna_share_image(
         signature_items=(data.get("signature_items") or [])[:5],
         poster_urls=poster_urls,
     )
+
+    # Cache the generated image (base64) for 7 days so OG crawlers can fetch it
+    cache.set(img_cache_key, base64.b64encode(png_bytes).decode(), ttl_seconds=604800)
+
     return Response(content=png_bytes, media_type="image/png",
-                    headers={"Content-Disposition": "inline; filename=taste-dna.png"})
+                    headers={"Content-Disposition": "inline; filename=taste-dna.png",
+                             "Cache-Control": "public, max-age=86400"})
 
 
 @router.get("/{media_type}/{external_id}")
