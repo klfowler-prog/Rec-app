@@ -99,6 +99,7 @@ async function loadDetail() {
         const resp = await fetch(`/api/media/${MEDIA_TYPE}/${EXTERNAL_ID}?source=${SOURCE}`);
         if (!resp.ok) throw new Error('Not found');
         currentMedia = await resp.json();
+        if (!currentMedia || !currentMedia.title) throw new Error('No data');
 
         // Fill in the details
         document.getElementById('detail-title').textContent = currentMedia.title;
@@ -178,7 +179,11 @@ async function loadDetail() {
         // Load cross-medium related items
         loadRelated();
     } catch (err) {
-        detailLoading.innerHTML = `<p class="text-txt-muted">Could not load details for this item.</p>`;
+        detailLoading.innerHTML = `
+            <div class="text-center space-y-3">
+                <p class="text-txt-muted">Could not load details for this item.</p>
+                <a href="/search" class="inline-block px-4 py-2 bg-sage text-white rounded-lg text-sm font-medium hover:bg-sage-dark transition-base">Search for it instead</a>
+            </div>`;
     }
 }
 

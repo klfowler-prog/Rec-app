@@ -3684,4 +3684,7 @@ async def get_media_detail(media_type: str, external_id: str, source: str = ""):
     """Get detailed info for a specific media item."""
     from app.services.unified_search import get_detail
 
-    return await get_detail(media_type, external_id, source)
+    result = await get_detail(media_type, external_id, source)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return result
