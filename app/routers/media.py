@@ -3736,9 +3736,19 @@ async def taste_dna_share_image(
             themes.append(t.get("label") or t.get("name") or "")
 
     # Pick 2 posters per media type (movie, TV, book) for a visual mix.
-    # Skip self-help/practical books — they don't look good on a taste card.
+    # For books, skip self-help/practical titles — check both genres and title.
     _SKIP_GENRES = {"self-help", "psychology", "self help", "business", "advice",
-                    "how-to", "productivity", "wellness", "dysfunctional"}
+                    "how-to", "productivity", "wellness", "dysfunctional",
+                    "nyt:advice"}
+    _SKIP_TITLE_WORDS = {"how to", "self-help", "habit", "mindset", "emotionally",
+                         "people-pleaser", "healing", "trauma", "conversations on",
+                         "children of", "brain that changes", "keep moving"}
+
+    def _is_practical_book(item):
+        g = (item.genres or "").lower()
+        t = (item.title or "").lower()
+        return any(s in g for s in _SKIP_GENRES) or any(s in t for s in _SKIP_TITLE_WORDS)
+
     poster_urls = []
     for mt in ["movie", "tv", "book"]:
         items = (
@@ -3750,30 +3760,18 @@ async def taste_dna_share_image(
                 MediaEntry.rating >= 9,
             )
             .order_by(MediaEntry.rated_at.desc().nullslast())
-            .limit(8)
+            .limit(10)
             .all()
         )
         added = 0
         for item in items:
             if added >= 2:
                 break
-            # Skip self-help/practical for books
-            if mt == "book" and item.genres:
-                genres_lower = item.genres.lower()
-                if any(g in genres_lower for g in _SKIP_GENRES):
-                    continue
-            if item.image_url and "openlibrary.org" not in item.image_url:
+            if mt == "book" and _is_practical_book(item):
+                continue
+            if item.image_url:
                 poster_urls.append(item.image_url)
                 added += 1
-        # OL fallback if needed
-        if added < 2:
-            for item in items:
-                if added >= 2:
-                    break
-                if item.image_url and "openlibrary.org" in item.image_url:
-                    if mt != "book" or not item.genres or not any(g in item.genres.lower() for g in _SKIP_GENRES):
-                        poster_urls.append(item.image_url)
-                        added += 1
     poster_urls = poster_urls[:6]
 
     from app.services.share_card import generate_share_card
