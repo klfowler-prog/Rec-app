@@ -432,12 +432,11 @@ async function homeQuickStatus(entryId, newStatus, btn) {
 async function copyTogetherInvite(btn) {
     const welcomeUrl = `${window.location.origin}/welcome`;
     const message = [
-        "I'm using NextUp to track movies, shows, books, and podcasts and get recs that actually fit my taste.",
+        "I've been using NextUp — it tracks the movies, shows, books, and podcasts you love and gives you recommendations that actually fit your taste.",
         "",
-        "It has a Together mode that compares our taste profiles and picks things we'll both love.",
-        `Check it out: ${welcomeUrl}`,
+        "It also has a Together mode where it compares our taste profiles and finds things we'd both enjoy.",
         "",
-        "Reply with the email you'd use to sign in and I'll get you added — access is invite-only.",
+        `Sign up free with your Google account: ${welcomeUrl}`,
     ].join("\n");
 
     const label = btn.querySelector('[data-copy-label]');
