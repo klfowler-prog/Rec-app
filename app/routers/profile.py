@@ -433,21 +433,23 @@ def list_dismissed(user: User = Depends(require_user), db: Session = Depends(get
 @router.post("/backfill-posters")
 async def backfill_posters(user: User = Depends(require_user), db: Session = Depends(get_db)):
     """Re-search external APIs for profile entries that are missing an
-    image_url, and update them in place. Used to clean up items that
-    were imported before the poster-matching improvements landed."""
+    image_url or description, and update them in place."""
     from app.services.itunes import search as search_podcasts
     from app.services.unified_search import search_books
     from app.services.tmdb import search as search_tmdb
 
     missing = (
         db.query(MediaEntry)
-        .filter(MediaEntry.user_id == user.id, MediaEntry.image_url.is_(None))
+        .filter(
+            MediaEntry.user_id == user.id,
+            (MediaEntry.image_url.is_(None)) | (MediaEntry.description.is_(None)),
+        )
         .all()
     )
     if not missing:
         return {"checked": 0, "updated": 0}
 
-    async def find_cover(entry: MediaEntry) -> str | None:
+    async def find_and_patch(entry: MediaEntry) -> bool:
         try:
             if entry.media_type == "book":
                 query = f"{entry.title} {entry.creator}" if entry.creator else entry.title
@@ -457,36 +459,37 @@ async def backfill_posters(user: User = Depends(require_user), db: Session = Dep
             elif entry.media_type == "podcast":
                 matches = await search_podcasts(entry.title)
             else:
-                return None
+                return False
         except Exception:
-            return None
+            return False
 
         if not matches:
-            return None
+            return False
 
         title_lower = entry.title.lower().strip()
-        # Prefer an exact/startswith title match that also has an image.
+        best = matches[0]
         for m in matches:
-            if not m.image_url:
-                continue
             mt = m.title.lower().strip()
-            if mt == title_lower or mt.startswith(title_lower) or title_lower.startswith(mt):
-                return m.image_url
-        # Fall back to the first result with an image.
-        for m in matches:
-            if m.image_url:
-                return m.image_url
-        return None
+            if (mt == title_lower or mt.startswith(title_lower) or title_lower.startswith(mt)) and m.image_url:
+                best = m
+                break
+
+        changed = False
+        if not entry.image_url and best.image_url:
+            entry.image_url = best.image_url
+            changed = True
+        if not entry.description and best.description:
+            entry.description = best.description
+            changed = True
+        return changed
 
     updated = 0
-    # Process in batches to avoid hammering the APIs.
     batch_size = 8
     for i in range(0, len(missing), batch_size):
         batch = missing[i : i + batch_size]
-        covers = await asyncio.gather(*[find_cover(e) for e in batch])
-        for entry, cover in zip(batch, covers):
-            if cover:
-                entry.image_url = cover
+        results = await asyncio.gather(*[find_and_patch(e) for e in batch], return_exceptions=True)
+        for r in results:
+            if r is True:
                 updated += 1
         db.commit()
 
