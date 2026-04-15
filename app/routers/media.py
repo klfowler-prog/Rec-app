@@ -8,7 +8,7 @@ from app.auth import require_user
 
 log = logging.getLogger(__name__)
 from app.database import get_db
-from app.models import User
+from app.models import MediaEntry, User
 from app.schemas import MediaResult
 
 router = APIRouter()
