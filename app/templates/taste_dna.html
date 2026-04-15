@@ -359,9 +359,10 @@ async function openShareCard() {
     loading.classList.remove('hidden');
     img.classList.add('hidden');
 
-    // Fetch the server-generated image
+    // Always fetch fresh — cache-bust with timestamp
+    _shareImageBlob = null;
     try {
-        const resp = await fetch('/api/media/taste-dna/share-image?refresh=1');
+        const resp = await fetch(`/api/media/taste-dna/share-image?refresh=1&_=${Date.now()}`);
         if (!resp.ok) throw new Error('Failed');
         _shareImageBlob = await resp.blob();
         img.src = URL.createObjectURL(_shareImageBlob);
