@@ -2,6 +2,74 @@
 
 ## Rebrand: NextUp → StorySignal
 
+### Brand Concept: "Your taste has a signal. We read it."
+
+The word "signal" threads through every surface to create a cohesive language users internalize. The goal: people say "What's your signal?" to mean "what does your personalized AI think about how you'll feel about something?"
+
+### Vocabulary Mapping
+
+| Current term | StorySignal term | Where it shows up |
+|---|---|---|
+| Predicted rating (7.5) | Signal strength (7.5) | Cards, queue, library — every card badge |
+| Taste DNA | Your Signal | My Taste page, share card |
+| Taste profile | Signal profile | Onboarding, settings |
+| "Sharpen your recs" | "Strengthen your signal" | Home rating batch |
+| "Best bet" | "Strongest signal" | Discover, home |
+| Fit score badge | Signal badge | Every card with a predicted score |
+| "Based on your taste" | "Your signal says..." | AI commentary, reasons |
+| Quiz results | Signal calibration | Quiz completion screen |
+| Resonance (heart on progress cards) | Signal boost | Home currently-into cards |
+| Dismissed items | Noise | "Mark as noise" instead of "skip" |
+| Abandoned | Lost signal | Status for things you dropped |
+
+### What NOT to rename
+- "Later / Now / Watched / Dropped" — clear action verbs, keep literal
+- Media type labels (Movie, TV, Book, Podcast)
+- "Library" — universally understood
+- Basic navigation (Home, Discover, Search, Add)
+
+### Surface-by-Surface Implementation
+
+**1. Signal badge (predicted rating)**
+- Replace colored number circle with signal-wave icon + number
+- "Signal: 8.5" instead of plain "8.5"
+- Appears on every movie/TV/book/podcast card across the app
+
+**2. "Your Signal" page (currently Taste DNA)**
+- Rename page + nav to "My Signal"
+- Share card headline: "Leann's Signal"
+- "Check out my Signal" as social CTA
+- Share prompt: "What's your signal?"
+
+**3. Onboarding**
+- "Let's calibrate your signal" instead of "Build your taste profile"
+- Quizzes become "signal calibration"
+- Completion screen: "Signal locked in"
+
+**4. Discover page**
+- "Strongest signals" instead of "Your best bets"
+- Theme sections: "Signals for tonight" / "Signals for winding down"
+- AI chat: "Based on your signal, here's what I'd pick..."
+
+**5. Together mode**
+- "Compare signals" instead of "Compare tastes"
+- "Signal overlap: 73%" as compatibility score
+- "Where your signals align" for shared recommendations
+
+**6. Daily habit / rating flow**
+- Rating feedback: "Signal updated" with brief animation
+- Rating batch header: "Strengthen your signal"
+- Subtext: "More data, stronger signal"
+
+**7. Social / sharing**
+- Share card: "My Signal" with summary
+- New user CTA: "What's your signal?"
+- Welcome page: "Every movie you love, every book you can't put down, every show you binge — it's all signal. StorySignal reads it and connects the dots."
+
+**8. Future: notifications**
+- "New signal match: X just landed on Netflix"
+- "Your signal updated — 3 new picks on Discover"
+
 ### Code/Template Changes (31 occurrences)
 - [ ] `app/main.py` — FastAPI app title
 - [ ] `app/services/recommendation.py` — AI system prompt
