@@ -302,9 +302,12 @@ async def taste_dna_page(request: Request, user: User = Depends(require_user), d
 
     onboarding_display = get_onboarding_display(load_onboarding(db, user.id))
 
+    from app.services.signal_strength import calculate_signal
+    signal = calculate_signal(db, user.id)
+
     return templates.TemplateResponse(
         "taste_dna.html",
-        {"request": request, "user": user, "quiz_status": quiz_status, "onboarding_display": onboarding_display},
+        {"request": request, "user": user, "quiz_status": quiz_status, "onboarding_display": onboarding_display, "signal": signal},
     )
 
 

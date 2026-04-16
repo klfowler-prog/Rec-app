@@ -21,18 +21,18 @@
             </span>
             <div class="flex-1">
                 <h3 class="text-base font-semibold mb-1">
-                    {% if qs.get('completed_count', 0) == 0 %}
-                    Sharpen your Taste DNA with a quick quiz
+                    {% if signal.level <= 2 %}
+                    Strengthen your signal
+                    {% elif qs.get('completed_count', 0) == 0 %}
+                    Go deeper with a taste quiz
                     {% else %}
                     Finish your Taste DNA — {{ qs.get('total', 3) - qs.get('completed_count', 0) }} more to go
                     {% endif %}
                 </h3>
                 <p class="text-sm text-txt-muted leading-relaxed">
-                    {% if qs.get('completed_count', 0) == 0 %}
-                    Your taste DNA builds from every rating, but a quick structured quiz per medium — movies, TV, books — reveals things ratings alone can't. Pick one to start.
-                    {% else %}
-                    You've done {{ qs.get('completed_count', 0) }} of {{ qs.get('total', 3) }}. The more media types you cover, the more cross-medium patterns your recommendations can draw from.
-                    {% endif %}
+                    You've rated {{ signal.rated_count }} items. Your recommendation signal is
+                    {% if signal.level <= 1 %}<span class="text-coral font-medium">just getting started</span>{% elif signal.level == 2 %}<span class="text-amber-500 font-medium">building</span>{% elif signal.level == 3 %}<span class="text-sage font-medium">strong</span>{% elif signal.level == 4 %}<span class="text-emerald-500 font-medium">deep</span>{% else %}<span class="text-emerald-500 font-medium">full</span>{% endif %}.
+                    {% if signal.level < 3 %}Take a quiz or add more items to strengthen your unique Taste DNA.{% elif qs.get('completed_count', 0) < 3 %}Take a quiz to sharpen dimensions that individual ratings can't capture.{% else %}Keep rating to make your recommendations even more personal.{% endif %}
                 </p>
             </div>
         </div>
