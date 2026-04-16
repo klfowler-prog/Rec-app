@@ -97,19 +97,19 @@ def _build_nudge(rated: int, type_counts: dict, quizzes_done: int, level: int) -
 
     # Priority 3: Quizzes
     if quizzes_done == 0 and rated >= 10:
-        return "Take a 5-minute taste quiz — it's worth 20 individual ratings for recommendation quality."
+        return "Want better, more personalized recommendations? Take a 5-minute taste quiz."
     if quizzes_done == 1 and rated >= 15:
-        return f"You've done 1 of 3 quizzes. Each one sharpens a different dimension of your taste."
+        return f"You've done 1 of 3 quizzes — each one sharpens a different dimension of your taste."
 
     # Priority 4: General progress
     if rated < 25:
-        return f"You're {25 - rated} items away from Strong Signal — bulk add titles you've already seen."
+        return f"Add {25 - rated} more items to unlock stronger recommendations."
     if rated < 50:
-        return f"You're {50 - rated} items from Deep Signal. The more you add, the more personal your recommendations get."
+        return f"{50 - rated} more items until your recommendations get deeply personal."
     if rated < 100:
-        return f"You're at Deep Signal with {rated} items. Keep rating to unlock Full Signal at 100."
+        return f"Keep rating — {100 - rated} more to unlock the best recommendations possible."
 
-    return "Full signal — your recommendations are as personal as they get."
+    return "Your recommendations are as personal as they get."
 
 
 # Celebration messages when crossing a level boundary
