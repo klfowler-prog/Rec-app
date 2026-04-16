@@ -122,19 +122,19 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
         .all()
     )
 
-    # "Up next on your list" — the queue, sorted so the highest-confidence
-    # pick is first. Predicted rating descending puts the items the model
-    # thinks the user will love at the front of the swim lane.
-    up_next = (
-        db.query(MediaEntry)
-        .filter(
-            MediaEntry.user_id == user.id,
-            MediaEntry.status == "want_to_consume",
-        )
-        .order_by(MediaEntry.predicted_rating.desc().nullslast(), MediaEntry.created_at.desc())
-        .limit(6)
-        .all()
+    # "Up next on your list" — sortable queue
+    queue_sort = request.query_params.get("queue_sort", "predicted")
+    up_next_query = db.query(MediaEntry).filter(
+        MediaEntry.user_id == user.id,
+        MediaEntry.status == "want_to_consume",
     )
+    if queue_sort == "recent":
+        up_next_query = up_next_query.order_by(MediaEntry.created_at.desc())
+    elif queue_sort == "title":
+        up_next_query = up_next_query.order_by(MediaEntry.title.asc())
+    else:
+        up_next_query = up_next_query.order_by(MediaEntry.predicted_rating.desc().nullslast(), MediaEntry.created_at.desc())
+    up_next = up_next_query.limit(6).all()
 
     # "Your best bet this week" — single hero card, one media type per
     # day. We rotate by day-of-year so each user sees movie / tv / book /
