@@ -92,6 +92,16 @@ def _build_profile_context(db: Session, user_id: int) -> str:
         lines.append("### DO NOT RECOMMEND — already in their library:")
         lines.append(", ".join(avoid_titles))
 
+    # Streaming services
+    from app.services.taste_quiz_scoring import load_streaming_services
+    from app.services.tmdb import TIER1_PROVIDERS
+    user_services = load_streaming_services(db, user_id)
+    if user_services:
+        service_names = [TIER1_PROVIDERS.get(pid, f"Service {pid}") for pid in user_services]
+        lines.append("")
+        lines.append(f"### Streaming Services: {', '.join(service_names)}")
+        lines.append("Favor movies and TV available on these services when possible.")
+
     return "\n".join(lines)
 
 

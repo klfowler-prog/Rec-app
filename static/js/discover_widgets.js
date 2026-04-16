@@ -142,9 +142,9 @@
                         ${pick.year ? `<span class="text-xs text-txt-muted">${pick.year}</span>` : ''}
                     </div>
                     <a href="${link}" class="text-sm font-semibold hover:text-sage transition-base block">${escapeHtml(pick.title)}</a>
+                    ${typeof renderProviderBadges === 'function' && pick.watch_providers ? renderProviderBadges(pick.watch_providers) : ''}
                     ${pick.reason ? `<p class="text-xs text-txt-muted leading-relaxed mt-1">${escapeHtml(pick.reason)}</p>` : ''}
                     ${anchorLine}
-                    ${typeof renderProviderBadges === 'function' && pick.watch_providers ? renderProviderBadges(pick.watch_providers) : ''}
                     <div class="mt-3 quick-add-area">${actions}</div>
                 </div>
             </div>`;
@@ -237,8 +237,8 @@
                         ${item.year ? `<span class="text-[11px] text-txt-muted">${item.year}</span>` : ''}
                     </div>
                     <a href="${link}" class="text-xs font-semibold hover:text-sage transition-base block truncate">${escapeHtml(item.title)}</a>
-                    ${item.reason ? `<p class="text-[11px] text-txt-muted leading-snug mt-1 line-clamp-2">${escapeHtml(item.reason)}</p>` : ''}
                     ${typeof renderProviderBadges === 'function' && item.watch_providers ? renderProviderBadges(item.watch_providers) : ''}
+                    ${item.reason ? `<p class="text-[11px] text-txt-muted leading-snug mt-1 line-clamp-2">${escapeHtml(item.reason)}</p>` : ''}
                     <div class="mt-2 quick-add-area">${actions}</div>
                 </div>
             </div>`;

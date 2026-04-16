@@ -2058,9 +2058,16 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
         else:
             suggestions_schema = '  "suggestions": {},'
 
-        from app.services.taste_quiz_scoring import build_quiz_signals_block
+        from app.services.taste_quiz_scoring import build_quiz_signals_block, load_streaming_services
+        from app.services.tmdb import TIER1_PROVIDERS
         quiz_signals = build_quiz_signals_block(db, user.id)
         resonance_signals = build_resonance_block(db, user.id)
+        user_services = load_streaming_services(db, user.id)
+        if user_services:
+            service_names = [TIER1_PROVIDERS.get(pid, f"Service {pid}") for pid in user_services]
+            streaming_context = f"\nSTREAMING SERVICES: The user subscribes to: {', '.join(service_names)}. When recommending movies and TV, FAVOR items available on these services. You can still recommend items on other services if they're an exceptional fit, but prefer what the user can actually watch tonight."
+        else:
+            streaming_context = ""
 
         # Six life-context themes — each resolves to a specific mode of
         # consumption the user might actually be in. These replace the
@@ -2090,6 +2097,7 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
 USER'S TASTE PROFILE (across all media types):
 {taste_summary}
 {recent_section}
+{streaming_context}
 
 You are producing FOUR outputs in one JSON response — do NOT repeat the same items across sections:
 
@@ -2335,12 +2343,15 @@ Return ONLY valid JSON, no markdown:
             ", ".join(f"{k}={len(v)}" for k, v in enriched_themes.items()) or "none",
             len(raw_insights),
         )
-        # Fetch streaming providers for movie/TV items
+        # Fetch streaming providers for all movie/TV items
         from app.services.tmdb import get_watch_providers
+
         async def attach_providers(item: dict) -> dict:
-            if item.get("source") == "tmdb" and item.get("external_id") and item.get("media_type") in ("movie", "tv"):
+            mt = item.get("media_type")
+            eid = item.get("external_id")
+            if mt in ("movie", "tv") and eid and not item.get("watch_providers"):
                 try:
-                    providers = await get_watch_providers(item["media_type"], item["external_id"])
+                    providers = await get_watch_providers(mt, eid)
                     item["watch_providers"] = providers
                 except Exception:
                     pass
@@ -2349,10 +2360,14 @@ Return ONLY valid JSON, no markdown:
         all_items = list(enriched_picks)
         for items in enriched_themes.values():
             all_items.extend(items)
-        # Fetch providers in parallel, capped at 12 to avoid API overload
-        provider_tasks = [attach_providers(it) for it in all_items[:12]]
-        if provider_tasks:
-            await asyncio.gather(*provider_tasks, return_exceptions=True)
+        # Fetch in parallel with semaphore to avoid hammering TMDB
+        sem = asyncio.Semaphore(5)
+        async def fetch_with_sem(item):
+            async with sem:
+                return await attach_providers(item)
+        movie_tv_items = [it for it in all_items if it.get("media_type") in ("movie", "tv") and it.get("external_id")]
+        if movie_tv_items:
+            await asyncio.gather(*[fetch_with_sem(it) for it in movie_tv_items], return_exceptions=True)
 
         bundle = {
             "top_picks": enriched_picks,
