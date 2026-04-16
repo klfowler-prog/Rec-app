@@ -2101,6 +2101,14 @@ USER'S TASTE PROFILE (across all media types):
 {recent_section}
 {streaming_context}
 
+THIN PROFILE GUIDANCE:
+If the user has fewer than 15 rated items, you have limited signal. In this case:
+- Stick to WIDELY acclaimed, well-known titles that broadly match the genres and tones visible in their profile. Do NOT recommend obscure or niche items.
+- Do NOT make connections based on a single word, topic, or demographic. "Bad Moms" (a comedy movie) does NOT connect to a parenting self-help book. That is a keyword match, not a taste match.
+- If you cannot find a genuine cross-medium connection, recommend popular items in the same genre/tone instead. A good mainstream pick is always better than a forced obscure connection.
+- It is OK to return fewer items if the profile doesn't support confident recommendations. Empty sections are better than bad recommendations.
+- NEVER recommend practical/self-help/how-to books unless the user's profile explicitly shows they rate that category highly.
+
 You are producing FOUR outputs in one JSON response — do NOT repeat the same items across sections:
 
 1. top_picks: 8 recommendations total — 2 movies, 2 TV shows, 2 books, 2 podcasts. List the strongest pick first in each pair. The app will drop anything the user already has and keep the strongest surviving pick per category.
@@ -2516,7 +2524,9 @@ ANCHOR ITEM (the thing they just loved):
 TASK: Generate 3 candidate {type_label}s, then I'll pick the strongest. Each candidate must pick up a CONCRETE, specific element of the anchor item — a theme, a tonal register, a narrative approach, a specific idea it's wrestling with, or a character dynamic. The connection must be named explicitly and tied to something real about the anchor, AND it must sit inside the user's overall taste register as visible in the profile above.
 
 CRITICAL — NO SURFACE MATCHES:
-A shared word in the title is NOT a connection. A shared setting alone is NOT a connection. A shared genre label is NOT a connection. If you cannot articulate the connection without repeating a surface word, you haven't found one.
+A shared word in the title is NOT a connection. A shared setting alone is NOT a connection. A shared genre label is NOT a connection. A shared demographic is NOT a connection. "Bad Moms" (comedy movie) does NOT connect to a parenting self-help book — that is a keyword match on "moms," not a taste match. If you cannot articulate the connection without repeating a surface word, you haven't found one.
+
+NEVER recommend practical/self-help/how-to books unless the user's profile explicitly shows they love that category. Stick to entertainment — fiction, narrative nonfiction, stories.
 
 BAD EXAMPLE (do not do this): anchor is "The Florida Project" (a Sean Baker movie about poverty, childhood, and motel communities on the margins of Orlando). A surface-match pick would be "Probate and Settle an Estate in Florida" — a legal how-to guide that happens to have "Florida" in the title. That is NOT a match. It shares one word and nothing else.
 
