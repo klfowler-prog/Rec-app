@@ -886,16 +886,16 @@ async function loadSignalStrength() {
         label.textContent = `${data.label} — ${data.rated_count} items rated`;
         nudge.textContent = data.nudge;
 
-        // Context-aware CTA
-        if (data.quizzes_done === 0 && data.rated_count >= 5) {
+        // CTA matches the nudge — quiz nudge → quiz link, add nudge → add link
+        if (data.nudge.toLowerCase().includes('quiz')) {
             cta.textContent = 'Take a quiz';
             cta.href = '/quick-start';
-        } else if (data.rated_count < 25) {
+        } else if (data.level >= 5) {
+            cta.textContent = 'My library';
+            cta.href = '/profile';
+        } else {
             cta.textContent = 'Add more';
             cta.href = '/add';
-        } else {
-            cta.textContent = 'See all';
-            cta.href = '/profile';
         }
 
         meter.classList.remove('hidden');
