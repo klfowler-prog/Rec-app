@@ -127,11 +127,14 @@
 
     <!-- Signal strength nudge (shown when signal is weak) -->
     <div id="discover-signal-nudge" class="hidden bg-sage/5 border border-sage/20 rounded-xl p-4 flex items-center gap-3">
-        <div class="flex gap-0.5 flex-shrink-0" id="discover-signal-bars"></div>
+        <div class="flex gap-0.5 items-end flex-shrink-0" id="discover-signal-bars"></div>
         <div class="flex-1 min-w-0">
             <p class="text-sm font-medium" id="discover-signal-text"></p>
         </div>
-        <a href="/add" class="px-3 py-1.5 bg-sage text-white text-xs font-medium rounded-lg hover:bg-sage-dark transition-base flex-shrink-0" id="discover-signal-cta">Add more</a>
+        <div class="flex gap-2 flex-shrink-0">
+            <a href="/quick-start" class="px-3 py-1.5 bg-sage text-white text-xs font-medium rounded-lg hover:bg-sage-dark transition-base">Take a quiz</a>
+            <a href="/add" class="px-3 py-1.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark text-xs font-medium rounded-lg hover:border-sage transition-base">Add items</a>
+        </div>
     </div>
 
     <!-- Service filter toggle -->
@@ -451,7 +454,6 @@
             const nudge = document.getElementById('discover-signal-nudge');
             const bars = document.getElementById('discover-signal-bars');
             const text = document.getElementById('discover-signal-text');
-            const cta = document.getElementById('discover-signal-cta');
             const colors = ['bg-coral', 'bg-amber-400', 'bg-yellow-500', 'bg-sage', 'bg-emerald-500'];
             let barsHtml = '';
             for (let i = 0; i < 5; i++) {
@@ -461,7 +463,6 @@
             }
             bars.innerHTML = barsHtml;
             text.textContent = `${data.label} (${data.rated_count} items) — ${data.nudge}`;
-            if (data.quizzes_done === 0) { cta.textContent = 'Take a quiz'; cta.href = '/quick-start'; }
             nudge.classList.remove('hidden');
         } catch {}
     }

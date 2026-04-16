@@ -127,7 +127,10 @@
                 <p class="text-xs font-semibold" id="signal-label"></p>
                 <p class="text-[10px] text-txt-muted" id="signal-nudge"></p>
             </div>
-            <a href="/add" class="text-[10px] text-sage font-medium hover:underline flex-shrink-0" id="signal-cta">Add more</a>
+            <div class="flex gap-2 flex-shrink-0" id="signal-ctas">
+                <a href="/quick-start" class="text-[10px] text-sage font-medium hover:underline">Take a quiz</a>
+                <a href="/add" class="text-[10px] text-txt-muted font-medium hover:underline">Add items</a>
+            </div>
         </div>
     </div>
 
@@ -872,8 +875,6 @@ async function loadSignalStrength() {
         const bars = document.getElementById('signal-bars').children;
         const label = document.getElementById('signal-label');
         const nudge = document.getElementById('signal-nudge');
-        const cta = document.getElementById('signal-cta');
-
         // Fill bars
         const colors = ['bg-coral', 'bg-amber-400', 'bg-yellow-500', 'bg-sage', 'bg-emerald-500'];
         for (let i = 0; i < 5; i++) {
@@ -886,16 +887,9 @@ async function loadSignalStrength() {
         label.textContent = `${data.label} — ${data.rated_count} items rated`;
         nudge.textContent = data.nudge;
 
-        // CTA matches the nudge — quiz nudge → quiz link, add nudge → add link
-        if (data.nudge.toLowerCase().includes('quiz')) {
-            cta.textContent = 'Take a quiz';
-            cta.href = '/quick-start';
-        } else if (data.level >= 5) {
-            cta.textContent = 'My library';
-            cta.href = '/profile';
-        } else {
-            cta.textContent = 'Add more';
-            cta.href = '/add';
+        // Hide CTAs at full signal
+        if (data.level >= 5) {
+            document.getElementById('signal-ctas').classList.add('hidden');
         }
 
         meter.classList.remove('hidden');
