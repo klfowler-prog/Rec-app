@@ -35,9 +35,37 @@
             </div>
         </section>
 
-        <!-- Step 2: era / generation -->
+        <!-- Step 2: streaming services -->
         <section>
             <p class="text-[11px] font-bold text-sage uppercase tracking-widest mb-1">Step 2</p>
+            <h3 class="text-lg font-semibold mb-1">What do you subscribe to?</h3>
+            <p class="text-sm text-txt-muted mb-4">We'll tag recommendations with where to watch and let you filter to your services.</p>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {% set services = [
+                    (8,   'Netflix',      '#E50914', 'N'),
+                    (15,  'Hulu',         '#1CE783', 'h'),
+                    (384, 'Max',          '#002BE7', 'M'),
+                    (337, 'Disney+',      '#113CCF', 'D+'),
+                    (9,   'Prime Video',  '#00A8E1', 'P'),
+                    (350, 'Apple TV+',    '#000000', 'tv+'),
+                    (386, 'Peacock',      '#000000', 'P'),
+                    (531, 'Paramount+',   '#0064FF', 'P+'),
+                ] %}
+                {% for pid, name, color, icon in services %}
+                <label class="flex items-center gap-3 px-4 py-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl cursor-pointer hover:border-sage transition-base">
+                    <input type="checkbox" name="streaming_services" value="{{ pid }}"
+                           {% if pid|string in (saved_services|default([])|map('string')|list) %}checked{% endif %}
+                           class="w-4 h-4 accent-sage">
+                    <span class="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0" style="background: {{ color }};">{{ icon }}</span>
+                    <span class="text-sm font-medium">{{ name }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </section>
+
+        <!-- Step 3: era / generation -->
+        <section>
+            <p class="text-[11px] font-bold text-sage uppercase tracking-widest mb-1">Step 3</p>
             <h3 class="text-lg font-semibold mb-1">Which era are you most drawn to?</h3>
             <p class="text-sm text-txt-muted mb-4">Tells us whether to pull from recent stuff, millennial canon, older classics, or a mix.</p>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -61,9 +89,9 @@
             </div>
         </section>
 
-        <!-- Step 2b: scenes (taste territories) -->
+        <!-- Step 4: scenes (taste territories) -->
         <section>
-            <p class="text-[11px] font-bold text-sage uppercase tracking-widest mb-1">Step 3</p>
+            <p class="text-[11px] font-bold text-sage uppercase tracking-widest mb-1">Step 4</p>
             <h3 class="text-lg font-semibold mb-1">What worlds are you into?</h3>
             <p class="text-sm text-txt-muted mb-4">Pick as many as you like — or leave them all unchecked and we'll show you a mix.</p>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -100,34 +128,6 @@
                         <p class="text-sm font-medium">{{ label }}</p>
                         <p class="text-[11px] text-txt-muted truncate">{{ examples }}</p>
                     </div>
-                </label>
-                {% endfor %}
-            </div>
-        </section>
-
-        <!-- Step 4: streaming services -->
-        <section>
-            <p class="text-[11px] font-bold text-sage uppercase tracking-widest mb-1">Step 4</p>
-            <h3 class="text-lg font-semibold mb-1">What do you subscribe to?</h3>
-            <p class="text-sm text-txt-muted mb-4">We'll tag recommendations with where to watch them and can filter to your services.</p>
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {% set services = [
-                    (8,   'Netflix',      'https://image.tmdb.org/t/p/original/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg'),
-                    (15,  'Hulu',         'https://image.tmdb.org/t/p/original/giwM8XX4V2AQb9vsoN7yti82tKK.jpg'),
-                    (384, 'Max',          'https://image.tmdb.org/t/p/original/6Q3ZYUNA00u3LcMTL7UrHhR8aeq.jpg'),
-                    (337, 'Disney+',      'https://image.tmdb.org/t/p/original/7rwgEs15tFwyR9NPQ5vpzxTj19Q.jpg'),
-                    (9,   'Prime Video',  'https://image.tmdb.org/t/p/original/emthp39XA2YScoYL1p0sdbAH2WA.jpg'),
-                    (350, 'Apple TV+',    'https://image.tmdb.org/t/p/original/6uhKBfmtzFqOcLousHwZuzcrScK.jpg'),
-                    (386, 'Peacock',      'https://image.tmdb.org/t/p/original/8VCV78prwd9QzZnEhV8pCFkYXUq.jpg'),
-                    (531, 'Paramount+',   'https://image.tmdb.org/t/p/original/h5DcR0J2EESLitnhR8xLG1QymTE.jpg'),
-                ] %}
-                {% for pid, name, logo in services %}
-                <label class="flex items-center gap-3 px-4 py-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl cursor-pointer hover:border-sage transition-base">
-                    <input type="checkbox" name="streaming_services" value="{{ pid }}"
-                           {% if pid|string in (saved_services|default([])|map('string')|list) %}checked{% endif %}
-                           class="w-4 h-4 accent-sage">
-                    <img src="{{ logo }}" alt="{{ name }}" class="w-6 h-6 rounded" onerror="this.style.display='none'">
-                    <span class="text-sm font-medium">{{ name }}</span>
                 </label>
                 {% endfor %}
             </div>
