@@ -141,7 +141,7 @@
         <p class="text-[11px] text-coral uppercase tracking-[0.18em] font-bold mb-3">Currently into</p>
         <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
             {% for item in currently %}
-            <div class="progress-card relative" data-entry-id="{{ item.id }}">
+            <div class="progress-card relative" data-entry-id="{{ item.id }}" id="progress-{{ item.id }}">
                 {% if item.image_url %}
                 <div class="progress-bg" style="background-image: url('{{ item.image_url|e }}')"></div>
                 {% else %}
@@ -152,6 +152,18 @@
                     <p class="text-[10px] uppercase tracking-wide opacity-60 mb-0.5">{{ {'movie':'Movie','tv':'TV Show','book':'Book','podcast':'Podcast'}.get(item.media_type, item.media_type) }}</p>
                     <p class="text-base font-bold leading-tight line-clamp-2">{{ item.title }}</p>
                 </a>
+                <!-- Finish + rate flow -->
+                <div class="absolute bottom-0 left-0 right-0 z-10 p-3 pt-8" style="background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%);" id="progress-actions-{{ item.id }}">
+                    <div class="flex gap-2">
+                        <button onclick="startFinishFlow({{ item.id }}, '{{ item.title|e }}', '{{ item.media_type }}')" class="flex-1 px-3 py-1.5 bg-white/20 hover:bg-sage text-white text-xs font-semibold rounded-lg backdrop-blur transition-base">
+                            Finished it
+                        </button>
+                        <button onclick="homeQuickStatus({{ item.id }}, 'abandoned', this)" class="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/70 text-xs rounded-lg backdrop-blur transition-base">
+                            Dropped
+                        </button>
+                    </div>
+                    <div id="finish-flow-{{ item.id }}" class="hidden mt-2"></div>
+                </div>
                 <button onclick="toggleResonance(this, {{ item.id }})" data-resonating="false"
                     class="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-black/40 backdrop-blur flex items-center justify-center text-white/60 hover:text-white hover:bg-black/60 transition-base resonance-heart">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
@@ -577,6 +589,81 @@ async function refreshAll(btn) {
         await fetch('/api/media/refresh-recommendations', { method: 'POST' });
     } catch {}
     window.location.reload();
+}
+
+// Finish flow — reaction-style rating on progress cards
+async function startFinishFlow(entryId, title, mediaType) {
+    const flow = document.getElementById(`finish-flow-${entryId}`);
+    if (!flow) return;
+
+    const doneVerb = {movie:'watched',tv:'watched',book:'read',podcast:'listened to'}[mediaType] || 'finished';
+
+    flow.innerHTML = `
+        <p class="text-white text-xs mb-2">How was it?</p>
+        <div class="grid grid-cols-4 gap-1.5">
+            <button onclick="finishAndRate(${entryId}, 10, '${doneVerb}')" class="py-2 bg-emerald-500/80 hover:bg-emerald-500 text-white text-[11px] font-semibold rounded-lg transition-base text-center">Loved it</button>
+            <button onclick="finishAndRate(${entryId}, 8, '${doneVerb}')" class="py-2 bg-sage/80 hover:bg-sage text-white text-[11px] font-semibold rounded-lg transition-base text-center">Good</button>
+            <button onclick="finishAndRate(${entryId}, 6, '${doneVerb}')" class="py-2 bg-amber-500/80 hover:bg-amber-500 text-white text-[11px] font-semibold rounded-lg transition-base text-center">Meh</button>
+            <button onclick="finishAndRate(${entryId}, 3, '${doneVerb}')" class="py-2 bg-coral/80 hover:bg-coral text-white text-[11px] font-semibold rounded-lg transition-base text-center">Nope</button>
+        </div>
+        <button onclick="showFullRatingScale(${entryId}, '${doneVerb}')" class="w-full mt-1.5 text-[10px] text-white/50 hover:text-white/80 transition-base">
+            Use 1-10 scale instead
+        </button>
+    `;
+    flow.classList.remove('hidden');
+}
+
+function showFullRatingScale(entryId, doneVerb) {
+    const flow = document.getElementById(`finish-flow-${entryId}`);
+    if (!flow) return;
+    let dots = '';
+    for (let n = 1; n <= 10; n++) {
+        const color = n <= 3 ? 'bg-coral' : n <= 5 ? 'bg-amber-400' : n <= 7 ? 'bg-yellow-500' : 'bg-emerald-500';
+        dots += `<button onclick="finishAndRate(${entryId}, ${n}, '${doneVerb}')" class="w-7 h-7 rounded-full ${color} hover:scale-110 transition-base text-[10px] font-bold text-white">${n}</button>`;
+    }
+    flow.innerHTML = `
+        <p class="text-white text-xs mb-2">Rate 1-10</p>
+        <div class="flex gap-1 justify-center">${dots}</div>
+    `;
+}
+
+async function finishAndRate(entryId, rating, doneVerb) {
+    try {
+        // Mark as consumed + rate in one call
+        await fetch(`/api/profile/${entryId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'consumed', rating: rating }),
+        });
+
+        // Get total count for celebration
+        const statsResp = await fetch('/api/profile/stats');
+        const stats = statsResp.ok ? await statsResp.json() : {};
+        const total = stats.total || '?';
+
+        // Celebrate
+        const card = document.getElementById(`progress-${entryId}`);
+        if (card) {
+            const actions = document.getElementById(`progress-actions-${entryId}`);
+            if (actions) {
+                const emoji = rating >= 9 ? '🎉' : rating >= 7 ? '👏' : rating >= 5 ? '👍' : '🤷';
+                actions.innerHTML = `
+                    <div class="text-center py-2">
+                        <p class="text-white text-lg">${emoji}</p>
+                        <p class="text-white text-xs font-semibold">${rating}/10 — ${doneVerb} it!</p>
+                        <p class="text-white/50 text-[10px] mt-1">${total} items in your library</p>
+                    </div>
+                `;
+                // Fade out after a moment
+                setTimeout(() => {
+                    card.style.transition = 'opacity 0.5s, transform 0.5s';
+                    card.style.opacity = '0';
+                    card.style.transform = 'scale(0.95)';
+                    setTimeout(() => card.remove(), 500);
+                }, 2500);
+            }
+        }
+    } catch {}
 }
 
 // Quick-add bar — search as you type, one tap to save

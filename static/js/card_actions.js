@@ -135,6 +135,44 @@ async function rateItem(btn, entryId, rating) {
     }
 }
 
+// Toggle inline rating — tap a displayed "8/10" to expand editable dots
+function toggleInlineRate(el, entryId, currentRating) {
+    const parent = el.parentElement;
+    // If dots already shown, collapse
+    if (parent.querySelector('.inline-edit-dots')) {
+        parent.querySelector('.inline-edit-dots').remove();
+        return;
+    }
+    const wrap = document.createElement('div');
+    wrap.className = 'inline-edit-dots flex items-center gap-0.5 mt-1 flex-wrap';
+    for (let n = 1; n <= 10; n++) {
+        const active = n <= currentRating;
+        const color = n <= 3 ? (active ? 'bg-coral' : 'bg-border-light dark:bg-border-dark')
+                    : n <= 5 ? (active ? 'bg-amber-400' : 'bg-border-light dark:bg-border-dark')
+                    : n <= 7 ? (active ? 'bg-yellow-500' : 'bg-border-light dark:bg-border-dark')
+                    : (active ? 'bg-emerald-500' : 'bg-border-light dark:bg-border-dark');
+        const dot = document.createElement('button');
+        dot.className = `w-5 h-5 rounded-full ${color} hover:bg-sage transition-base text-[8px] font-bold ${active ? 'text-white' : 'text-transparent hover:text-white'}`;
+        dot.textContent = n;
+        dot.title = `${n}/10`;
+        dot.onclick = async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            try {
+                await fetch(`/api/profile/${entryId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rating: n }),
+                });
+                el.textContent = `${n}/10`;
+                wrap.remove();
+            } catch {}
+        };
+        wrap.appendChild(dot);
+    }
+    parent.appendChild(wrap);
+}
+
 async function saveForLater(btn, data) {
     btn.disabled = true;
     try {

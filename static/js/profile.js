@@ -284,7 +284,7 @@ async function loadTopTen() {
                             <p class="text-xs font-medium truncate">${escapeHtml(item.title)}</p>
                             <div class="flex items-center justify-between mt-1">
                                 <span class="px-1.5 py-0.5 ${badge} text-[10px] font-medium rounded capitalize">${item.media_type}</span>
-                                <span class="text-xs font-semibold ${rc}">${item.rating}/10</span>
+                                <span class="text-xs font-semibold ${rc} cursor-pointer hover:underline" onclick="event.preventDefault(); event.stopPropagation(); toggleInlineRate(this, ${item.id}, ${item.rating})">${item.rating}/10</span>
                             </div>
                         </div>
                     </div>
