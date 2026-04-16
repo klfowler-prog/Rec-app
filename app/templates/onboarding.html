@@ -105,6 +105,34 @@
             </div>
         </section>
 
+        <!-- Step 4: streaming services -->
+        <section>
+            <p class="text-[11px] font-bold text-sage uppercase tracking-widest mb-1">Step 4</p>
+            <h3 class="text-lg font-semibold mb-1">What do you subscribe to?</h3>
+            <p class="text-sm text-txt-muted mb-4">We'll tag recommendations with where to watch them and can filter to your services.</p>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {% set services = [
+                    (8,   'Netflix',      'https://image.tmdb.org/t/p/original/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg'),
+                    (15,  'Hulu',         'https://image.tmdb.org/t/p/original/giwM8XX4V2AQb9vsoN7yti82tKK.jpg'),
+                    (384, 'Max',          'https://image.tmdb.org/t/p/original/6Q3ZYUNA00u3LcMTL7UrHhR8aeq.jpg'),
+                    (337, 'Disney+',      'https://image.tmdb.org/t/p/original/7rwgEs15tFwyR9NPQ5vpzxTj19Q.jpg'),
+                    (9,   'Prime Video',  'https://image.tmdb.org/t/p/original/emthp39XA2YScoYL1p0sdbAH2WA.jpg'),
+                    (350, 'Apple TV+',    'https://image.tmdb.org/t/p/original/6uhKBfmtzFqOcLousHwZuzcrScK.jpg'),
+                    (386, 'Peacock',      'https://image.tmdb.org/t/p/original/8VCV78prwd9QzZnEhV8pCFkYXUq.jpg'),
+                    (531, 'Paramount+',   'https://image.tmdb.org/t/p/original/h5DcR0J2EESLitnhR8xLG1QymTE.jpg'),
+                ] %}
+                {% for pid, name, logo in services %}
+                <label class="flex items-center gap-3 px-4 py-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl cursor-pointer hover:border-sage transition-base">
+                    <input type="checkbox" name="streaming_services" value="{{ pid }}"
+                           {% if pid|string in (saved_services|default([])|map('string')|list) %}checked{% endif %}
+                           class="w-4 h-4 accent-sage">
+                    <img src="{{ logo }}" alt="{{ name }}" class="w-6 h-6 rounded" onerror="this.style.display='none'">
+                    <span class="text-sm font-medium">{{ name }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </section>
+
         <div class="flex items-center justify-between pt-4 border-t border-border-light dark:border-border-dark">
             <a href="/" class="text-sm text-txt-muted hover:text-txt transition-base">Skip for now</a>
             <button type="submit" id="onboarding-submit"
@@ -126,12 +154,13 @@
         const mediaTypes = Array.from(form.querySelectorAll('input[name="media_types"]:checked')).map(i => i.value);
         const generation = (form.querySelector('input[name="generation"]:checked') || {}).value || 'mix';
         const scenes = Array.from(form.querySelectorAll('input[name="scenes"]:checked')).map(i => i.value);
+        const streamingServices = Array.from(form.querySelectorAll('input[name="streaming_services"]:checked')).map(i => parseInt(i.value));
 
         try {
             const resp = await fetch('/api/media/onboarding', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ media_types: mediaTypes, generation, scenes }),
+                body: JSON.stringify({ media_types: mediaTypes, generation, scenes, streaming_services: streamingServices }),
             });
             if (!resp.ok) {
                 btn.disabled = false;

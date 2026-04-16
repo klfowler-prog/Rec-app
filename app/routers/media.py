@@ -3682,6 +3682,13 @@ Return ONLY valid JSON, no markdown:
         return {"related": {}, "adaptation": None}
 
 
+@router.get("/providers/{media_type}/{tmdb_id}")
+async def get_providers(media_type: str, tmdb_id: str, user: User = Depends(require_user)):
+    """Get streaming providers for a movie/TV item with tier info."""
+    from app.services.tmdb import get_watch_providers
+    return await get_watch_providers(media_type, tmdb_id)
+
+
 @router.get("/taste-dna/share-image")
 async def taste_dna_share_image(
     request: Request,

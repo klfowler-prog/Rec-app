@@ -426,6 +426,7 @@ async def onboarding_page(request: Request, user: User = Depends(require_user), 
             "saved_media_types": saved.get("media_types", []),
             "saved_generation": saved.get("generation", "mix"),
             "saved_scenes": saved.get("scenes", []),
+            "saved_services": saved.get("streaming_services", []),
         },
     )
 

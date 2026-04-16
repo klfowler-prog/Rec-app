@@ -112,6 +112,31 @@ async def get_details(media_type: str, tmdb_id: str) -> MediaResult | None:
     )
 
 
+# Tiered streaming service allowlist (TMDB provider IDs)
+# Tier 1: Major services — get named badge with logo on cards
+TIER1_PROVIDERS = {
+    8: "Netflix",
+    15: "Hulu",
+    384: "Max",        # HBO Max rebranded to Max
+    337: "Disney+",
+    9: "Prime Video",
+    350: "Apple TV+",
+    386: "Peacock",
+    531: "Paramount+",
+}
+# Tier 2: Everything else that's flatrate — "Other streaming" badge
+# (no explicit list needed — anything flatrate not in TIER1 is Tier 2)
+
+# Tier 3: Rental/purchase services — "Rent/Buy" badge
+TIER3_PROVIDERS = {
+    2: "Apple TV",       # rental/buy
+    3: "Google Play",
+    10: "Amazon Video",  # rental/buy (distinct from Prime included)
+    7: "Vudu",
+    192: "YouTube",
+}
+
+
 async def get_watch_providers(media_type: str, tmdb_id: str, region: str = "US") -> list[dict]:
     if not settings.tmdb_api_key:
         return []
@@ -134,13 +159,27 @@ async def get_watch_providers(media_type: str, tmdb_id: str, region: str = "US")
                 continue
             seen.add(pid)
             logo = f"{LOGO_BASE}{p['logo_path']}" if p.get("logo_path") else None
+
+            # Determine tier
+            if provider_type == "flatrate" and pid in TIER1_PROVIDERS:
+                tier = "major"
+            elif provider_type == "flatrate":
+                tier = "other"
+            else:
+                tier = "rental"
+
             providers.append(
                 {
+                    "provider_id": pid,
                     "name": p["provider_name"],
                     "logo_url": logo,
                     "type": provider_type,
+                    "tier": tier,
                 }
             )
+    # Sort: major first, then other streaming, then rental
+    tier_order = {"major": 0, "other": 1, "rental": 2}
+    providers.sort(key=lambda p: tier_order.get(p["tier"], 9))
     return providers
 
 

@@ -225,6 +225,24 @@ function buildStatusSwitcher(entryId, currentStatus, mediaType = null) {
     `;
 }
 
+// Streaming provider badge — renders small service icons on cards
+function renderProviderBadges(providers) {
+    if (!providers || !providers.length) return '';
+    const major = providers.filter(p => p.tier === 'major').slice(0, 3);
+    const other = providers.filter(p => p.tier === 'other').length;
+    const rental = providers.filter(p => p.tier === 'rental').length;
+
+    let html = major.map(p =>
+        p.logo_url
+            ? `<img src="${p.logo_url}" alt="${p.name}" title="${p.name}" class="w-5 h-5 rounded" loading="lazy">`
+            : `<span class="text-[8px] bg-gray-100 dark:bg-gray-800 px-1 rounded" title="${p.name}">${p.name.slice(0, 3)}</span>`
+    ).join('');
+    if (other > 0) html += `<span class="text-[8px] text-txt-muted bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded" title="Available on other streaming services">+${other} more</span>`;
+    if (rental > 0 && major.length === 0 && other === 0) html += `<span class="text-[8px] text-txt-muted bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">Rent/Buy</span>`;
+
+    return html ? `<div class="flex items-center gap-1 mt-1">${html}</div>` : '';
+}
+
 // Change an item's status via PUT /api/profile/{id}
 async function changeStatus(entryId, newStatus, btn) {
     if (!entryId) return;
