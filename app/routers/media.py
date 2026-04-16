@@ -61,11 +61,11 @@ async def bulk_search(req: BulkSearchRequest, user: User = Depends(require_user)
     return {title: matches for title, matches in found}
 
 
-def _rank_by_title_match(query: str, results: list[MediaResult]) -> list[MediaResult]:
+def _rank_by_title_match(query: str, results: list[MediaResult], prefer_type: str | None = None) -> list[MediaResult]:
     """Rank search results by title similarity, breaking ties on whether
-    a poster/cover exists. For common titles — especially books on Open
-    Library — the top title match often lacks a cover because multiple
-    editions exist; prefer the edition with an image so cards render."""
+    a poster/cover exists and whether the media type matches the expected
+    type. This prevents movie/TV confusion when both exist with the same
+    title (e.g. Sharp Objects TV miniseries vs obscure movie)."""
     query_lower = query.lower().strip()
 
     def title_score(item: MediaResult) -> float:
@@ -83,9 +83,11 @@ def _rank_by_title_match(query: str, results: list[MediaResult]) -> list[MediaRe
         return (overlap / max(len(query_words), 1)) * 40
 
     def sort_key(item: MediaResult) -> tuple:
-        # Primary: title score. Secondary: has image (1 if yes, 0 if no).
-        # Both descending via negation so sorted() ascending works.
-        return (-title_score(item), 0 if item.image_url else 1)
+        ts = title_score(item)
+        # Boost items matching the expected media type
+        type_match = 0 if (prefer_type and item.media_type == prefer_type) else 1
+        has_image = 0 if item.image_url else 1
+        return (-ts, type_match, has_image)
 
     return sorted(results, key=sort_key)
 
@@ -2199,7 +2201,7 @@ Return ONLY valid JSON, no markdown:
                 matches = await unified_search(title, mt)
             except Exception:
                 matches = []
-            matches = _rank_by_title_match(title, matches)
+            matches = _rank_by_title_match(title, matches, prefer_type=mt)
             if matches:
                 best = matches[0]
                 if not allow_known and _is_known(best.title, known_normalized):
@@ -2236,7 +2238,7 @@ Return ONLY valid JSON, no markdown:
                 matches = await unified_search(title, media_type)
             except Exception:
                 matches = []
-            matches = _rank_by_title_match(title, matches)
+            matches = _rank_by_title_match(title, matches, prefer_type=media_type)
             if matches:
                 best = matches[0]
                 if _is_known(best.title, known_normalized):
