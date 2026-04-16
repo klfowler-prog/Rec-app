@@ -394,12 +394,16 @@ function searchNowItem(input) {
         try {
             const resp = await fetch(`/api/media/search?q=${encodeURIComponent(q)}`);
             const items = await resp.json();
-            results.innerHTML = items.slice(0, 5).map(item => `
-                <button onclick='pickNowItem(${idx}, ${JSON.stringify(item).replace(/'/g, "&#39;")})' class="w-full flex items-center gap-3 px-3 py-2 hover:bg-sage/5 text-left transition-base">
-                    <p class="text-sm font-medium truncate flex-1">${escapeHtml(item.title)}</p>
-                    <span class="text-[10px] text-txt-muted">${item.media_type}</span>
-                </button>
-            `).join('');
+            results.innerHTML = items.slice(0, 5).map(item => {
+                const img = item.image_url
+                    ? `<img src="${item.image_url}" alt="" class="w-8 h-11 object-cover rounded">`
+                    : `<div class="w-8 h-11 bg-sage/10 rounded flex items-center justify-center"><span class="text-sage text-xs">${escapeHtml((item.title||'?')[0])}</span></div>`;
+                const badge = {movie:'bg-blue-50 text-blue-600',tv:'bg-purple-50 text-purple-600',book:'bg-amber-50 text-amber-600',podcast:'bg-green-50 text-green-600'}[item.media_type] || '';
+                return `<button onclick='pickNowItem(${idx}, ${JSON.stringify(item).replace(/'/g, "&#39;")})' class="w-full flex items-center gap-3 px-3 py-2 hover:bg-sage/5 text-left transition-base">
+                    ${img}
+                    <div class="flex-1 min-w-0"><p class="text-sm font-medium truncate">${escapeHtml(item.title)}</p><p class="text-[10px] text-txt-muted">${item.media_type} ${item.year ? '· ' + item.year : ''}</p></div>
+                </button>`;
+            }).join('');
             results.classList.remove('hidden');
         } catch {}
     }, 300);
@@ -413,7 +417,10 @@ function pickNowItem(idx, item) {
     input.classList.add('hidden');
     results.classList.add('hidden');
     selected.classList.remove('hidden');
-    selected.querySelector('.font-medium').textContent = item.title;
+    const img = item.image_url
+        ? `<img src="${item.image_url}" alt="" class="w-8 h-11 object-cover rounded flex-shrink-0">`
+        : `<div class="w-8 h-11 bg-sage/10 rounded flex items-center justify-center flex-shrink-0"><span class="text-sage text-xs">${escapeHtml((item.title||'?')[0])}</span></div>`;
+    selected.innerHTML = `${img}<span class="text-sm font-medium flex-1 truncate">${escapeHtml(item.title)}</span><span class="text-[10px] text-sage">Added ✓</span>`;
     // Save as consuming
     fetch('/api/profile/', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
