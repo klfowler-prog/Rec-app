@@ -134,11 +134,17 @@
         </section>
 
         <div class="flex items-center justify-between pt-4 border-t border-border-light dark:border-border-dark">
-            <a href="/" class="text-sm text-txt-muted hover:text-txt transition-base">Skip for now</a>
-            <button type="submit" id="onboarding-submit"
-                    class="px-6 py-2.5 bg-sage text-white rounded-xl text-sm font-semibold transition-base hover:bg-sage-dark active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
-                Save &amp; start the quiz &rarr;
-            </button>
+            <a href="/" class="text-sm text-txt-muted hover:text-txt transition-base">Cancel</a>
+            <div class="flex gap-2">
+                <button type="button" onclick="saveOnly()" id="save-only-btn"
+                        class="px-5 py-2.5 bg-surface-light dark:bg-surface-dark border border-sage text-sage rounded-xl text-sm font-semibold transition-base hover:bg-sage/10 active:scale-95 disabled:opacity-50">
+                    Save
+                </button>
+                <button type="submit" id="onboarding-submit"
+                        class="px-5 py-2.5 bg-sage text-white rounded-xl text-sm font-semibold transition-base hover:bg-sage-dark active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
+                    Save &amp; take quizzes &rarr;
+                </button>
+            </div>
         </div>
     </form>
 </div>
@@ -146,28 +152,34 @@
 
 {% block scripts %}
 <script>
-    async function submitOnboarding() {
-        const form = document.getElementById('onboarding-form');
-        const btn = document.getElementById('onboarding-submit');
+    async function saveOnly() {
+        const btn = document.getElementById('save-only-btn');
         btn.disabled = true;
+        btn.textContent = 'Saving...';
+        await doSave();
+        window.location.href = document.referrer || '/taste';
+    }
 
+    async function doSave() {
+        const form = document.getElementById('onboarding-form');
         const mediaTypes = Array.from(form.querySelectorAll('input[name="media_types"]:checked')).map(i => i.value);
         const generation = (form.querySelector('input[name="generation"]:checked') || {}).value || 'mix';
         const scenes = Array.from(form.querySelectorAll('input[name="scenes"]:checked')).map(i => i.value);
         const streamingServices = Array.from(form.querySelectorAll('input[name="streaming_services"]:checked')).map(i => parseInt(i.value));
+        const resp = await fetch('/api/media/onboarding', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ media_types: mediaTypes, generation, scenes, streaming_services: streamingServices }),
+        });
+        if (!resp.ok) throw new Error('Save failed');
+        return await resp.json();
+    }
 
+    async function submitOnboarding() {
+        const btn = document.getElementById('onboarding-submit');
+        btn.disabled = true;
         try {
-            const resp = await fetch('/api/media/onboarding', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ media_types: mediaTypes, generation, scenes, streaming_services: streamingServices }),
-            });
-            if (!resp.ok) {
-                btn.disabled = false;
-                alert("Couldn't save your picks. Try again in a moment.");
-                return;
-            }
-            const data = await resp.json();
+            const data = await doSave();
             window.location.href = data.next_url || '/quick-start';
         } catch {
             btn.disabled = false;
