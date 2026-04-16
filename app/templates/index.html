@@ -156,10 +156,13 @@
                 <div class="absolute bottom-0 left-0 right-0 z-10 p-3 pt-8" style="background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%);" id="progress-actions-{{ item.id }}">
                     <div class="flex gap-2">
                         <button onclick="startFinishFlow({{ item.id }}, '{{ item.title|e }}', '{{ item.media_type }}')" class="flex-1 px-3 py-1.5 bg-white/20 hover:bg-sage text-white text-xs font-semibold rounded-lg backdrop-blur transition-base">
-                            Finished it
+                            Finished
                         </button>
-                        <button onclick="homeQuickStatus({{ item.id }}, 'abandoned', this)" class="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/70 text-xs rounded-lg backdrop-blur transition-base">
-                            Dropped
+                        <button onclick="showNotNowConfirm({{ item.id }})" class="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/70 text-xs rounded-lg backdrop-blur transition-base">
+                            Not now
+                        </button>
+                        <button onclick="homeQuickStatus({{ item.id }}, 'abandoned', this)" class="px-3 py-1.5 bg-white/10 hover:bg-coral/60 text-white/50 text-xs rounded-lg backdrop-blur transition-base">
+                            Not for me
                         </button>
                     </div>
                     <div id="finish-flow-{{ item.id }}" class="hidden mt-2"></div>
@@ -589,6 +592,43 @@ async function refreshAll(btn) {
         await fetch('/api/media/refresh-recommendations', { method: 'POST' });
     } catch {}
     window.location.reload();
+}
+
+// "Not now" — confirm moving back to queue
+function showNotNowConfirm(entryId) {
+    const flow = document.getElementById(`finish-flow-${entryId}`);
+    if (!flow) return;
+    flow.innerHTML = `
+        <p class="text-white text-xs mb-2">Move back to your queue to pick up later?</p>
+        <div class="flex gap-2">
+            <button onclick="notNowConfirmed(${entryId})" class="flex-1 py-1.5 bg-sage/80 hover:bg-sage text-white text-xs font-semibold rounded-lg transition-base">Yes, save for later</button>
+            <button onclick="document.getElementById('finish-flow-${entryId}').classList.add('hidden')" class="flex-1 py-1.5 bg-white/10 hover:bg-white/20 text-white/70 text-xs rounded-lg transition-base">Cancel</button>
+        </div>
+    `;
+    flow.classList.remove('hidden');
+}
+
+async function notNowConfirmed(entryId) {
+    try {
+        await fetch(`/api/profile/${entryId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'want_to_consume' }),
+        });
+        const card = document.getElementById(`progress-${entryId}`);
+        if (card) {
+            const actions = document.getElementById(`progress-actions-${entryId}`);
+            if (actions) {
+                actions.innerHTML = `<p class="text-center text-white/70 text-xs py-2">Moved to your queue</p>`;
+            }
+            setTimeout(() => {
+                card.style.transition = 'opacity 0.4s, transform 0.4s';
+                card.style.opacity = '0';
+                card.style.transform = 'scale(0.95)';
+                setTimeout(() => card.remove(), 400);
+            }, 1500);
+        }
+    } catch {}
 }
 
 // Finish flow — reaction-style rating on progress cards
