@@ -318,7 +318,7 @@
         const typeLabel = type || 'something';
         let prompt;
         if (ref1 && ref2) {
-            prompt = `Find me ${typeLabel === 'something' ? 'something' : 'a ' + typeLabel} that feels like ${ref1} meets ${ref2}.`;
+            prompt = `[BLEND REQUEST] Find me ${typeLabel === 'something' ? 'something' : 'a ' + typeLabel} that feels like ${ref1} meets ${ref2}. Start by analyzing what makes each title distinctive, then find the intersection, then recommend items that live in that overlap. The blend is the primary driver — my general taste profile is a secondary filter.`;
         } else {
             prompt = `Find me ${typeLabel === 'something' ? 'something' : 'a ' + typeLabel} that feels like ${ref1 || ref2}.`;
         }
