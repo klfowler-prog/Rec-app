@@ -98,11 +98,11 @@ function mediaCard(item) {
             const rc = profileEntry.rating <= 3 ? 'text-coral' : profileEntry.rating <= 5 ? 'text-amber-500' : profileEntry.rating <= 7 ? 'text-yellow-600' : 'text-emerald-500';
             actionArea = `<span class="text-xs font-semibold ${rc}">${profileEntry.rating}/10 ✓</span>`;
         } else if (profileEntry.status === 'consumed') {
-            actionArea = `<span class="text-xs text-txt-muted">✓ Consumed</span>`;
+            actionArea = `<span class="text-xs text-txt-muted">✓ Done</span>`;
         } else if (profileEntry.status === 'consuming') {
-            actionArea = `<span class="text-xs text-coral">● Enjoying now</span>`;
+            actionArea = `<span class="text-xs text-coral">● Now</span>`;
         } else if (profileEntry.status === 'want_to_consume') {
-            actionArea = `<span class="text-xs text-sage">✓ In queue</span>`;
+            actionArea = `<span class="text-xs text-sage">✓ Later</span>`;
         } else {
             actionArea = `<span class="text-xs text-txt-muted">✓ In profile</span>`;
         }

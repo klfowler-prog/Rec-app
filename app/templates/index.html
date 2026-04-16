@@ -148,10 +148,11 @@
                 <div class="progress-bg {% if item.media_type == 'tv' %}gradient-purple{% elif item.media_type == 'book' %}gradient-amber{% elif item.media_type == 'podcast' %}bg-green-500{% else %}gradient-blue{% endif %}"></div>
                 {% endif %}
                 <div class="progress-overlay"></div>
-                <a href="{% if item.external_id %}/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}{% else %}/profile{% endif %}" class="progress-label">
-                    <p class="text-[10px] uppercase tracking-wide opacity-60 mb-0.5">{{ {'movie':'Movie','tv':'TV Show','book':'Book','podcast':'Podcast'}.get(item.media_type, item.media_type) }}</p>
-                    <p class="text-base font-bold leading-tight line-clamp-2">{{ item.title }}</p>
-                </a>
+                <a href="{% if item.external_id %}/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}{% else %}/profile{% endif %}" class="absolute inset-0 z-[5]" aria-label="{{ item.title }}"></a>
+                <div class="absolute top-0 left-0 right-0 z-[6] p-3 pointer-events-none">
+                    <p class="text-[10px] uppercase tracking-wide text-white/60 mb-0.5">{{ {'movie':'Movie','tv':'TV Show','book':'Book','podcast':'Podcast'}.get(item.media_type, item.media_type) }}</p>
+                    <p class="text-base font-bold leading-tight line-clamp-2 text-white">{{ item.title }}</p>
+                </div>
                 <!-- Finish + rate flow -->
                 <div class="absolute bottom-0 left-0 right-0 z-10 p-3 pt-8" style="background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%);" id="progress-actions-{{ item.id }}">
                     <div class="flex gap-2">
@@ -185,7 +186,7 @@
             </div>
             <div class="text-white flex-1">
                 <p class="text-base font-bold group-hover:text-cream transition-base">What are you into right now?</p>
-                <p class="text-sm text-white/70">Tell us the show you're binging, the book on your nightstand, or the podcast in your ears. We'll use it to find your next thing.</p>
+                <p class="text-sm text-white/70">The show you're binging, the book on your nightstand, the podcast in your ears — add it here and get better recommendations.</p>
             </div>
             <svg class="w-5 h-5 text-white/50 flex-shrink-0 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </div>
@@ -608,7 +609,7 @@ function showNotNowConfirm(entryId) {
     flow.innerHTML = `
         <p class="text-white text-xs mb-2">Move back to your queue to pick up later?</p>
         <div class="flex gap-2">
-            <button onclick="notNowConfirmed(${entryId})" class="flex-1 py-1.5 bg-sage/80 hover:bg-sage text-white text-xs font-semibold rounded-lg transition-base">Yes, save for later</button>
+            <button onclick="notNowConfirmed(${entryId})" class="flex-1 py-1.5 bg-sage/80 hover:bg-sage text-white text-xs font-semibold rounded-lg transition-base">Yes, move to Later</button>
             <button onclick="document.getElementById('finish-flow-${entryId}').classList.add('hidden')" class="flex-1 py-1.5 bg-white/10 hover:bg-white/20 text-white/70 text-xs rounded-lg transition-base">Cancel</button>
         </div>
     `;
