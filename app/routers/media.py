@@ -3734,6 +3734,13 @@ async def get_providers(media_type: str, tmdb_id: str, user: User = Depends(requ
     return await get_watch_providers(media_type, tmdb_id)
 
 
+@router.get("/signal-strength")
+async def signal_strength(user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """Return the user's current signal strength level and nudge."""
+    from app.services.signal_strength import calculate_signal
+    return calculate_signal(db, user.id)
+
+
 @router.get("/taste-dna/share-image")
 async def taste_dna_share_image(
     request: Request,

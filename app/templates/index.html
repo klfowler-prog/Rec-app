@@ -113,6 +113,36 @@
         </div>
     </div>
 
+    <!-- Signal strength meter -->
+    <div id="signal-meter" class="hidden">
+        <div class="flex items-center gap-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl p-3">
+            <div class="flex gap-1 flex-shrink-0" id="signal-bars">
+                <div class="w-1.5 h-3 rounded-full bg-border-light dark:bg-border-dark"></div>
+                <div class="w-1.5 h-4 rounded-full bg-border-light dark:bg-border-dark"></div>
+                <div class="w-1.5 h-5 rounded-full bg-border-light dark:bg-border-dark"></div>
+                <div class="w-1.5 h-6 rounded-full bg-border-light dark:bg-border-dark"></div>
+                <div class="w-1.5 h-7 rounded-full bg-border-light dark:bg-border-dark"></div>
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="text-xs font-semibold" id="signal-label"></p>
+                <p class="text-[10px] text-txt-muted" id="signal-nudge"></p>
+            </div>
+            <a href="/add" class="text-[10px] text-sage font-medium hover:underline flex-shrink-0" id="signal-cta">Add more</a>
+        </div>
+    </div>
+
+    <!-- Signal level-up celebration overlay -->
+    <div id="signal-celebration" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onclick="this.classList.add('hidden')">
+        <div class="bg-surface-light dark:bg-surface-dark rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl" style="animation: fadeIn 0.3s ease;">
+            <p class="text-5xl mb-3" id="celeb-emoji"></p>
+            <h3 class="text-xl font-bold mb-2" id="celeb-title"></h3>
+            <p class="text-sm text-txt-muted mb-4" id="celeb-message"></p>
+            <button onclick="document.getElementById('signal-celebration').classList.add('hidden')" class="px-5 py-2 bg-sage text-white rounded-lg text-sm font-medium hover:bg-sage-dark transition-base">
+                Keep going
+            </button>
+        </div>
+    </div>
+
     <!-- ============================================================
          Quick add — capture a title fast, like jotting down a note
          ============================================================ -->
@@ -684,10 +714,9 @@ async function finishAndRate(entryId, rating, doneVerb) {
             body: JSON.stringify({ status: 'consumed', rating: rating }),
         });
 
-        // Get total count for celebration
-        const statsResp = await fetch('/api/profile/stats');
-        const stats = statsResp.ok ? await statsResp.json() : {};
-        const total = stats.total || '?';
+        // Get signal strength for celebration
+        const signalResp = await fetch('/api/media/signal-strength');
+        const signal = signalResp.ok ? await signalResp.json() : {};
 
         // Celebrate
         const card = document.getElementById(`progress-${entryId}`);
@@ -695,11 +724,14 @@ async function finishAndRate(entryId, rating, doneVerb) {
             const actions = document.getElementById(`progress-actions-${entryId}`);
             if (actions) {
                 const emoji = rating >= 9 ? '🎉' : rating >= 7 ? '👏' : rating >= 5 ? '👍' : '🤷';
+                const signalInfo = signal.items_to_next > 0
+                    ? `${signal.items_to_next} more to ${signal.next_label}`
+                    : signal.label;
                 actions.innerHTML = `
                     <div class="text-center py-2">
                         <p class="text-white text-lg">${emoji}</p>
                         <p class="text-white text-xs font-semibold">${rating}/10 — ${doneVerb} it!</p>
-                        <p class="text-white/50 text-[10px] mt-1">${total} items in your library</p>
+                        <p class="text-white/50 text-[10px] mt-1">${signalInfo}</p>
                     </div>
                 `;
                 // Fade out after a moment
@@ -830,9 +862,72 @@ function escapeAttr(str) {
     return str.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// Signal strength meter
+async function loadSignalStrength() {
+    try {
+        const resp = await fetch('/api/media/signal-strength');
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const meter = document.getElementById('signal-meter');
+        const bars = document.getElementById('signal-bars').children;
+        const label = document.getElementById('signal-label');
+        const nudge = document.getElementById('signal-nudge');
+        const cta = document.getElementById('signal-cta');
+
+        // Fill bars
+        const colors = ['bg-coral', 'bg-amber-400', 'bg-yellow-500', 'bg-sage', 'bg-emerald-500'];
+        for (let i = 0; i < 5; i++) {
+            if (i < data.bars) {
+                bars[i].classList.remove('bg-border-light', 'dark:bg-border-dark');
+                bars[i].classList.add(colors[i]);
+            }
+        }
+
+        label.textContent = `${data.label} — ${data.rated_count} items rated`;
+        nudge.textContent = data.nudge;
+
+        // Context-aware CTA
+        if (data.quizzes_done === 0 && data.rated_count >= 5) {
+            cta.textContent = 'Take a quiz';
+            cta.href = '/quick-start';
+        } else if (data.rated_count < 25) {
+            cta.textContent = 'Add more';
+            cta.href = '/add';
+        } else {
+            cta.textContent = 'See all';
+            cta.href = '/profile';
+        }
+
+        meter.classList.remove('hidden');
+
+        // Check for level-up celebration
+        const lastLevel = parseInt(localStorage.getItem('signal_level') || '0');
+        if (data.level > lastLevel && lastLevel > 0) {
+            showSignalCelebration(data.level);
+        }
+        localStorage.setItem('signal_level', data.level.toString());
+    } catch {}
+}
+
+function showSignalCelebration(level) {
+    const celebrations = {
+        2: { emoji: '📡', title: 'Signal building!', message: 'Patterns are emerging — cross-medium connections are starting to work.' },
+        3: { emoji: '📶', title: 'Strong Signal achieved!', message: 'Your taste profile is clear enough to share. Recommendations are getting personal.' },
+        4: { emoji: '🎯', title: 'Deep Signal unlocked!', message: 'Recommendations are now highly personalized. The AI knows your taste.' },
+        5: { emoji: '⚡', title: 'Full Signal!', message: "You're getting the best recommendations this app can produce." },
+    };
+    const c = celebrations[level];
+    if (!c) return;
+    document.getElementById('celeb-emoji').textContent = c.emoji;
+    document.getElementById('celeb-title').textContent = c.title;
+    document.getElementById('celeb-message').textContent = c.message;
+    document.getElementById('signal-celebration').classList.remove('hidden');
+}
+
 wireRatingSlots();
 loadRightNow();
 loadBestBet();
+loadSignalStrength();
 {% endif %}
 </script>
 {% endblock %}
