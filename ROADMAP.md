@@ -103,6 +103,42 @@ The word "signal" threads through every surface to create a cohesive language us
 
 ## Active / In Progress
 
+### My Taste Visual Redesign (next up)
+Three shareable visual features for the My Taste page. Each should be visually striking, fun to look at, and shareable to social media (with server-side image generation like the Taste DNA share card).
+
+**1. Signature Shelf — editable poster display**
+- Large poster row (bookshelf-style) of the user's defining items
+- User can edit: tap "Edit" to search/swap items, reorder by drag
+- Changing signature items triggers a re-analysis of the taste profile
+- Shareable: generates a "My Shelf" image card with posters + name
+- Files: `taste_dna.html` (UI), new endpoint for saving custom signatures, `share_card.py` (image gen)
+
+**2. Taste Map — genre visualization**
+- Colored bubbles sized by how many items rated in each genre
+- Top genres large and prominent, smaller ones around the edges
+- Color-coded by media type (blue=movie, purple=TV, amber=books, green=podcast)
+- Shareable: generates a visual map image
+- Data source: aggregate genres from all rated MediaEntry items
+- Files: new JS visualization (canvas or SVG), new share image generator
+
+**3. Taste Timeline — how your taste evolves**
+- Horizontal timeline showing rating activity over time
+- Highlights streaks: "March: thriller streak" / "April: pivoted to comedies"
+- Shows monthly avg rating and genre shifts
+- Encourages continued rating ("your timeline grows as you rate")
+- Shareable: generates a timeline image
+- Data source: MediaEntry.rated_at grouped by month + genres
+
+**Implementation order:** Signature Shelf first (most impactful, builds on existing feature), then Taste Map (new visual), then Timeline (most complex data aggregation).
+
+**Design principles:**
+- Each feature should look great as a phone screenshot
+- Each has a dedicated share button → social share dialog (Facebook, X, WhatsApp, native)
+- Server-side Pillow image generation for each (like the existing Taste DNA card)
+- The visuals should make people say "I want one of those" — that's the viral hook
+
+---
+
 ### Quiz Pool Expansion (started 2026-04-14)
 - Expand movie pool from 93 to ~100 items with mainstream/comfort titles
 - Expand TV pool to ~80-100 with comfort TV, cooking shows, reality
