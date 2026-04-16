@@ -1,4 +1,37 @@
-# NextUp Roadmap
+# NextUp → StorySignal Roadmap
+
+## Rebrand: NextUp → StorySignal
+
+### Code/Template Changes (31 occurrences)
+- [ ] `app/main.py` — FastAPI app title
+- [ ] `app/services/recommendation.py` — AI system prompt
+- [ ] `app/services/share_card.py` — brand text on share image
+- [ ] `app/routers/media.py` — AI prompts, share text
+- [ ] `app/routers/pages.py` — template context
+- [ ] `app/templates/base.html` — sidebar logo + brand text
+- [ ] `app/templates/welcome.html` — landing page copy, title, OG tags
+- [ ] `app/templates/share_card_page.html` — OG tags
+- [ ] `app/templates/index.html` — invite copy
+- [ ] `app/templates/taste_dna.html` — share text
+- [ ] `app/templates/onboarding.html` — welcome text
+- [ ] `app/templates/access_denied.html` — page title
+- [ ] `app/templates/plex_import.html` — reference
+- [ ] `static/js/media_detail.js` — page title
+- [ ] `README.md` + `ROADMAP.md`
+
+### Logo
+- [ ] Remove old NextUp logo references from `base.html`, `welcome.html`
+- [ ] Design/provide new StorySignal logo
+- [ ] Replace `static/img/a_vector_style_digital_vector_logo_for_nextup_fe.png`
+- [ ] Update share card brand text in `share_card.py`
+
+### External
+- [ ] Register storysignal.com (or similar domain)
+- [ ] Update Google OAuth console app name to StorySignal
+- [ ] Update Google OAuth redirect URIs for new domain
+- [ ] Consider renaming Cloud Run service from `nextup` to `storysignal`
+
+---
 
 ## Active / In Progress
 
