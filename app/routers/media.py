@@ -2195,7 +2195,10 @@ Return ONLY valid JSON, no markdown:
             title = pick.get("title", "")
             mt = pick.get("media_type")
             pr = _coerce_pr(pick.get("predicted_rating"))
-            matches = await unified_search(title, mt)
+            try:
+                matches = await unified_search(title, mt)
+            except Exception:
+                matches = []
             matches = _rank_by_title_match(title, matches)
             if matches:
                 best = matches[0]
@@ -2229,7 +2232,10 @@ Return ONLY valid JSON, no markdown:
         async def enrich_suggestion(item: dict, media_type: str) -> dict | None:
             title = item.get("title", "")
             pr = item.get("predicted_rating")
-            matches = await unified_search(title, media_type)
+            try:
+                matches = await unified_search(title, media_type)
+            except Exception:
+                matches = []
             matches = _rank_by_title_match(title, matches)
             if matches:
                 best = matches[0]
