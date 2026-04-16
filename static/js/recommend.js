@@ -262,17 +262,25 @@ async function renderCards(container, items) {
         };
     }));
 
-    // Fetch streaming providers for movie/TV items
+    resultsEl.innerHTML = enriched.map(item => chatRecCard(item)).join('');
+
+    // Lazy-fetch streaming providers for movie/TV items after cards render
     for (const item of enriched) {
         if (item.source === 'tmdb' && item.external_id && (item.media_type === 'movie' || item.media_type === 'tv')) {
-            try {
-                const pr = await fetch(`/api/media/providers/${item.media_type}/${item.external_id}`);
-                if (pr.ok) item.watch_providers = await pr.json();
-            } catch {}
+            fetch(`/api/media/providers/${item.media_type}/${item.external_id}`)
+                .then(r => r.ok ? r.json() : [])
+                .then(providers => {
+                    if (providers.length && typeof renderProviderBadges === 'function') {
+                        const card = resultsEl.querySelector(`a[href*="${item.external_id}"]`);
+                        if (card) {
+                            const titleEl = card.closest('[data-rec-card]')?.querySelector('.provider-lazy');
+                            if (titleEl) titleEl.innerHTML = renderProviderBadges(providers);
+                        }
+                    }
+                })
+                .catch(() => {});
         }
     }
-
-    resultsEl.innerHTML = enriched.map(item => chatRecCard(item)).join('');
 
     // "Save all" button — queue every recommendation at once
     const saveableItems = enriched.filter(i => i.external_id);
@@ -336,7 +344,7 @@ function chatRecCard(item) {
                     ${item.year ? `<span class="text-[10px] text-txt-muted">${item.year}</span>` : ''}
                 </div>
                 <a href="${link}" class="text-xs font-semibold block truncate hover:text-sage transition-base">${escapeHtml(safeTitle)}</a>
-                ${typeof renderProviderBadges === 'function' && item.watch_providers ? renderProviderBadges(item.watch_providers) : ''}
+                <div class="provider-lazy"></div>
                 <p class="text-[10px] text-txt-muted line-clamp-2 leading-tight mt-0.5">${escapeHtml(item.reason || '')}</p>
                 ${actions}
             </div>

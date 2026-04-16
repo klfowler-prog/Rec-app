@@ -2343,31 +2343,15 @@ Return ONLY valid JSON, no markdown:
             ", ".join(f"{k}={len(v)}" for k, v in enriched_themes.items()) or "none",
             len(raw_insights),
         )
-        # Fetch streaming providers for all movie/TV items
+        # Fetch streaming providers for movie/TV top_picks only (not themes —
+        # too many calls). Themes get providers via lazy client-side fetch.
         from app.services.tmdb import get_watch_providers
-
-        async def attach_providers(item: dict) -> dict:
-            mt = item.get("media_type")
-            eid = item.get("external_id")
-            if mt in ("movie", "tv") and eid and not item.get("watch_providers"):
+        for item in enriched_picks:
+            if item.get("media_type") in ("movie", "tv") and item.get("external_id"):
                 try:
-                    providers = await get_watch_providers(mt, eid)
-                    item["watch_providers"] = providers
+                    item["watch_providers"] = await get_watch_providers(item["media_type"], item["external_id"])
                 except Exception:
                     pass
-            return item
-
-        all_items = list(enriched_picks)
-        for items in enriched_themes.values():
-            all_items.extend(items)
-        # Fetch in parallel with semaphore to avoid hammering TMDB
-        sem = asyncio.Semaphore(5)
-        async def fetch_with_sem(item):
-            async with sem:
-                return await attach_providers(item)
-        movie_tv_items = [it for it in all_items if it.get("media_type") in ("movie", "tv") and it.get("external_id")]
-        if movie_tv_items:
-            await asyncio.gather(*[fetch_with_sem(it) for it in movie_tv_items], return_exceptions=True)
 
         bundle = {
             "top_picks": enriched_picks,
