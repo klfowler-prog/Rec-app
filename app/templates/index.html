@@ -798,7 +798,12 @@ async function quickAddSave(btn, data) {
         if (resp.ok || resp.status === 409) {
             const row = btn.closest('[data-qa-row]') || btn;
             row.innerHTML = `<span class="text-xs text-sage font-medium px-3">${statusLabel} ✓</span>`;
-            setTimeout(() => row.remove(), 1500);
+            // If added as "Now", reload to show in currently-into section
+            if (data.status === 'consuming') {
+                setTimeout(() => window.location.reload(), 1000);
+            } else {
+                setTimeout(() => row.remove(), 1500);
+            }
         } else {
             btn.disabled = false;
         }
