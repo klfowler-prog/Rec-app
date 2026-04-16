@@ -3832,6 +3832,89 @@ async def taste_dna_share_image(
                              "Cache-Control": "public, max-age=86400"})
 
 
+@router.post("/onboarding/mini-quiz")
+async def generate_mini_quiz(
+    request: Request,
+    user: User = Depends(require_user),
+):
+    """Generate 8-10 contextual titles based on the user's 3 favorites.
+    Returns items the user likely knows so they can rate quickly."""
+    import json
+
+    from app.config import settings
+    from app.services.gemini import generate
+    from app.services.unified_search import unified_search
+
+    body = await request.json()
+    favorites = body.get("favorites", [])
+    if not favorites:
+        return {"items": []}
+
+    fav_text = "\n".join(f"- {f['title']} ({f.get('media_type', 'unknown')})" for f in favorites[:3])
+
+    prompt = f"""Based on these 3 favorites, suggest 10 titles the user has VERY LIKELY already seen/read/listened to. Pick things in the same orbit — similar audiences, similar vibes, same era — that most fans of these titles would know.
+
+User's favorites:
+{fav_text}
+
+Mix media types (movies, TV, books, podcasts) but weight toward the types the user picked. Each item should be well-known enough that 70%+ of fans of the favorites would recognize it.
+
+Return ONLY valid JSON — a list of objects with "title", "media_type" (movie/tv/book/podcast), and "year". No markdown.
+
+[{{"title": "...", "media_type": "movie", "year": 2020}}, ...]"""
+
+    try:
+        text = (await generate(prompt)).strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+            text = text.rsplit("```", 1)[0]
+        first_bracket = text.find("[")
+        last_bracket = text.rfind("]")
+        if first_bracket >= 0 and last_bracket > first_bracket:
+            text = text[first_bracket:last_bracket + 1]
+        raw_items = json.loads(text)
+    except Exception:
+        return {"items": []}
+
+    # Enrich with posters via search
+    enriched = []
+    for item in raw_items[:10]:
+        title = item.get("title", "")
+        mt = item.get("media_type")
+        try:
+            matches = await unified_search(title, mt)
+            matches = _rank_by_title_match(title, matches)
+            if matches:
+                best = matches[0]
+                enriched.append({
+                    "title": best.title,
+                    "media_type": best.media_type,
+                    "year": best.year,
+                    "image_url": best.image_url,
+                    "external_id": best.external_id,
+                    "source": best.source,
+                    "creator": best.creator,
+                    "genres": best.genres,
+                    "description": best.description,
+                })
+            else:
+                enriched.append({
+                    "title": title, "media_type": mt or "movie",
+                    "year": item.get("year"), "image_url": None,
+                    "external_id": "", "source": "", "creator": None,
+                    "genres": [], "description": None,
+                })
+        except Exception:
+            enriched.append({
+                "title": title, "media_type": mt or "movie",
+                "year": item.get("year"), "image_url": None,
+                "external_id": "", "source": "", "creator": None,
+                "genres": [], "description": None,
+            })
+
+    return {"items": enriched}
+
+
 @router.get("/{media_type}/{external_id}")
 async def get_media_detail(media_type: str, external_id: str, source: str = ""):
     """Get detailed info for a specific media item."""

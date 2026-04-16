@@ -1,190 +1,419 @@
 {% extends "base.html" %}
-{% block title %}Start your taste profile{% endblock %}
+{% block title %}Get Started{% endblock %}
+
+{% block head %}
+<style>
+    .step { display: none; }
+    .step.active { display: block; }
+    .step-transition { animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    .fav-search-results { max-height: 12rem; }
+    .reaction-btn { transition: all 0.15s; }
+    .reaction-btn:hover { transform: scale(1.1); }
+    .reaction-btn.selected { transform: scale(1.15); box-shadow: 0 0 0 3px rgba(139,158,107,0.4); }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto space-y-8">
-    <div>
-        <h2 class="text-2xl font-semibold mb-1">Tell us about your taste</h2>
-        <p class="text-txt-muted text-sm">Three quick questions so NextUp learns what you're actually into — then a short quiz on each medium you picked.</p>
+<div class="max-w-2xl mx-auto">
+
+    <!-- Progress bar -->
+    <div class="flex gap-1.5 mb-8">
+        <div class="h-1 flex-1 rounded-full bg-sage" id="prog-1"></div>
+        <div class="h-1 flex-1 rounded-full bg-border-light dark:bg-border-dark" id="prog-2"></div>
+        <div class="h-1 flex-1 rounded-full bg-border-light dark:bg-border-dark" id="prog-3"></div>
+        <div class="h-1 flex-1 rounded-full bg-border-light dark:bg-border-dark" id="prog-4"></div>
+        <div class="h-1 flex-1 rounded-full bg-border-light dark:bg-border-dark" id="prog-5"></div>
     </div>
 
-    <form id="onboarding-form" class="space-y-8" onsubmit="event.preventDefault(); submitOnboarding();">
+    <!-- Step 1: Three things you love -->
+    <div class="step active step-transition" id="step-1">
+        <h2 class="text-2xl font-bold mb-2">Three things you love</h2>
+        <p class="text-txt-muted mb-6">Pick three favorites — a movie, a show, a book, a podcast, anything. These help us understand your taste instantly.</p>
 
-        <!-- Step 1: media mix -->
-        <section>
-            <p class="text-[11px] font-bold text-sage uppercase tracking-widest mb-1">Step 1</p>
-            <h3 class="text-lg font-semibold mb-1">What do you spend time on?</h3>
-            <p class="text-sm text-txt-muted mb-4">Uncheck anything you don't care about — we won't ask you to rate it.</p>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {% set media_items = [
-                    ('movie',            'Movies',          'gradient-blue'),
-                    ('tv',               'TV shows',        'gradient-purple'),
-                    ('book_fiction',     'Fiction books',   'gradient-amber'),
-                    ('book_nonfiction',  'Nonfiction books','gradient-amber'),
-                    ('podcast',          'Podcasts',        'bg-green-500'),
-                ] %}
-                {% for value, label, accent in media_items %}
-                <label class="flex items-center gap-3 px-4 py-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl cursor-pointer hover:border-sage transition-base">
-                    <input type="checkbox" name="media_types" value="{{ value }}"
-                           {% if (not saved_media_types) or value in saved_media_types %}checked{% endif %}
-                           class="w-4 h-4 accent-sage">
-                    <span class="w-6 h-6 rounded {{ accent }} flex-shrink-0"></span>
-                    <span class="text-sm font-medium flex-1">{{ label }}</span>
-                </label>
-                {% endfor %}
-            </div>
-        </section>
-
-        <!-- Step 2: streaming services -->
-        <section>
-            <p class="text-[11px] font-bold text-sage uppercase tracking-widest mb-1">Step 2</p>
-            <h3 class="text-lg font-semibold mb-1">What do you subscribe to?</h3>
-            <p class="text-sm text-txt-muted mb-4">We'll tag recommendations with where to watch and let you filter to your services.</p>
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {% set services = [
-                    (8,   'Netflix',      '#E50914', 'N'),
-                    (15,  'Hulu',         '#1CE783', 'h'),
-                    (1899, 'Max',         '#002BE7', 'M'),
-                    (337, 'Disney+',      '#113CCF', 'D+'),
-                    (9,   'Prime Video',  '#00A8E1', 'P'),
-                    (350, 'Apple TV+',    '#000000', 'tv+'),
-                    (386, 'Peacock',      '#000000', 'P'),
-                    (531, 'Paramount+',   '#0064FF', 'P+'),
-                ] %}
-                {% for pid, name, color, icon in services %}
-                <label class="flex items-center gap-3 px-4 py-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl cursor-pointer hover:border-sage transition-base">
-                    <input type="checkbox" name="streaming_services" value="{{ pid }}"
-                           {% if pid|string in (saved_services|default([])|map('string')|list) %}checked{% endif %}
-                           class="w-4 h-4 accent-sage">
-                    <span class="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0" style="background: {{ color }};">{{ icon }}</span>
-                    <span class="text-sm font-medium">{{ name }}</span>
-                </label>
-                {% endfor %}
-            </div>
-        </section>
-
-        <!-- Step 3: era / generation -->
-        <section>
-            <p class="text-[11px] font-bold text-sage uppercase tracking-widest mb-1">Step 3</p>
-            <h3 class="text-lg font-semibold mb-1">Which era are you most drawn to?</h3>
-            <p class="text-sm text-txt-muted mb-4">Tells us whether to pull from recent stuff, millennial canon, older classics, or a mix.</p>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {% set era_items = [
-                    ('gen_z',       'Mostly recent',      'Last 5-10 years'),
-                    ('millennial',  'Millennial canon',   '2000s-2010s'),
-                    ('classic',     'Gen X / classic',    '70s-90s'),
-                    ('mix',         'A mix',              'Show me everything'),
-                ] %}
-                {% for value, label, sub in era_items %}
-                <label class="flex items-start gap-3 px-4 py-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl cursor-pointer hover:border-sage transition-base">
-                    <input type="radio" name="generation" value="{{ value }}"
-                           {% if saved_generation == value or (not saved_generation and value == 'mix') %}checked{% endif %}
-                           class="w-4 h-4 accent-sage mt-0.5">
-                    <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium">{{ label }}</p>
-                        <p class="text-[11px] text-txt-muted">{{ sub }}</p>
+        <div class="space-y-4">
+            {% for i in range(3) %}
+            <div class="relative">
+                <div class="flex items-center gap-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl p-3">
+                    <span class="w-8 h-8 rounded-full bg-sage/10 flex items-center justify-center text-sage text-sm font-bold flex-shrink-0">{{ i + 1 }}</span>
+                    <input type="text" placeholder="{{ ['A movie or show you love', 'A book or podcast you love', 'Anything else you love'][i] }}" autocomplete="off"
+                        class="fav-input flex-1 bg-transparent text-sm focus:outline-none placeholder:text-txt-muted"
+                        data-index="{{ i }}" oninput="searchFavorite(this)">
+                    <div class="fav-selected hidden flex items-center gap-2 flex-1" data-selected="{{ i }}">
+                        <img class="w-8 h-11 object-cover rounded" src="" alt="">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium truncate"></p>
+                            <p class="text-[10px] text-txt-muted"></p>
+                        </div>
+                        <button onclick="clearFavorite({{ i }})" class="text-txt-muted hover:text-coral text-xs">✕</button>
                     </div>
-                </label>
-                {% endfor %}
+                </div>
+                <div class="fav-results hidden absolute left-0 right-0 top-full mt-1 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl shadow-lg z-30 fav-search-results overflow-y-auto" data-results="{{ i }}"></div>
             </div>
-        </section>
+            {% endfor %}
+        </div>
 
-        <!-- Step 4: scenes (taste territories) -->
-        <section>
-            <p class="text-[11px] font-bold text-sage uppercase tracking-widest mb-1">Step 4</p>
-            <h3 class="text-lg font-semibold mb-1">What worlds are you into?</h3>
-            <p class="text-sm text-txt-muted mb-4">Pick as many as you like — or leave them all unchecked and we'll show you a mix.</p>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {% set scene_items = [
-                    ('feelgood_comfort', 'Feel-good + comfort',      'Hallmark, rom-coms, cozy mysteries, comfort rewatches'),
-                    ('comedy',           'Comedies',                 'Sitcoms, buddy films, stand-up, Bridesmaids'),
-                    ('romance',          'Romance',                  'Bridgerton, romance novels, romcoms, Nicholas Sparks'),
-                    ('action_thriller',  'Action + thrillers',       'Fast & Furious, John Wick, Mission: Impossible'),
-                    ('suspense_mystery', 'Suspense + mystery',       'Gone Girl, whodunits, psychological thrillers, page-turners'),
-                    ('horror',           'Horror + scary stuff',     'The Conjuring, IT, A24 horror, Stephen King'),
-                    ('scifi_fantasy',    'Sci-fi + fantasy',         'Dune, LOTR, Star Wars, Marvel, Foundation'),
-                    ('prestige_drama',   'Prestige drama',           'Severance, Succession, literary fiction'),
-                    ('true_crime',       'True crime + true stories','Making a Murderer, Say Nothing, Serial'),
-                    ('history_war',      'History + war',            'Band of Brothers, Saving Private Ryan, historical fiction'),
-                    ('cooking_food',     'Cooking + food',           'Chef\'s Table, The Bear, food memoirs, baking shows'),
-                    ('self_improvement', 'Self-improvement',         'Productivity, wellness, business books, motivational pods'),
-                    ('faith_family',     'Faith + wholesome',        'Faith-based films, wholesome dramas, uplifting stories'),
-                    ('docs_nonfiction',  'Docs + nonfiction',        'Documentaries, narrative nonfiction, big ideas'),
-                    ('sports',           'Sports + competition',     'The Last Dance, Friday Night Lights, Moneyball'),
-                    ('anime',            'Anime + manga',            'Demon Slayer, Spirited Away, Attack on Titan'),
-                    ('k_content',        'K-content',                'K-dramas, K-pop, Squid Game, Parasite'),
-                    ('gaming_culture',   'Gaming culture',           'FNAF, Last of Us, Arcane, Minecraft'),
-                    ('music',            'Music + music history',    'Music docs, memoirs, Song Exploder'),
-                    ('reality_tv',       'Reality TV',               'Bravo, Love Is Blind, baking shows'),
-                    ('indie_arthouse',   'Indie + arthouse',         'A24, Criterion, indie press'),
-                    ('kids_family',      'Kids + family',            'Family movies, all-ages shows, Pixar'),
-                ] %}
-                {% for value, label, examples in scene_items %}
-                <label class="flex items-start gap-3 px-4 py-2.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg cursor-pointer hover:border-sage transition-base">
-                    <input type="checkbox" name="scenes" value="{{ value }}"
-                           {% if value in saved_scenes %}checked{% endif %}
-                           class="w-4 h-4 accent-sage mt-0.5">
-                    <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium">{{ label }}</p>
-                        <p class="text-[11px] text-txt-muted truncate">{{ examples }}</p>
-                    </div>
-                </label>
-                {% endfor %}
+        <div class="flex justify-between items-center mt-8">
+            <a href="/" class="text-sm text-txt-muted hover:text-txt">Skip for now</a>
+            <button onclick="goToStep(2)" id="step1-next" disabled class="px-6 py-2.5 bg-sage text-white rounded-xl text-sm font-semibold hover:bg-sage-dark disabled:opacity-40 transition-base">
+                Next →
+            </button>
+        </div>
+    </div>
+
+    <!-- Step 2: Mini-quiz based on favorites -->
+    <div class="step" id="step-2">
+        <h2 class="text-2xl font-bold mb-2">Have you seen any of these?</h2>
+        <p class="text-txt-muted mb-6">Based on your picks, we think you might know these. Quick-tap your reaction — skip what you haven't seen.</p>
+
+        <div id="mini-quiz-loading" class="text-center py-8">
+            <div class="inline-block w-6 h-6 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
+            <p class="text-sm text-txt-muted mt-3">Finding titles you'll recognize...</p>
+        </div>
+
+        <div id="mini-quiz-items" class="space-y-3"></div>
+
+        <div class="flex justify-between items-center mt-8">
+            <button onclick="goToStep(1)" class="text-sm text-txt-muted hover:text-txt">← Back</button>
+            <button onclick="goToStep(3)" class="px-6 py-2.5 bg-sage text-white rounded-xl text-sm font-semibold hover:bg-sage-dark transition-base">
+                Next →
+            </button>
+        </div>
+    </div>
+
+    <!-- Step 3: What are you into right now? -->
+    <div class="step" id="step-3">
+        <h2 class="text-2xl font-bold mb-2">What are you into right now?</h2>
+        <p class="text-txt-muted mb-6">Anything you're in the middle of? We'll track it and check in when you finish.</p>
+
+        <div class="space-y-3">
+            {% for label in ['What are you watching?', 'What are you reading or listening to?'] %}
+            <div class="relative">
+                <input type="text" placeholder="{{ label }}" autocomplete="off"
+                    class="now-input w-full px-4 py-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sage/40 placeholder:text-txt-muted"
+                    data-now-index="{{ loop.index0 }}" oninput="searchNowItem(this)">
+                <div class="now-results hidden absolute left-0 right-0 top-full mt-1 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl shadow-lg z-30 max-h-48 overflow-y-auto" data-now-results="{{ loop.index0 }}"></div>
+                <div class="now-selected hidden mt-2 flex items-center gap-2 px-3 py-2 bg-sage/5 rounded-lg" data-now-selected="{{ loop.index0 }}">
+                    <span class="text-sm font-medium flex-1 truncate"></span>
+                    <span class="text-[10px] text-sage">Added ✓</span>
+                </div>
             </div>
-        </section>
+            {% endfor %}
+        </div>
 
-        <div class="flex items-center justify-between pt-4 border-t border-border-light dark:border-border-dark">
-            <a href="/" class="text-sm text-txt-muted hover:text-txt transition-base">Cancel</a>
-            <div class="flex gap-2">
-                <button type="button" onclick="saveOnly()" id="save-only-btn"
-                        class="px-5 py-2.5 bg-surface-light dark:bg-surface-dark border border-sage text-sage rounded-xl text-sm font-semibold transition-base hover:bg-sage/10 active:scale-95 disabled:opacity-50">
-                    Save
-                </button>
-                <button type="submit" id="onboarding-submit"
-                        class="px-5 py-2.5 bg-sage text-white rounded-xl text-sm font-semibold transition-base hover:bg-sage-dark active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
-                    Save &amp; take quizzes &rarr;
-                </button>
+        <div class="flex justify-between items-center mt-8">
+            <button onclick="goToStep(2)" class="text-sm text-txt-muted hover:text-txt">← Back</button>
+            <button onclick="goToStep(4)" class="px-6 py-2.5 bg-sage text-white rounded-xl text-sm font-semibold hover:bg-sage-dark transition-base">
+                Next →
+            </button>
+        </div>
+    </div>
+
+    <!-- Step 4: Streaming services -->
+    <div class="step" id="step-4">
+        <h2 class="text-2xl font-bold mb-2">What do you subscribe to?</h2>
+        <p class="text-txt-muted mb-6">We'll tag recommendations with where to watch them.</p>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {% set services = [
+                (8,    'Netflix',      '#E50914', 'N'),
+                (15,   'Hulu',         '#1CE783', 'h'),
+                (1899, 'Max',          '#002BE7', 'M'),
+                (337,  'Disney+',      '#113CCF', 'D+'),
+                (9,    'Prime Video',  '#00A8E1', 'P'),
+                (350,  'Apple TV+',    '#000000', 'tv+'),
+                (386,  'Peacock',      '#000000', 'P'),
+                (531,  'Paramount+',   '#0064FF', 'P+'),
+            ] %}
+            {% for pid, name, color, icon in services %}
+            <label class="flex items-center gap-3 px-4 py-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl cursor-pointer hover:border-sage transition-base">
+                <input type="checkbox" name="streaming_services" value="{{ pid }}"
+                       {% if pid|string in (saved_services|default([])|map('string')|list) %}checked{% endif %}
+                       class="w-4 h-4 accent-sage">
+                <span class="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0" style="background: {{ color }};">{{ icon }}</span>
+                <span class="text-sm font-medium">{{ name }}</span>
+            </label>
+            {% endfor %}
+        </div>
+
+        <div class="flex justify-between items-center mt-8">
+            <button onclick="goToStep(3)" class="text-sm text-txt-muted hover:text-txt">← Back</button>
+            <button onclick="finishOnboarding()" id="finish-btn" class="px-6 py-2.5 bg-sage text-white rounded-xl text-sm font-semibold hover:bg-sage-dark transition-base">
+                Finish setup →
+            </button>
+        </div>
+    </div>
+
+    <!-- Step 5: You're all set -->
+    <div class="step" id="step-5">
+        <div class="text-center py-8">
+            <div class="w-16 h-16 bg-sage/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            </div>
+            <h2 class="text-2xl font-bold mb-2">You're all set!</h2>
+            <p class="text-txt-muted mb-6">We've got enough to start giving you personalized recommendations. The more you rate, the better they get.</p>
+
+            <a href="/" class="inline-flex items-center gap-2 px-6 py-3 bg-sage text-white rounded-xl text-sm font-semibold hover:bg-sage-dark transition-base shadow-sm mb-6">
+                Start exploring →
+            </a>
+
+            <div class="border-t border-border-light dark:border-border-dark pt-6 mt-6">
+                <p class="text-xs text-txt-muted uppercase tracking-wide font-semibold mb-3">Want to go deeper?</p>
+                <p class="text-sm text-txt-muted mb-4">Take a full taste quiz to unlock more precise recommendations.</p>
+                <div id="quiz-options" class="grid grid-cols-1 sm:grid-cols-3 gap-2"></div>
             </div>
         </div>
-    </form>
+    </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
+<script src="/static/js/card_actions.js"></script>
 <script>
-    async function saveOnly() {
-        const btn = document.getElementById('save-only-btn');
-        btn.disabled = true;
-        btn.textContent = 'Saving...';
-        await doSave();
-        window.location.href = document.referrer || '/taste';
-    }
+const favorites = [null, null, null];
+const miniQuizRatings = {};
+let debounceTimers = {};
 
-    async function doSave() {
-        const form = document.getElementById('onboarding-form');
-        const mediaTypes = Array.from(form.querySelectorAll('input[name="media_types"]:checked')).map(i => i.value);
-        const generation = (form.querySelector('input[name="generation"]:checked') || {}).value || 'mix';
-        const scenes = Array.from(form.querySelectorAll('input[name="scenes"]:checked')).map(i => i.value);
-        const streamingServices = Array.from(form.querySelectorAll('input[name="streaming_services"]:checked')).map(i => parseInt(i.value));
-        const resp = await fetch('/api/media/onboarding', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ media_types: mediaTypes, generation, scenes, streaming_services: streamingServices }),
-        });
-        if (!resp.ok) throw new Error('Save failed');
-        return await resp.json();
-    }
+function escapeHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
 
-    async function submitOnboarding() {
-        const btn = document.getElementById('onboarding-submit');
-        btn.disabled = true;
+// --- Step navigation ---
+function goToStep(n) {
+    document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+    document.getElementById(`step-${n}`).classList.add('active', 'step-transition');
+    // Update progress bar
+    for (let i = 1; i <= 5; i++) {
+        document.getElementById(`prog-${i}`).className = `h-1 flex-1 rounded-full ${i <= n ? 'bg-sage' : 'bg-border-light dark:bg-border-dark'}`;
+    }
+    // Trigger mini-quiz generation when entering step 2
+    if (n === 2) generateMiniQuiz();
+    // Build quiz options on step 5
+    if (n === 5) buildQuizOptions();
+    window.scrollTo(0, 0);
+}
+
+// --- Step 1: Favorites search ---
+function searchFavorite(input) {
+    const idx = input.dataset.index;
+    clearTimeout(debounceTimers[`fav-${idx}`]);
+    const q = input.value.trim();
+    const results = document.querySelector(`[data-results="${idx}"]`);
+    if (q.length < 2) { results.classList.add('hidden'); return; }
+    debounceTimers[`fav-${idx}`] = setTimeout(async () => {
         try {
-            const data = await doSave();
-            window.location.href = data.next_url || '/quick-start';
-        } catch {
-            btn.disabled = false;
-            alert("Couldn't save your picks. Try again in a moment.");
+            const resp = await fetch(`/api/media/search?q=${encodeURIComponent(q)}`);
+            const items = await resp.json();
+            if (!items.length) { results.innerHTML = '<p class="p-3 text-xs text-txt-muted">No results</p>'; results.classList.remove('hidden'); return; }
+            results.innerHTML = items.slice(0, 5).map(item => {
+                const img = item.image_url ? `<img src="${item.image_url}" alt="" class="w-8 h-11 object-cover rounded">` : `<div class="w-8 h-11 bg-sage/10 rounded flex items-center justify-center"><span class="text-sage text-xs">${escapeHtml((item.title||'?')[0])}</span></div>`;
+                return `<button onclick='pickFavorite(${idx}, ${JSON.stringify(item).replace(/'/g, "&#39;")})' class="w-full flex items-center gap-3 px-3 py-2 hover:bg-sage/5 text-left transition-base">
+                    ${img}
+                    <div class="flex-1 min-w-0"><p class="text-sm font-medium truncate">${escapeHtml(item.title)}</p><p class="text-[10px] text-txt-muted">${item.media_type} ${item.year ? '· ' + item.year : ''}</p></div>
+                </button>`;
+            }).join('');
+            results.classList.remove('hidden');
+        } catch {}
+    }, 300);
+}
+
+function pickFavorite(idx, item) {
+    favorites[idx] = item;
+    const input = document.querySelector(`.fav-input[data-index="${idx}"]`);
+    const selected = document.querySelector(`[data-selected="${idx}"]`);
+    const results = document.querySelector(`[data-results="${idx}"]`);
+    input.classList.add('hidden');
+    selected.classList.remove('hidden');
+    selected.querySelector('img').src = item.image_url || '';
+    selected.querySelector('p.font-medium').textContent = item.title;
+    selected.querySelector('p.text-txt-muted').textContent = `${item.media_type} ${item.year ? '· ' + item.year : ''}`;
+    results.classList.add('hidden');
+    // Enable next button if at least 1 favorite
+    document.getElementById('step1-next').disabled = favorites.filter(Boolean).length < 1;
+    // Save the favorite to profile immediately
+    fetch('/api/profile/', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            external_id: item.external_id, source: item.source, title: item.title,
+            media_type: item.media_type, image_url: item.image_url, year: item.year,
+            creator: item.creator, genres: Array.isArray(item.genres) ? item.genres.join(', ') : item.genres,
+            description: item.description, status: 'consumed', rating: 9,
+        }),
+    }).catch(() => {});
+}
+
+function clearFavorite(idx) {
+    favorites[idx] = null;
+    const input = document.querySelector(`.fav-input[data-index="${idx}"]`);
+    const selected = document.querySelector(`[data-selected="${idx}"]`);
+    input.classList.remove('hidden');
+    input.value = '';
+    selected.classList.add('hidden');
+    document.getElementById('step1-next').disabled = favorites.filter(Boolean).length < 1;
+}
+
+// Close dropdowns on outside click
+document.addEventListener('click', e => {
+    if (!e.target.closest('.fav-input') && !e.target.closest('.fav-results'))
+        document.querySelectorAll('.fav-results').forEach(r => r.classList.add('hidden'));
+    if (!e.target.closest('.now-input') && !e.target.closest('.now-results'))
+        document.querySelectorAll('.now-results').forEach(r => r.classList.add('hidden'));
+});
+
+// --- Step 2: Mini-quiz ---
+async function generateMiniQuiz() {
+    const loading = document.getElementById('mini-quiz-loading');
+    const container = document.getElementById('mini-quiz-items');
+    const favs = favorites.filter(Boolean);
+    if (!favs.length) { loading.innerHTML = '<p class="text-sm text-txt-muted">Pick at least one favorite first.</p>'; return; }
+    loading.classList.remove('hidden');
+    container.innerHTML = '';
+
+    try {
+        const resp = await fetch('/api/media/onboarding/mini-quiz', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ favorites: favs.map(f => ({ title: f.title, media_type: f.media_type })) }),
+        });
+        const data = await resp.json();
+        loading.classList.add('hidden');
+        if (!data.items || !data.items.length) {
+            container.innerHTML = '<p class="text-sm text-txt-muted text-center py-4">No suggestions right now — skip ahead.</p>';
+            return;
         }
+        container.innerHTML = data.items.map((item, i) => {
+            const img = item.image_url
+                ? `<img src="${item.image_url}" alt="" class="w-12 h-16 object-cover rounded flex-shrink-0">`
+                : `<div class="w-12 h-16 bg-sage/10 rounded flex items-center justify-center flex-shrink-0"><span class="text-sage font-bold">${escapeHtml((item.title||'?')[0])}</span></div>`;
+            const badge = {movie:'bg-blue-50 text-blue-600',tv:'bg-purple-50 text-purple-600',book:'bg-amber-50 text-amber-600',podcast:'bg-green-50 text-green-600'}[item.media_type] || '';
+            return `
+                <div class="flex items-center gap-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl p-3" data-mini-item="${i}">
+                    ${img}
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium truncate">${escapeHtml(item.title)}</p>
+                        <p class="text-[10px] text-txt-muted"><span class="px-1 py-0.5 ${badge} rounded capitalize">${item.media_type}</span> ${item.year || ''}</p>
+                    </div>
+                    <div class="flex gap-1.5 flex-shrink-0">
+                        <button onclick="rateMiniItem(${i}, 10)" class="reaction-btn w-9 h-9 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-lg hover:bg-emerald-100 transition-base" title="Loved it">❤️</button>
+                        <button onclick="rateMiniItem(${i}, 7)" class="reaction-btn w-9 h-9 rounded-full bg-sage/10 text-lg hover:bg-sage/20 transition-base" title="Liked it">👍</button>
+                        <button onclick="rateMiniItem(${i}, 4)" class="reaction-btn w-9 h-9 rounded-full bg-amber-50 dark:bg-amber-900/20 text-lg hover:bg-amber-100 transition-base" title="Meh">😐</button>
+                        <button onclick="rateMiniItem(${i}, 2)" class="reaction-btn w-9 h-9 rounded-full bg-coral/10 text-lg hover:bg-coral/20 transition-base" title="Didn't like">👎</button>
+                    </div>
+                </div>`;
+        }).join('');
+        // Store items for later saving
+        window._miniQuizItems = data.items;
+    } catch {
+        loading.classList.add('hidden');
+        container.innerHTML = '<p class="text-sm text-txt-muted text-center py-4">Couldn\'t generate suggestions — skip ahead.</p>';
     }
+}
+
+function rateMiniItem(idx, rating) {
+    miniQuizRatings[idx] = rating;
+    const row = document.querySelector(`[data-mini-item="${idx}"]`);
+    if (!row) return;
+    // Highlight selected reaction
+    row.querySelectorAll('.reaction-btn').forEach(b => b.classList.remove('selected'));
+    const ratingMap = {10: 0, 7: 1, 4: 2, 2: 3};
+    const buttons = row.querySelectorAll('.reaction-btn');
+    if (buttons[ratingMap[rating]]) buttons[ratingMap[rating]].classList.add('selected');
+    // Save to profile in background
+    const item = window._miniQuizItems?.[idx];
+    if (item && item.external_id) {
+        fetch('/api/profile/', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                external_id: item.external_id, source: item.source, title: item.title,
+                media_type: item.media_type, image_url: item.image_url, year: item.year,
+                creator: item.creator, genres: Array.isArray(item.genres) ? item.genres.join(', ') : item.genres,
+                description: item.description, status: 'consumed', rating: rating,
+            }),
+        }).catch(() => {});
+    }
+}
+
+// --- Step 3: Currently into ---
+function searchNowItem(input) {
+    const idx = input.dataset.nowIndex;
+    clearTimeout(debounceTimers[`now-${idx}`]);
+    const q = input.value.trim();
+    const results = document.querySelector(`[data-now-results="${idx}"]`);
+    if (q.length < 2) { results.classList.add('hidden'); return; }
+    debounceTimers[`now-${idx}`] = setTimeout(async () => {
+        try {
+            const resp = await fetch(`/api/media/search?q=${encodeURIComponent(q)}`);
+            const items = await resp.json();
+            results.innerHTML = items.slice(0, 5).map(item => `
+                <button onclick='pickNowItem(${idx}, ${JSON.stringify(item).replace(/'/g, "&#39;")})' class="w-full flex items-center gap-3 px-3 py-2 hover:bg-sage/5 text-left transition-base">
+                    <p class="text-sm font-medium truncate flex-1">${escapeHtml(item.title)}</p>
+                    <span class="text-[10px] text-txt-muted">${item.media_type}</span>
+                </button>
+            `).join('');
+            results.classList.remove('hidden');
+        } catch {}
+    }, 300);
+}
+
+function pickNowItem(idx, item) {
+    const input = document.querySelector(`.now-input[data-now-index="${idx}"]`);
+    const results = document.querySelector(`[data-now-results="${idx}"]`);
+    const selected = document.querySelector(`[data-now-selected="${idx}"]`);
+    input.value = '';
+    input.classList.add('hidden');
+    results.classList.add('hidden');
+    selected.classList.remove('hidden');
+    selected.querySelector('.font-medium').textContent = item.title;
+    // Save as consuming
+    fetch('/api/profile/', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            external_id: item.external_id, source: item.source, title: item.title,
+            media_type: item.media_type, image_url: item.image_url, year: item.year,
+            creator: item.creator, genres: Array.isArray(item.genres) ? item.genres.join(', ') : item.genres,
+            description: item.description, status: 'consuming',
+        }),
+    }).catch(() => {});
+}
+
+// --- Step 4: Finish ---
+async function finishOnboarding() {
+    const btn = document.getElementById('finish-btn');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+    const services = Array.from(document.querySelectorAll('input[name="streaming_services"]:checked')).map(i => parseInt(i.value));
+    // Determine media types from favorites
+    const mediaTypes = [...new Set(favorites.filter(Boolean).map(f => {
+        if (f.media_type === 'movie') return 'movie';
+        if (f.media_type === 'tv') return 'tv';
+        if (f.media_type === 'book') return 'book_fiction';
+        if (f.media_type === 'podcast') return 'podcast';
+        return f.media_type;
+    }))];
+    try {
+        await fetch('/api/media/onboarding', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                media_types: mediaTypes.length ? mediaTypes : ['movie', 'tv', 'book_fiction'],
+                generation: 'mix', scenes: [], streaming_services: services,
+            }),
+        });
+    } catch {}
+    goToStep(5);
+}
+
+// --- Step 5: Quiz options filtered by media types ---
+function buildQuizOptions() {
+    const types = new Set(favorites.filter(Boolean).map(f => f.media_type));
+    const container = document.getElementById('quiz-options');
+    const quizzes = [];
+    if (types.has('movie') || types.size === 0) quizzes.push({href: '/quick-start/movies', label: 'Movies', color: 'gradient-blue', count: '~5 min'});
+    if (types.has('tv') || types.size === 0) quizzes.push({href: '/quick-start/tv', label: 'TV Shows', color: 'gradient-purple', count: '~5 min'});
+    if (types.has('book') || types.size === 0) quizzes.push({href: '/quick-start/books/fiction', label: 'Fiction', color: 'gradient-amber', count: '~5 min'});
+    container.innerHTML = quizzes.map(q => `
+        <a href="${q.href}" class="flex items-center gap-2 px-3 py-2.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg text-sm hover:border-sage transition-base">
+            <span class="w-2 h-2 rounded ${q.color} flex-shrink-0"></span>
+            <span class="font-medium">${q.label}</span>
+            <span class="text-[10px] text-txt-muted ml-auto">${q.count}</span>
+        </a>
+    `).join('');
+}
 </script>
 {% endblock %}
