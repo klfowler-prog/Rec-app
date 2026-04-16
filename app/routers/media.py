@@ -2335,6 +2335,25 @@ Return ONLY valid JSON, no markdown:
             ", ".join(f"{k}={len(v)}" for k, v in enriched_themes.items()) or "none",
             len(raw_insights),
         )
+        # Fetch streaming providers for movie/TV items
+        from app.services.tmdb import get_watch_providers
+        async def attach_providers(item: dict) -> dict:
+            if item.get("source") == "tmdb" and item.get("external_id") and item.get("media_type") in ("movie", "tv"):
+                try:
+                    providers = await get_watch_providers(item["media_type"], item["external_id"])
+                    item["watch_providers"] = providers
+                except Exception:
+                    pass
+            return item
+
+        all_items = list(enriched_picks)
+        for items in enriched_themes.values():
+            all_items.extend(items)
+        # Fetch providers in parallel, capped at 12 to avoid API overload
+        provider_tasks = [attach_providers(it) for it in all_items[:12]]
+        if provider_tasks:
+            await asyncio.gather(*provider_tasks, return_exceptions=True)
+
         bundle = {
             "top_picks": enriched_picks,
             "suggestions": enriched_suggestions,
@@ -2623,6 +2642,14 @@ Return ONLY valid JSON, no markdown:
                 "reason": chosen["reason"],
                 "predicted_rating": pr,
             }
+
+        # Fetch streaming providers for movie/TV picks
+        if enriched_pick.get("source") == "tmdb" and enriched_pick.get("external_id") and media_type in ("movie", "tv"):
+            try:
+                from app.services.tmdb import get_watch_providers
+                enriched_pick["watch_providers"] = await get_watch_providers(media_type, enriched_pick["external_id"])
+            except Exception:
+                pass
 
         result = {
             "pick": enriched_pick,
