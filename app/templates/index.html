@@ -795,10 +795,25 @@ async function quickAddSave(btn, data) {
             body: JSON.stringify(data),
         });
         const statusLabel = {want_to_consume: 'Saved to queue', consuming: 'Started', consumed: 'Added to library'}[data.status] || 'Saved';
+
+        // If 409 (already exists), update the existing entry's status
+        if (resp.status === 409) {
+            try {
+                const checkResp = await fetch(`/api/profile/check/${encodeURIComponent(data.source || '_')}/${encodeURIComponent(data.external_id || '_')}`);
+                const checkData = await checkResp.json();
+                if (checkData.entry && checkData.entry.status !== data.status) {
+                    await fetch(`/api/profile/${checkData.entry.id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: data.status }),
+                    });
+                }
+            } catch {}
+        }
+
         if (resp.ok || resp.status === 409) {
             const row = btn.closest('[data-qa-row]') || btn;
             row.innerHTML = `<span class="text-xs text-sage font-medium px-3">${statusLabel} ✓</span>`;
-            // If added as "Now", reload to show in currently-into section
             if (data.status === 'consuming') {
                 setTimeout(() => window.location.reload(), 1000);
             } else {
