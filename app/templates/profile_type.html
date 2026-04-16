@@ -180,6 +180,7 @@ function newReleaseCard(item) {
                 <div class="bg-surface-light dark:bg-surface-dark p-2.5">
                     <p class="text-xs font-medium truncate">${escapeHtml(item.title)}</p>
                     ${item.year ? `<p class="text-[10px] text-txt-muted">${item.year}</p>` : ''}
+                    <div class="provider-slot" data-mt="${item.media_type || MEDIA_TYPE}" data-eid="${item.external_id || ''}" data-src="${item.source || ''}"></div>
                     <div class="mt-1.5 quick-add-area">${typeof buildActionBar === 'function' ? buildActionBar(cardItem, 'sm') : ''}</div>
                 </div>
             </div>
@@ -393,6 +394,7 @@ function suggestionCard(item) {
             <a href="${link}" class="relative block">${image}${prBadge}</a>
             <div class="bg-surface-light dark:bg-surface-dark p-2 space-y-1.5">
                 <p class="text-xs font-medium truncate">${escapeHtml(item.title)}</p>
+                <div class="provider-slot" data-mt="${item.media_type || MEDIA_TYPE}" data-eid="${item.external_id || ''}" data-src="${item.source || ''}"></div>
                 <button onclick="saveSuggestion(this, ${saveAttr})" class="w-full px-2 py-1 bg-sage/10 hover:bg-sage hover:text-white text-sage text-[10px] font-medium rounded transition-base">
                     + Save
                 </button>
@@ -473,6 +475,34 @@ Promise.all([
     loadBestBet(),
     {% if show_new_releases %}loadNewReleases(false),{% endif %}
     loadSuggestions(),
-]);
+]).then(() => {
+    // Lazy-load streaming provider badges for movie/TV cards
+    if (MEDIA_TYPE !== 'movie' && MEDIA_TYPE !== 'tv') return;
+    const slots = document.querySelectorAll('.provider-slot');
+    const seen = new Set();
+    let delay = 0;
+    slots.forEach(slot => {
+        const mt = slot.dataset.mt;
+        const eid = slot.dataset.eid;
+        const src = slot.dataset.src;
+        if (!eid || src !== 'tmdb' || (mt !== 'movie' && mt !== 'tv')) return;
+        if (seen.has(eid)) return;
+        seen.add(eid);
+        setTimeout(async () => {
+            try {
+                const resp = await fetch(`/api/media/providers/${mt}/${eid}`);
+                if (!resp.ok) return;
+                const providers = await resp.json();
+                if (typeof renderProviderBadges === 'function') {
+                    // Fill ALL slots with this ID
+                    document.querySelectorAll(`.provider-slot[data-eid="${eid}"]`).forEach(s => {
+                        s.innerHTML = renderProviderBadges(providers);
+                    });
+                }
+            } catch {}
+        }, delay);
+        delay += 100; // stagger requests
+    });
+});
 </script>
 {% endblock %}

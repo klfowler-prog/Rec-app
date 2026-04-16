@@ -262,6 +262,16 @@ async function renderCards(container, items) {
         };
     }));
 
+    // Fetch streaming providers for movie/TV items
+    for (const item of enriched) {
+        if (item.source === 'tmdb' && item.external_id && (item.media_type === 'movie' || item.media_type === 'tv')) {
+            try {
+                const pr = await fetch(`/api/media/providers/${item.media_type}/${item.external_id}`);
+                if (pr.ok) item.watch_providers = await pr.json();
+            } catch {}
+        }
+    }
+
     resultsEl.innerHTML = enriched.map(item => chatRecCard(item)).join('');
 
     // "Save all" button — queue every recommendation at once
@@ -326,6 +336,7 @@ function chatRecCard(item) {
                     ${item.year ? `<span class="text-[10px] text-txt-muted">${item.year}</span>` : ''}
                 </div>
                 <a href="${link}" class="text-xs font-semibold block truncate hover:text-sage transition-base">${escapeHtml(safeTitle)}</a>
+                ${typeof renderProviderBadges === 'function' && item.watch_providers ? renderProviderBadges(item.watch_providers) : ''}
                 <p class="text-[10px] text-txt-muted line-clamp-2 leading-tight mt-0.5">${escapeHtml(item.reason || '')}</p>
                 ${actions}
             </div>

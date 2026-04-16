@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_user
 from app.database import get_db
-from app.models import MediaEntry, User
+from app.models import DismissedItem, MediaEntry, User
 
 log = logging.getLogger(__name__)
 router = APIRouter()
@@ -119,7 +119,10 @@ async def compare(
         avoid.add(e.title.lower())
     for e in their_entries:
         avoid.add(e.title.lower())
-    avoid_str = ", ".join(list(avoid)[:40]) if avoid else "none"
+    # Also include dismissed items from both users
+    for d in db.query(DismissedItem.title).filter(DismissedItem.user_id.in_([user.id, other.id])).all():
+        avoid.add(d.title.lower())
+    avoid_str = ", ".join(list(avoid)[:60]) if avoid else "none"
 
     try:
         prompt = f"""You are a cross-medium taste expert. Find things that BOTH of these people would love — based on their individual profiles.

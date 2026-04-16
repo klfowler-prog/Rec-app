@@ -236,7 +236,7 @@ def save_onboarding(db, user_id: int, answers: dict) -> dict:
     from app.models import UserPreferences
 
     # Valid streaming service IDs (TMDB provider IDs for Tier 1)
-    VALID_SERVICES = {8, 15, 384, 337, 9, 350, 386, 531}
+    VALID_SERVICES = {8, 15, 1899, 337, 9, 350, 386, 531}
 
     cleaned: dict = {
         "media_types": [t for t in (answers.get("media_types") or []) if t in ONBOARDING_MEDIA_TYPES],

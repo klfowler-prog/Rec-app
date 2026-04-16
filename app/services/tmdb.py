@@ -117,7 +117,7 @@ async def get_details(media_type: str, tmdb_id: str) -> MediaResult | None:
 TIER1_PROVIDERS = {
     8: "Netflix",
     15: "Hulu",
-    384: "Max",        # HBO Max rebranded to Max
+    1899: "Max",       # HBO Max / Max
     337: "Disney+",
     9: "Prime Video",
     350: "Apple TV+",
