@@ -344,6 +344,7 @@ _CONTEXT_TO_MOOD = {
 async def discover_page(
     request: Request,
     user: User = Depends(require_user),
+    db: Session = Depends(get_db),
     context: str | None = None,
 ):
     """Single 'find me something' surface. Replaces the old /recommend page
@@ -357,7 +358,18 @@ async def discover_page(
 
         target = "/discover?" + urlencode({"mood": _CONTEXT_TO_MOOD[context]})
         return RedirectResponse(url=target, status_code=303)
-    return templates.TemplateResponse("discover.html", {"request": request, "user": user})
+
+    from app.services.taste_quiz_scoring import load_streaming_services
+    from app.services.tmdb import TIER1_PROVIDERS
+    user_services = load_streaming_services(db, user.id)
+    service_labels = {pid: name for pid, name in TIER1_PROVIDERS.items()}
+
+    return templates.TemplateResponse("discover.html", {
+        "request": request,
+        "user": user,
+        "user_services": user_services,
+        "service_labels": service_labels,
+    })
 
 
 @router.get("/recommend")

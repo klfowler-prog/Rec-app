@@ -132,8 +132,9 @@
         const anchorLine = anchor && anchor.title
             ? `<p class="text-[11px] text-txt-muted uppercase tracking-wide mt-2">${label} · because you loved ${escapeHtml(anchor.title)}</p>`
             : `<p class="text-[11px] text-txt-muted uppercase tracking-wide mt-2">${label}</p>`;
+        const providerIds = (pick.watch_providers || []).map(p => p.provider_id).filter(Boolean).join(',');
         return `
-            <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm" data-rec-card>
+            <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm" data-rec-card data-provider-ids="${providerIds}">
                 <a href="${link}">${image}</a>
                 <div class="p-4">
                     <div class="flex items-center gap-2 mb-1.5">
@@ -226,8 +227,9 @@
             description: item.description || null,
         };
         const actions = typeof buildActionBar === 'function' ? buildActionBar(itemForCard, 'sm') : '';
+        const themeProviderIds = (item.watch_providers || []).map(p => p.provider_id).filter(Boolean).join(',');
         return `
-            <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm" data-rec-card>
+            <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm" data-rec-card data-provider-ids="${themeProviderIds}">
                 <a href="${link}">${image}</a>
                 <div class="p-3">
                     <div class="flex items-center gap-2 mb-1">

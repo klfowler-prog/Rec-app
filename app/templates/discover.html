@@ -125,6 +125,18 @@
         </div>
     </div>
 
+    <!-- Service filter toggle -->
+    {% if user_services %}
+    <div class="flex items-center gap-3 flex-wrap">
+        <span class="text-[11px] text-txt-muted uppercase tracking-wide font-semibold">Show:</span>
+        <button id="filter-all" onclick="setServiceFilter('all')" class="px-3 py-1.5 rounded-full text-xs font-medium transition-base bg-sage text-white">All</button>
+        <button id="filter-mine" onclick="setServiceFilter('mine')" class="px-3 py-1.5 rounded-full text-xs font-medium transition-base bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark text-txt-muted hover:border-sage">My services</button>
+        <span id="filter-services-list" class="hidden text-[10px] text-txt-muted">
+            {% for pid in user_services %}{{ service_labels.get(pid, '') }}{% if not loop.last %}, {% endif %}{% endfor %}
+        </span>
+    </div>
+    {% endif %}
+
     <!-- ============================================================
          1. YOUR BEST BETS — the hero content. Four poster cards,
          one per media type, each tied to a specific thing the user
@@ -378,6 +390,47 @@
         } catch {}
         window.location.reload();
     }
+
+    // Service filter
+    const USER_SERVICES = new Set({{ user_services | default([]) | tojson }});
+    let currentFilter = 'all';
+
+    function setServiceFilter(mode) {
+        currentFilter = mode;
+        const allBtn = document.getElementById('filter-all');
+        const mineBtn = document.getElementById('filter-mine');
+        const servicesList = document.getElementById('filter-services-list');
+        if (!allBtn || !mineBtn) return;
+
+        if (mode === 'all') {
+            allBtn.className = 'px-3 py-1.5 rounded-full text-xs font-medium transition-base bg-sage text-white';
+            mineBtn.className = 'px-3 py-1.5 rounded-full text-xs font-medium transition-base bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark text-txt-muted hover:border-sage';
+            if (servicesList) servicesList.classList.add('hidden');
+        } else {
+            mineBtn.className = 'px-3 py-1.5 rounded-full text-xs font-medium transition-base bg-sage text-white';
+            allBtn.className = 'px-3 py-1.5 rounded-full text-xs font-medium transition-base bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark text-txt-muted hover:border-sage';
+            if (servicesList) servicesList.classList.remove('hidden');
+        }
+
+        // Filter all rec cards
+        document.querySelectorAll('[data-rec-card]').forEach(card => {
+            if (mode === 'all') {
+                card.style.display = '';
+                return;
+            }
+            // Check if any of the card's providers match user's services
+            const providers = card.dataset.providerIds;
+            if (!providers) {
+                // No provider data — show it (might be a book/podcast)
+                card.style.display = '';
+                return;
+            }
+            const pids = providers.split(',').map(Number);
+            const match = pids.some(pid => USER_SERVICES.has(pid));
+            card.style.display = match ? '' : 'none';
+        });
+    }
+    window.setServiceFilter = setServiceFilter;
 
     // Kick off the async sections
     Promise.all([loadBestBets(), loadThemes()]);
