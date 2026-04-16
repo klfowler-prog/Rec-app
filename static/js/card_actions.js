@@ -304,35 +304,15 @@ function buildActionBar(item, size = 'md') {
         title: item.title, media_type: item.media_type,
     }));
     const doneVerb = {movie:'Watched',tv:'Watched',book:'Read',podcast:'Listened'}[item.media_type] || 'Done';
-    const startVerb = {movie:'watching',tv:'watching',book:'reading',podcast:'listening'}[item.media_type] || 'it';
 
     const btnSize = size === 'sm' ? 'px-2 py-1 text-[10px]' : 'px-2.5 py-1.5 text-xs';
-    const iconBtnSize = size === 'sm' ? 'p-1' : 'p-1.5';
-    const iconSize = size === 'sm' ? 'w-3 h-3' : 'w-3.5 h-3.5';
-
-    // On md (detail page, best-bet hero) we render the Start button as a
-    // labeled pill so "Start watching" is front and center. On sm (rec
-    // cards where space is tight) it's an icon-only play button so the
-    // row still fits 4 actions.
-    const startBtn = size === 'sm'
-        ? `<button onclick="startConsuming(this, ${consumingData})" class="${iconBtnSize} bg-coral/10 hover:bg-coral hover:text-white text-coral rounded-lg transition-base" title="Start ${startVerb}">
-               <svg class="${iconSize}" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-           </button>`
-        : `<button onclick="startConsuming(this, ${consumingData})" class="${btnSize} bg-coral/10 hover:bg-coral hover:text-white text-coral font-medium rounded-lg transition-base inline-flex items-center gap-1">
-               <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-               Start ${startVerb}
-           </button>`;
 
     return `
         <div class="flex items-center gap-1.5 flex-wrap">
-            <button onclick="saveForLater(this, ${saveData})" class="${iconBtnSize} bg-sage/10 hover:bg-sage hover:text-white text-sage rounded-lg transition-base" title="Save for later">
-                <svg class="${iconSize}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
-            </button>
-            ${startBtn}
-            <button onclick="quickAdd(this, ${consumeData})" class="${btnSize} bg-sage/10 hover:bg-sage hover:text-white text-sage font-medium rounded-lg transition-base">${doneVerb} it</button>
-            <button onclick="dismissItem(this, ${dismissData})" class="${iconBtnSize} bg-gray-100 dark:bg-gray-800 hover:bg-coral hover:text-white text-txt-muted rounded-lg transition-base" title="Not interested">
-                <svg class="${iconSize}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
+            <button onclick="saveForLater(this, ${saveData})" class="${btnSize} bg-sage/10 hover:bg-sage hover:text-white text-sage font-medium rounded-lg transition-base">Later</button>
+            <button onclick="startConsuming(this, ${consumingData})" class="${btnSize} bg-coral/10 hover:bg-coral hover:text-white text-coral font-medium rounded-lg transition-base">Now</button>
+            <button onclick="quickAdd(this, ${consumeData})" class="${btnSize} bg-sage/10 hover:bg-sage hover:text-white text-sage font-medium rounded-lg transition-base">${doneVerb}</button>
+            <button onclick="dismissItem(this, ${dismissData})" class="${btnSize} bg-gray-100 dark:bg-gray-800 hover:bg-coral hover:text-white text-txt-muted font-medium rounded-lg transition-base">Skip</button>
         </div>
     `;
 }
