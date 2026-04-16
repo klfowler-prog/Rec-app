@@ -144,23 +144,64 @@
         </div>
     </div>
 
-    <!-- Step 5: You're all set -->
+    <!-- Step 5: You're all set — launchpad -->
     <div class="step" id="step-5">
-        <div class="text-center py-8">
+        <div class="text-center pt-6 pb-2">
             <div class="w-16 h-16 bg-sage/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg class="w-8 h-8 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
             </div>
             <h2 class="text-2xl font-bold mb-2">You're all set!</h2>
-            <p class="text-txt-muted mb-6">We've got enough to start giving you personalized recommendations. The more you rate, the better they get.</p>
+            <p class="text-txt-muted mb-6">We've got enough to start giving you personalized recommendations. Here are some ways to make them even better.</p>
+        </div>
 
-            <a href="/" class="inline-flex items-center gap-2 px-6 py-3 bg-sage text-white rounded-xl text-sm font-semibold hover:bg-sage-dark transition-base shadow-sm mb-6">
-                Start exploring →
-            </a>
-
-            <div class="border-t border-border-light dark:border-border-dark pt-6 mt-6">
-                <p class="text-xs text-txt-muted uppercase tracking-wide font-semibold mb-3">Want to go deeper?</p>
-                <p class="text-sm text-txt-muted mb-4">Take a full taste quiz to unlock more precise recommendations.</p>
+        <div class="space-y-4">
+            <!-- Go deeper: quizzes -->
+            <div class="bg-surface-light dark:bg-surface-dark border border-sage/25 rounded-2xl p-5">
+                <div class="flex items-start gap-3 mb-3">
+                    <span class="w-9 h-9 rounded-lg gradient-sage flex items-center justify-center flex-shrink-0">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    </span>
+                    <div>
+                        <h3 class="text-base font-semibold">Go deeper with a taste quiz</h3>
+                        <p class="text-xs text-txt-muted">A 5-minute quiz on movies, TV, or books teaches the AI things ratings alone can't — how you feel about pacing, darkness, ambiguity, humor.</p>
+                    </div>
+                </div>
                 <div id="quiz-options" class="grid grid-cols-1 sm:grid-cols-3 gap-2"></div>
+            </div>
+
+            <!-- Bulk add / import -->
+            <div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-2xl p-5">
+                <div class="flex items-start gap-3 mb-3">
+                    <span class="w-9 h-9 rounded-lg gradient-navy flex items-center justify-center flex-shrink-0">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                    </span>
+                    <div>
+                        <h3 class="text-base font-semibold">Add your library in bulk</h3>
+                        <p class="text-xs text-txt-muted">The more titles in your library, the better the recommendations. Import or add in bulk — it only takes a minute.</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <a href="/add" class="flex items-center gap-2 px-3 py-2.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm hover:border-sage transition-base">
+                        <svg class="w-3.5 h-3.5 text-txt-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+                        <span class="font-medium">Bulk add</span>
+                    </a>
+                    <a href="/import/goodreads" class="flex items-center gap-2 px-3 py-2.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm hover:border-sage transition-base">
+                        <svg class="w-3.5 h-3.5 text-txt-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                        <span class="font-medium">Goodreads</span>
+                    </a>
+                    <a href="/import/netflix" class="flex items-center gap-2 px-3 py-2.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm hover:border-sage transition-base">
+                        <svg class="w-3.5 h-3.5 text-txt-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                        <span class="font-medium">Netflix</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Start exploring CTA -->
+            <div class="text-center pt-4">
+                <a href="/" class="inline-flex items-center gap-2 px-8 py-3 bg-sage text-white rounded-xl text-base font-semibold hover:bg-sage-dark transition-base shadow-sm">
+                    Start exploring →
+                </a>
+                <p class="text-xs text-txt-muted mt-3">Or skip all of this — just start using the app and rate as you go.</p>
             </div>
         </div>
     </div>
