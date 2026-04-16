@@ -115,16 +115,44 @@
             <div id="dna-by-medium" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
         </div>
 
-        <!-- Signature items -->
+        <!-- Signature Shelf -->
         <div id="dna-signature-wrap" class="hidden">
-            <h3 class="text-lg font-bold mb-1 flex items-center gap-2">
-                <span class="w-7 h-7 rounded-lg gradient-navy flex items-center justify-center">
-                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
-                </span>
-                Your signature items
-            </h3>
-            <p class="text-sm text-txt-muted mb-4">If you had to point to the items that define you, these are them.</p>
-            <div id="dna-signature" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3"></div>
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h3 class="text-lg font-bold flex items-center gap-2">
+                        <span class="w-7 h-7 rounded-lg gradient-navy flex items-center justify-center">
+                            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+                    </span>
+                        Your shelf
+                    </h3>
+                    <p class="text-sm text-txt-muted">The items that define you. Tap edit to make it yours.</p>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="toggleShelfEdit()" id="shelf-edit-btn" class="text-xs text-sage font-medium hover:underline inline-flex items-center gap-1">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                        Edit
+                    </button>
+                    <button onclick="shareShelf()" class="text-xs text-txt-muted font-medium hover:text-sage inline-flex items-center gap-1">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+                        Share
+                    </button>
+                </div>
+            </div>
+            <!-- Shelf display -->
+            <div id="dna-shelf" class="flex gap-4 overflow-x-auto pb-2" style="scroll-snap-type: x mandatory;">
+            </div>
+            <!-- Edit mode: search + add -->
+            <div id="shelf-edit-mode" class="hidden mt-4 p-4 bg-surface-light dark:bg-surface-dark border border-sage/20 rounded-xl">
+                <div class="relative mb-3">
+                    <input type="text" id="shelf-search" placeholder="Search your library to add to your shelf..." autocomplete="off"
+                        class="w-full px-4 py-2.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sage/40 placeholder:text-txt-muted">
+                    <div id="shelf-search-results" class="hidden absolute left-0 right-0 top-full mt-1 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl shadow-lg z-30 max-h-48 overflow-y-auto"></div>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button onclick="cancelShelfEdit()" class="px-4 py-2 text-xs text-txt-muted hover:text-txt transition-base">Cancel</button>
+                    <button onclick="saveShelf()" class="px-4 py-2 bg-sage text-white text-xs font-medium rounded-lg hover:bg-sage-dark transition-base">Save shelf</button>
+                </div>
+            </div>
         </div>
 
         <!-- What you avoid -->
@@ -564,49 +592,8 @@ async function loadDna(forceRefresh = false) {
         }
         mediumEl.innerHTML = mediumCards.length > 0 ? mediumCards.join('') : '<p class="text-sm text-txt-muted col-span-2 text-center py-4">Not enough variety across media types yet.</p>';
 
-        // Signature items
-        if (data.signature_items && data.signature_items.length) {
-            document.getElementById('dna-signature-wrap').classList.remove('hidden');
-            // Try to match signature item titles to the user's profile for poster display
-            const profileResp = await fetch('/api/profile/');
-            const profile = profileResp.ok ? await profileResp.json() : [];
-            const profileMap = {};
-            for (const e of profile) {
-                if (e && e.title) profileMap[e.title.toLowerCase()] = e;
-            }
-            // Fuzzy match: find profile entry whose title starts with
-            // or contains the signature title (handles subtitles, colons, etc.)
-            function findEntry(title) {
-                const t = title.toLowerCase().trim();
-                // Exact match first
-                if (profileMap[t]) return profileMap[t];
-                // Starts-with match (handles "Title: Subtitle" in profile)
-                for (const [key, entry] of Object.entries(profileMap)) {
-                    if (key.startsWith(t) || t.startsWith(key)) return entry;
-                }
-                return null;
-            }
-
-            const sigEl = document.getElementById('dna-signature');
-            sigEl.innerHTML = data.signature_items.slice(0, 5).map(title => {
-                const entry = findEntry(title);
-                const fit = entry && entry.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
-                const image = entry && entry.image_url
-                    ? `<div class="poster-frame"><img src="${entry.image_url}" alt="${escapeHtml(title)}" class="${fit}" loading="lazy"></div>`
-                    : `<div class="poster-frame"><div class="poster-fallback bg-sage/10"><span class="text-sage text-2xl font-bold">${escapeHtml((title || '?')[0])}</span></div></div>`;
-                const link = entry ? `/media/${entry.media_type}/${entry.external_id}?source=${entry.source}` : `/search`;
-                return `
-                    <a href="${link}" class="block">
-                        <div class="bg-surface-light dark:bg-surface-dark rounded-lg border border-border-light dark:border-border-dark overflow-hidden transition-base card-hover">
-                            ${image}
-                            <div class="p-2">
-                                <p class="text-xs font-medium truncate">${escapeHtml(title)}</p>
-                            </div>
-                        </div>
-                    </a>
-                `;
-            }).join('');
-        }
+        // Signature Shelf — load from API
+        loadSignatureShelf();
 
         // Avoided
         if (data.avoided && data.avoided.trim()) {
@@ -630,6 +617,168 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = (text === null || text === undefined) ? '' : String(text);
     return div.innerHTML;
+}
+
+// --- Signature Shelf ---
+let shelfItems = [];
+let shelfEditMode = false;
+
+async function loadSignatureShelf() {
+    try {
+        const resp = await fetch('/api/media/signature-shelf');
+        if (!resp.ok) return;
+        const data = await resp.json();
+        shelfItems = data.items || [];
+        if (shelfItems.length === 0) return;
+        document.getElementById('dna-signature-wrap').classList.remove('hidden');
+        renderShelf();
+    } catch {}
+}
+
+function renderShelf() {
+    const shelf = document.getElementById('dna-shelf');
+    shelf.innerHTML = shelfItems.map(item => {
+        const fit = item.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
+        const image = item.image_url
+            ? `<img src="${item.image_url}" alt="" class="w-full h-full ${fit}" loading="lazy">`
+            : `<div class="w-full h-full bg-sage/10 flex items-center justify-center"><span class="text-sage text-3xl font-bold">${escapeHtml((item.title||'?')[0])}</span></div>`;
+        const link = item.external_id ? `/media/${item.media_type}/${item.external_id}?source=${item.source}` : '#';
+        const ratingColor = !item.rating ? '' : item.rating >= 8 ? 'text-emerald-500' : item.rating >= 6 ? 'text-yellow-600' : 'text-amber-500';
+        const badge = {movie:'gradient-blue',tv:'gradient-purple',book:'gradient-amber',podcast:'bg-green-500'}[item.media_type] || 'bg-gray-400';
+        return `
+            <a href="${link}" class="flex-shrink-0 group" style="scroll-snap-align: start; width: 140px;" data-shelf-id="${item.id}">
+                <div class="rounded-xl overflow-hidden shadow-md border border-border-light dark:border-border-dark transition-all group-hover:shadow-lg group-hover:-translate-y-1" style="height: 210px;">
+                    ${image}
+                </div>
+                <div class="mt-2 px-0.5">
+                    <p class="text-xs font-semibold truncate">${escapeHtml(item.title)}</p>
+                    <div class="flex items-center gap-1.5 mt-0.5">
+                        <span class="w-1.5 h-1.5 rounded-full ${badge}"></span>
+                        <span class="text-[10px] text-txt-muted capitalize">${item.media_type}</span>
+                        ${item.rating ? `<span class="text-[10px] font-semibold ${ratingColor} ml-auto">${item.rating}/10</span>` : ''}
+                    </div>
+                </div>
+            </a>`;
+    }).join('');
+}
+
+function toggleShelfEdit() {
+    const editMode = document.getElementById('shelf-edit-mode');
+    const btn = document.getElementById('shelf-edit-btn');
+    shelfEditMode = !shelfEditMode;
+    if (shelfEditMode) {
+        editMode.classList.remove('hidden');
+        btn.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg> Cancel';
+        // Add remove buttons to shelf items
+        document.querySelectorAll('[data-shelf-id]').forEach(el => {
+            const id = el.dataset.shelfId;
+            el.style.position = 'relative';
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'absolute -top-2 -right-2 w-6 h-6 bg-coral text-white rounded-full text-xs flex items-center justify-center shadow z-10 hover:bg-coral-dark';
+            removeBtn.textContent = '×';
+            removeBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); removeFromShelf(parseInt(id)); };
+            el.appendChild(removeBtn);
+        });
+    } else {
+        cancelShelfEdit();
+    }
+}
+
+function cancelShelfEdit() {
+    shelfEditMode = false;
+    document.getElementById('shelf-edit-mode').classList.add('hidden');
+    document.getElementById('shelf-edit-btn').innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg> Edit';
+    renderShelf();
+}
+
+function removeFromShelf(id) {
+    shelfItems = shelfItems.filter(item => item.id !== id);
+    renderShelf();
+    // Re-add remove buttons since renderShelf rebuilds DOM
+    if (shelfEditMode) {
+        document.querySelectorAll('[data-shelf-id]').forEach(el => {
+            const sid = el.dataset.shelfId;
+            el.style.position = 'relative';
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'absolute -top-2 -right-2 w-6 h-6 bg-coral text-white rounded-full text-xs flex items-center justify-center shadow z-10';
+            removeBtn.textContent = '×';
+            removeBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); removeFromShelf(parseInt(sid)); };
+            el.appendChild(removeBtn);
+        });
+    }
+}
+
+// Shelf search — search user's library
+(function() {
+    const input = document.getElementById('shelf-search');
+    const results = document.getElementById('shelf-search-results');
+    if (!input) return;
+    let timer;
+    input.addEventListener('input', () => {
+        clearTimeout(timer);
+        const q = input.value.trim();
+        if (q.length < 2) { results.classList.add('hidden'); return; }
+        timer = setTimeout(async () => {
+            try {
+                const resp = await fetch(`/api/profile/?sort=rating`);
+                const items = await resp.json();
+                const filtered = items.filter(e =>
+                    e.title.toLowerCase().includes(q.toLowerCase()) &&
+                    !shelfItems.some(s => s.id === e.id)
+                ).slice(0, 6);
+                if (!filtered.length) { results.innerHTML = '<p class="p-3 text-xs text-txt-muted">No matches in your library</p>'; results.classList.remove('hidden'); return; }
+                results.innerHTML = filtered.map(e => {
+                    const img = e.image_url ? `<img src="${e.image_url}" alt="" class="w-8 h-11 object-cover rounded">` : `<div class="w-8 h-11 bg-sage/10 rounded flex items-center justify-center"><span class="text-sage text-xs">${escapeHtml((e.title||'?')[0])}</span></div>`;
+                    return `<button onclick="addToShelf(${e.id})" class="w-full flex items-center gap-3 px-3 py-2 hover:bg-sage/5 text-left transition-base">
+                        ${img}<div class="flex-1 min-w-0"><p class="text-sm font-medium truncate">${escapeHtml(e.title)}</p><p class="text-[10px] text-txt-muted">${e.media_type} ${e.rating ? '· ' + e.rating + '/10' : ''}</p></div>
+                    </button>`;
+                }).join('');
+                results.classList.remove('hidden');
+            } catch {}
+        }, 300);
+    });
+    document.addEventListener('click', e => {
+        if (!e.target.closest('#shelf-search') && !e.target.closest('#shelf-search-results'))
+            results.classList.add('hidden');
+    });
+})();
+
+async function addToShelf(entryId) {
+    // Fetch the entry details from profile
+    try {
+        const resp = await fetch(`/api/profile/?sort=rating`);
+        const items = await resp.json();
+        const entry = items.find(e => e.id === entryId);
+        if (entry && !shelfItems.some(s => s.id === entry.id)) {
+            shelfItems.push({
+                id: entry.id, title: entry.title, media_type: entry.media_type,
+                image_url: entry.image_url, year: entry.year, rating: entry.rating,
+                external_id: entry.external_id, source: entry.source,
+            });
+            renderShelf();
+        }
+    } catch {}
+    document.getElementById('shelf-search').value = '';
+    document.getElementById('shelf-search-results').classList.add('hidden');
+}
+
+async function saveShelf() {
+    const ids = shelfItems.map(s => s.id);
+    try {
+        await fetch('/api/media/signature-shelf', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ item_ids: ids }),
+        });
+    } catch {}
+    cancelShelfEdit();
+    // Show confirmation
+    const btn = document.querySelector('[onclick="saveShelf()"]');
+    if (btn) { btn.textContent = 'Saved ✓'; setTimeout(() => { btn.textContent = 'Save shelf'; }, 2000); }
+}
+
+function shareShelf() {
+    // For now, open the existing Taste DNA share which includes signature items
+    openShareCard();
 }
 
 loadDna();

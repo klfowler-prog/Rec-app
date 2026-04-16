@@ -3734,6 +3734,85 @@ async def get_providers(media_type: str, tmdb_id: str, user: User = Depends(requ
     return await get_watch_providers(media_type, tmdb_id)
 
 
+@router.get("/signature-shelf")
+async def get_signature_shelf(user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """Get the user's custom signature shelf, or auto-generate from top-rated items."""
+    import json
+    from app.models import UserPreferences
+
+    prefs = db.query(UserPreferences).filter(UserPreferences.user_id == user.id).first()
+    custom_ids = None
+    if prefs and prefs.quiz_results:
+        try:
+            data = json.loads(prefs.quiz_results)
+            custom_ids = data.get("signature_shelf")
+        except Exception:
+            pass
+
+    if custom_ids:
+        # Load custom shelf items by ID
+        items = []
+        for eid in custom_ids:
+            entry = db.query(MediaEntry).filter(MediaEntry.id == eid, MediaEntry.user_id == user.id).first()
+            if entry:
+                items.append({
+                    "id": entry.id, "title": entry.title, "media_type": entry.media_type,
+                    "image_url": entry.image_url, "year": entry.year, "rating": entry.rating,
+                    "external_id": entry.external_id, "source": entry.source,
+                })
+        return {"items": items, "is_custom": True}
+
+    # Auto-generate from top-rated items across types
+    items = []
+    for mt in ["movie", "tv", "book", "podcast"]:
+        entries = (
+            db.query(MediaEntry)
+            .filter(MediaEntry.user_id == user.id, MediaEntry.media_type == mt, MediaEntry.rating.isnot(None))
+            .order_by(MediaEntry.rating.desc(), MediaEntry.updated_at.desc())
+            .limit(2)
+            .all()
+        )
+        for e in entries:
+            items.append({
+                "id": e.id, "title": e.title, "media_type": e.media_type,
+                "image_url": e.image_url, "year": e.year, "rating": e.rating,
+                "external_id": e.external_id, "source": e.source,
+            })
+    # Sort by rating desc, cap at 5
+    items.sort(key=lambda x: -(x.get("rating") or 0))
+    return {"items": items[:5], "is_custom": False}
+
+
+@router.post("/signature-shelf")
+async def save_signature_shelf(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """Save custom signature shelf item IDs."""
+    import json
+    from app.models import UserPreferences
+    from app import cache
+
+    body = await request.json()
+    item_ids = body.get("item_ids", [])[:8]  # max 8
+
+    prefs = db.query(UserPreferences).filter(UserPreferences.user_id == user.id).first()
+    if not prefs:
+        prefs = UserPreferences(user_id=user.id)
+        db.add(prefs)
+
+    try:
+        data = json.loads(prefs.quiz_results) if prefs.quiz_results else {}
+    except Exception:
+        data = {}
+
+    data["signature_shelf"] = item_ids
+    prefs.quiz_results = json.dumps(data)
+    db.commit()
+
+    # Bust taste DNA cache so re-analysis uses new signatures
+    cache.invalidate(f"taste_dna:{user.id}")
+
+    return {"ok": True}
+
+
 @router.get("/signal-strength")
 async def signal_strength(user: User = Depends(require_user), db: Session = Depends(get_db)):
     """Return the user's current signal strength level and nudge."""
