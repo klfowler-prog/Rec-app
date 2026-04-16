@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Link Device{% endblock %}
+
+{% block content %}
+<div class="min-h-[60vh] flex items-center justify-center px-4">
+    <div class="w-full max-w-sm">
+        <h1 class="text-2xl font-bold text-txt mb-2 text-center">Link your TV</h1>
+        <p class="text-txt-muted text-center mb-6">Enter the code shown on your Apple TV.</p>
+
+        {% if error %}
+        <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-4 text-center text-sm text-red-700 dark:text-red-300">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        {% if success %}
+        <div class="bg-sage/10 border border-sage rounded-lg p-6 text-center">
+            <div class="text-3xl mb-2">&#10003;</div>
+            <p class="text-txt font-semibold">Device linked!</p>
+            <p class="text-txt-muted text-sm mt-1">Your Apple TV should sign in automatically.</p>
+        </div>
+        {% else %}
+        <form method="post" action="/device/approve" class="space-y-4">
+            <input
+                type="text"
+                name="user_code"
+                placeholder="ABC123"
+                maxlength="6"
+                required
+                autocomplete="off"
+                autofocus
+                class="w-full text-center text-2xl tracking-[0.3em] font-mono uppercase px-4 py-3 rounded-lg border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark text-txt focus:outline-none focus:ring-2 focus:ring-sage"
+            >
+            <button type="submit" class="w-full py-3 rounded-lg bg-sage text-white font-semibold hover:bg-sage-dark transition">
+                Link Device
+            </button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
