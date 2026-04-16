@@ -2108,6 +2108,8 @@ If the user has fewer than 15 rated items, you have limited signal. In this case
 - If you cannot find a genuine cross-medium connection, recommend popular items in the same genre/tone instead. A good mainstream pick is always better than a forced obscure connection.
 - It is OK to return fewer items if the profile doesn't support confident recommendations. Empty sections are better than bad recommendations.
 - NEVER recommend practical/self-help/how-to books unless the user's profile explicitly shows they rate that category highly.
+- NEVER recommend academic, scholarly, or textbook titles. No university press books, no research monographs, no titles with subtitles like "A Study of..." or "...in Postwar Germany." These are not entertainment recommendations. If the user wanted academic reading, they'd go to a library catalog, not this app. Stick to mainstream published fiction, popular nonfiction (memoirs, true crime, narrative nonfiction, big-idea books), and well-known entertainment.
+- When in doubt about whether a title is too obscure or academic, pick something more mainstream instead. A great popular recommendation is ALWAYS better than an impressive-sounding obscure one.
 
 You are producing FOUR outputs in one JSON response — do NOT repeat the same items across sections:
 
