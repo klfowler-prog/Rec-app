@@ -3874,44 +3874,33 @@ async def taste_dna_share_image(
         elif isinstance(t, dict):
             themes.append(t.get("label") or t.get("name") or "")
 
-    # Pick 2 posters per media type (movie, TV, book) for a visual mix.
-    # For books, skip self-help/practical titles — check both genres and title.
-    _SKIP_GENRES = {"self-help", "psychology", "self help", "business", "advice",
-                    "how-to", "productivity", "wellness", "dysfunctional",
-                    "nyt:advice"}
-    _SKIP_TITLE_WORDS = {"how to", "self-help", "habit", "mindset", "emotionally",
-                         "people-pleaser", "healing", "trauma", "conversations on",
-                         "children of", "brain that changes", "keep moving"}
-
-    def _is_practical_book(item):
-        g = (item.genres or "").lower()
-        t = (item.title or "").lower()
-        return any(s in g for s in _SKIP_GENRES) or any(s in t for s in _SKIP_TITLE_WORDS)
-
+    # Use the signature shelf for share card posters — same items the user
+    # sees on their taste page. Falls back to top-rated if no shelf set.
+    import json as _json
+    from app.models import UserPreferences as _UP
     poster_urls = []
-    for mt in ["movie", "tv", "book"]:
-        items = (
-            db.query(MediaEntry)
-            .filter(
-                MediaEntry.user_id == target_user_id,
-                MediaEntry.media_type == mt,
-                MediaEntry.image_url.isnot(None),
-                MediaEntry.rating >= 9,
-            )
-            .order_by(MediaEntry.rated_at.desc().nullslast())
-            .limit(10)
+    _prefs = db.query(_UP).filter(_UP.user_id == target_user_id).first()
+    shelf_ids = None
+    if _prefs and _prefs.quiz_results:
+        try:
+            shelf_ids = _json.loads(_prefs.quiz_results).get("signature_shelf")
+        except Exception:
+            pass
+    if shelf_ids:
+        for eid in shelf_ids[:6]:
+            entry = db.query(MediaEntry).filter(MediaEntry.id == eid).first()
+            if entry and entry.image_url:
+                poster_urls.append(entry.image_url)
+    if not poster_urls:
+        # Fallback: top-rated with covers
+        top = (
+            db.query(MediaEntry.image_url)
+            .filter(MediaEntry.user_id == target_user_id, MediaEntry.image_url.isnot(None), MediaEntry.rating >= 8)
+            .order_by(MediaEntry.rating.desc())
+            .limit(6)
             .all()
         )
-        added = 0
-        for item in items:
-            if added >= 2:
-                break
-            if mt == "book" and _is_practical_book(item):
-                continue
-            if item.image_url:
-                poster_urls.append(item.image_url)
-                added += 1
-    poster_urls = poster_urls[:6]
+        poster_urls = [r.image_url for r in top if r.image_url][:6]
 
     from app.services.share_card import generate_share_card
     png_bytes = generate_share_card(
