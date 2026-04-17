@@ -208,7 +208,7 @@ function sharedLovedCard(item, myName, themName) {
     const image = item.image_url
         ? `<div class="poster-frame"><img src="${item.image_url}" alt="" class="${fit}"></div>`
         : `<div class="poster-frame"><div class="poster-fallback bg-sage/10"><span class="text-sage text-2xl">${escapeHtml((item.title || '?')[0])}</span></div></div>`;
-    const ratingColor = r => r >= 8 ? 'text-emerald-500' : r >= 6 ? 'text-yellow-600' : 'text-amber-500';
+    const ratingColor = r => r >= 4 ? 'text-emerald-500' : r >= 3 ? 'text-yellow-600' : 'text-amber-500';
 
     return `
         <a href="${link}" class="block group">

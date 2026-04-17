@@ -209,7 +209,7 @@ def profile_shape(user: User = Depends(require_user), db: Session = Depends(get_
     rating_hist: dict[int, int] = {i: 0 for i in range(1, 6)}
     for media_type, rating, genres in rows:
         if rating is not None:
-            bin_val = max(1, min(10, int(round(rating))))
+            bin_val = max(1, min(5, int(round(rating))))
             rating_hist[bin_val] += 1
 
     # Type distribution
@@ -298,7 +298,7 @@ def get_fit_scores(user: User = Depends(require_user), db: Session = Depends(get
     for e in consumed:
         if not e.genres:
             continue
-        rating_boost = (e.rating / 10.0) if e.rating else 0.5
+        rating_boost = (e.rating / 5.0) if e.rating else 0.5
         for g in e.genres.split(","):
             g = g.strip()
             if g:
@@ -344,10 +344,10 @@ async def predict_ratings(user: User = Depends(require_user), db: Session = Depe
         return {"predicted": 0}
 
     rated = sorted(consumed, key=lambda e: e.rating or 0, reverse=True)
-    taste_lines = [f"- {e.title} ({e.media_type}) — {e.rating}/10 [{e.genres or 'no genres'}]" for e in rated[:20]]
+    taste_lines = [f"- {e.title} ({e.media_type}) — {e.rating}/5 [{e.genres or 'no genres'}]" for e in rated[:20]]
     if abandoned:
         taste_lines.append("")
-        taste_lines.append("Abandoned (treat as ~4/10 — user started but didn't finish):")
+        taste_lines.append("Abandoned (treat as ~2/5 — user started but didn't finish):")
         for e in abandoned[:10]:
             taste_lines.append(f"- {e.title} ({e.media_type}) [{e.genres or 'no genres'}]")
 

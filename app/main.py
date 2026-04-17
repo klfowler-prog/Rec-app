@@ -28,19 +28,23 @@ with engine.connect() as conn:
             conn.commit()
 
     # One-time migration: convert 10-point ratings to 5-point scale.
-    # Detects unconverted data by checking if any rating > 5 exists.
+    # Detects unconverted data by checking if any rating OR predicted_rating > 5.
     if "media_entries" in inspector.get_table_names():
         has_old_scale = conn.execute(
-            text("SELECT 1 FROM media_entries WHERE rating > 5 LIMIT 1")
+            text("SELECT 1 FROM media_entries WHERE rating > 5 OR predicted_rating > 5 LIMIT 1")
         ).fetchone()
         if has_old_scale:
             conn.execute(text(
-                "UPDATE media_entries SET rating = ROUND(rating / 2.0) WHERE rating IS NOT NULL"
+                "UPDATE media_entries SET rating = MAX(1, ROUND(rating / 2.0)) WHERE rating IS NOT NULL AND rating > 5"
             ))
             conn.execute(text(
-                "UPDATE media_entries SET predicted_rating = ROUND(predicted_rating / 2.0, 1) WHERE predicted_rating IS NOT NULL"
+                "UPDATE media_entries SET predicted_rating = MAX(1.0, ROUND(predicted_rating / 2.0, 1)) WHERE predicted_rating IS NOT NULL AND predicted_rating > 5"
             ))
             conn.commit()
+            # Flush all cached AI responses — they contain old 10-point data
+            if "cache_entries" in inspector.get_table_names():
+                conn.execute(text("DELETE FROM cache_entries"))
+                conn.commit()
 
 app = FastAPI(title="NextUp", description="Personal media recommendation engine")
 

@@ -144,7 +144,7 @@ async def generate_collections(user: User = Depends(require_user), db: Session =
     for mt, label in label_map.items():
         items = by_type.get(mt, [])[:10]
         if items:
-            item_lines = [f"  - {e.title} ({e.year or '?'}) — {e.rating}/10 [{e.genres or ''}]" for e in items]
+            item_lines = [f"  - {e.title} ({e.year or '?'}) — {e.rating}/5 [{e.genres or ''}]" for e in items]
             lines.append(f"{label}:\n" + "\n".join(item_lines))
     profile_summary = "\n\n".join(lines)
 

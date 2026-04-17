@@ -1597,7 +1597,7 @@ async def taste_dna(
     if current_entry_count < 3:
         return {"themes": [], "summary": "Add at least a few items to see your taste DNA.", "by_medium": {}, "signature_items": [], "avoided": "", "recent_shift": ""}
 
-    # Partition: loved (rated 8+), liked (6-7), consumed-unrated, queued (want_to_consume), low-rated
+    # Partition: loved (rated 4-5), liked (3), consumed-unrated, queued (want_to_consume), low-rated
     loved = sorted([e for e in entries if e.rating and e.rating >= 4], key=lambda e: e.rating or 0, reverse=True)
     liked = sorted([e for e in entries if e.rating and e.rating == 3], key=lambda e: e.rating or 0, reverse=True)
     consumed_unrated = [e for e in entries if e.status == "consumed" and not e.rating]

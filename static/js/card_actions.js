@@ -89,17 +89,12 @@ async function startConsuming(btn, data) {
 
 function showRatingDots(container, entryId) {
     container.innerHTML = `
-        <div class="flex items-center gap-0.5 flex-wrap">
-            <button onclick="rateItem(this,${entryId},1)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-coral transition-base text-[8px] font-bold text-transparent hover:text-white" title="1/10">1</button>
-            <button onclick="rateItem(this,${entryId},2)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-coral transition-base text-[8px] font-bold text-transparent hover:text-white" title="2/10">2</button>
-            <button onclick="rateItem(this,${entryId},3)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-coral transition-base text-[8px] font-bold text-transparent hover:text-white" title="3/10">3</button>
-            <button onclick="rateItem(this,${entryId},4)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-amber-400 transition-base text-[8px] font-bold text-transparent hover:text-white" title="4/10">4</button>
-            <button onclick="rateItem(this,${entryId},5)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-amber-400 transition-base text-[8px] font-bold text-transparent hover:text-white" title="5/10">5</button>
-            <button onclick="rateItem(this,${entryId},6)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-yellow-500 transition-base text-[8px] font-bold text-transparent hover:text-white" title="6/10">6</button>
-            <button onclick="rateItem(this,${entryId},7)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-yellow-500 transition-base text-[8px] font-bold text-transparent hover:text-white" title="7/10">7</button>
-            <button onclick="rateItem(this,${entryId},8)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-emerald-400 transition-base text-[8px] font-bold text-transparent hover:text-white" title="8/10">8</button>
-            <button onclick="rateItem(this,${entryId},9)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-emerald-400 transition-base text-[8px] font-bold text-transparent hover:text-white" title="9/10">9</button>
-            <button onclick="rateItem(this,${entryId},10)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-emerald-500 transition-base text-[8px] font-bold text-transparent hover:text-white" title="10/10">10</button>
+        <div class="flex items-center gap-1 flex-wrap">
+            <button onclick="rateItem(this,${entryId},1)" class="w-7 h-7 rounded-full bg-border-light dark:bg-border-dark hover:bg-coral transition-base text-xs font-bold text-transparent hover:text-white" title="1/5">1</button>
+            <button onclick="rateItem(this,${entryId},2)" class="w-7 h-7 rounded-full bg-border-light dark:bg-border-dark hover:bg-amber-400 transition-base text-xs font-bold text-transparent hover:text-white" title="2/5">2</button>
+            <button onclick="rateItem(this,${entryId},3)" class="w-7 h-7 rounded-full bg-border-light dark:bg-border-dark hover:bg-yellow-500 transition-base text-xs font-bold text-transparent hover:text-white" title="3/5">3</button>
+            <button onclick="rateItem(this,${entryId},4)" class="w-7 h-7 rounded-full bg-border-light dark:bg-border-dark hover:bg-emerald-400 transition-base text-xs font-bold text-transparent hover:text-white" title="4/5">4</button>
+            <button onclick="rateItem(this,${entryId},5)" class="w-7 h-7 rounded-full bg-border-light dark:bg-border-dark hover:bg-emerald-500 transition-base text-xs font-bold text-transparent hover:text-white" title="5/5">5</button>
         </div>
     `;
 }
@@ -135,7 +130,7 @@ async function rateItem(btn, entryId, rating) {
     }
 }
 
-// Toggle inline rating — tap a displayed "8/10" to expand editable dots
+// Toggle inline rating — tap a displayed "4/5" to expand editable dots
 function toggleInlineRate(el, entryId, currentRating) {
     const parent = el.parentElement;
     // If dots already shown, collapse
@@ -144,17 +139,17 @@ function toggleInlineRate(el, entryId, currentRating) {
         return;
     }
     const wrap = document.createElement('div');
-    wrap.className = 'inline-edit-dots flex items-center gap-0.5 mt-1 flex-wrap';
-    for (let n = 1; n <= 10; n++) {
+    wrap.className = 'inline-edit-dots flex items-center gap-1 mt-1 flex-wrap';
+    for (let n = 1; n <= 5; n++) {
         const active = n <= currentRating;
-        const color = n <= 3 ? (active ? 'bg-coral' : 'bg-border-light dark:bg-border-dark')
-                    : n <= 5 ? (active ? 'bg-amber-400' : 'bg-border-light dark:bg-border-dark')
-                    : n <= 7 ? (active ? 'bg-yellow-500' : 'bg-border-light dark:bg-border-dark')
+        const color = n <= 1 ? (active ? 'bg-coral' : 'bg-border-light dark:bg-border-dark')
+                    : n <= 2 ? (active ? 'bg-amber-400' : 'bg-border-light dark:bg-border-dark')
+                    : n <= 3 ? (active ? 'bg-yellow-500' : 'bg-border-light dark:bg-border-dark')
                     : (active ? 'bg-emerald-500' : 'bg-border-light dark:bg-border-dark');
         const dot = document.createElement('button');
-        dot.className = `w-5 h-5 rounded-full ${color} hover:bg-sage transition-base text-[8px] font-bold ${active ? 'text-white' : 'text-transparent hover:text-white'}`;
+        dot.className = `w-7 h-7 rounded-full ${color} hover:bg-sage transition-base text-xs font-bold ${active ? 'text-white' : 'text-transparent hover:text-white'}`;
         dot.textContent = n;
-        dot.title = `${n}/10`;
+        dot.title = `${n}/5`;
         dot.onclick = async (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -164,7 +159,7 @@ function toggleInlineRate(el, entryId, currentRating) {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ rating: n }),
                 });
-                el.textContent = `${n}/10`;
+                el.textContent = `${n}/5`;
                 wrap.remove();
             } catch {}
         };
