@@ -24,21 +24,6 @@
     }
     .home-hero > * { position: relative; z-index: 1; }
 
-    /* In-progress — tall poster cards */
-    .progress-card {
-        position: relative; border-radius: 1rem; overflow: hidden;
-        min-height: 12rem; display: flex; align-items: flex-end;
-        transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .progress-card:hover { transform: translateY(-3px); box-shadow: 0 12px 30px rgba(0,0,0,0.15); }
-    .dark .progress-card:hover { box-shadow: 0 12px 30px rgba(0,0,0,0.4); }
-    .progress-card .progress-bg { position: absolute; inset: 0; background-size: cover; background-position: center top; }
-    .progress-card .progress-overlay {
-        position: absolute; inset: 0;
-        background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.05) 100%);
-    }
-    .progress-card .progress-label { position: relative; z-index: 1; padding: 1.25rem; color: white; width: 100%; }
-
     /* Best bet hero — cinematic poster + text */
     .best-bet-hero {
         background: linear-gradient(135deg, #EFEAE0 0%, #FAF5EC 100%);
@@ -168,6 +153,9 @@
     <!-- ============================================================
          Quick add — capture a title fast, like jotting down a note
          ============================================================ -->
+    <div>
+        <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold mb-2">Keep track of what you want to explore</p>
+    </div>
     <div class="relative">
         <div class="flex items-center gap-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl p-2 shadow-sm">
             <svg class="w-5 h-5 text-txt-muted ml-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
@@ -191,39 +179,33 @@
     {% if currently %}
     <div>
         <p class="text-[11px] text-coral uppercase tracking-[0.18em] font-bold mb-3">Currently into</p>
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <div class="grid grid-cols-3 md:grid-cols-6 gap-3">
             {% for item in currently %}
-            <div class="progress-card relative" data-entry-id="{{ item.id }}" id="progress-{{ item.id }}">
-                {% if item.image_url %}
-                <div class="progress-bg" style="background-image: url('{{ item.image_url|e }}')"></div>
-                {% else %}
-                <div class="progress-bg {% if item.media_type == 'tv' %}gradient-purple{% elif item.media_type == 'book' %}gradient-amber{% elif item.media_type == 'podcast' %}bg-green-500{% else %}gradient-blue{% endif %}"></div>
-                {% endif %}
-                <div class="progress-overlay"></div>
-                <a href="{% if item.external_id %}/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}{% else %}/profile{% endif %}" class="absolute inset-0 z-[5]" aria-label="{{ item.title }}"></a>
-                <div class="absolute top-0 left-0 right-0 z-[6] p-3 pointer-events-none">
-                    <p class="text-[10px] uppercase tracking-wide text-white/60 mb-0.5">{{ {'movie':'Movie','tv':'TV Show','book':'Book','podcast':'Podcast'}.get(item.media_type, item.media_type) }}</p>
-                    <p class="text-base font-bold leading-tight line-clamp-2 text-white">{{ item.title }}</p>
-                </div>
-                <!-- Finish + rate flow -->
-                <div class="absolute bottom-0 left-0 right-0 z-10 p-3 pt-8" style="background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%);" id="progress-actions-{{ item.id }}">
-                    <div class="flex gap-2">
-                        <button onclick="startFinishFlow({{ item.id }}, '{{ item.title|e }}', '{{ item.media_type }}')" class="flex-1 px-3 py-1.5 bg-white/20 hover:bg-sage text-white text-xs font-semibold rounded-lg backdrop-blur transition-base">
+            <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm transition-base" data-entry-id="{{ item.id }}" id="progress-{{ item.id }}" data-rec-card>
+                <a href="{% if item.external_id %}/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}{% else %}/profile{% endif %}" class="block">
+                    <div class="poster-frame relative">
+                        {% if item.image_url %}
+                            <img src="{{ item.image_url }}" alt="" class="{% if item.media_type == 'podcast' %}poster-contain{% else %}poster-cover{% endif %}">
+                        {% else %}
+                            <div class="poster-fallback {% if item.media_type == 'tv' %}gradient-purple{% elif item.media_type == 'book' %}gradient-amber{% elif item.media_type == 'podcast' %}bg-green-500{% else %}gradient-blue{% endif %}">
+                                <span class="text-white text-3xl font-bold">{{ (item.title or '?')[0] }}</span>
+                            </div>
+                        {% endif %}
+                    </div>
+                </a>
+                <div class="p-2">
+                    <p class="text-[11px] font-semibold leading-tight line-clamp-2 mb-2">{{ item.title }}</p>
+                    <div class="flex flex-col gap-1" id="progress-actions-{{ item.id }}">
+                        <button onclick="startFinishFlow({{ item.id }}, '{{ item.title|e }}', '{{ item.media_type }}')" class="w-full px-2 py-1 bg-sage/10 hover:bg-sage hover:text-white text-sage text-[10px] font-semibold rounded-md transition-base">
                             Finished
                         </button>
-                        <button onclick="showNotNowConfirm({{ item.id }})" class="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/70 text-xs rounded-lg backdrop-blur transition-base">
-                            Not now
-                        </button>
-                        <button onclick="homeQuickStatus({{ item.id }}, 'abandoned', this)" class="px-3 py-1.5 bg-white/10 hover:bg-coral/60 text-white/50 text-xs rounded-lg backdrop-blur transition-base">
-                            Not for me
-                        </button>
+                        <div class="flex gap-1">
+                            <button onclick="showNotNowConfirm({{ item.id }})" class="flex-1 px-1 py-0.5 text-[9px] text-txt-muted hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-base">Pause</button>
+                            <button onclick="homeQuickStatus({{ item.id }}, 'abandoned', this)" class="flex-1 px-1 py-0.5 text-[9px] text-txt-muted hover:bg-coral/10 hover:text-coral rounded transition-base">Drop</button>
+                        </div>
                     </div>
-                    <div id="finish-flow-{{ item.id }}" class="hidden mt-2"></div>
+                    <div id="finish-flow-{{ item.id }}" class="hidden mt-1"></div>
                 </div>
-                <button onclick="toggleResonance(this, {{ item.id }})" data-resonating="false"
-                    class="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-black/40 backdrop-blur flex items-center justify-center text-white/60 hover:text-white hover:bg-black/60 transition-base resonance-heart">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-                </button>
             </div>
             {% endfor %}
         </div>
@@ -238,7 +220,7 @@
             </div>
             <div class="text-white flex-1">
                 <p class="text-base font-bold group-hover:text-cream transition-base">What are you into right now?</p>
-                <p class="text-sm text-white/70">The show you're binging, the book on your nightstand, the podcast in your ears — add it here and get better recommendations.</p>
+                <p class="text-xs text-white/70">The show you're binging, the book on your nightstand, the podcast in your ears.</p>
             </div>
             <svg class="w-5 h-5 text-white/50 flex-shrink-0 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </div>
@@ -248,12 +230,36 @@
     <!-- ============================================================
          Your best bet — one big visual pick, loaded async
          ============================================================ -->
-    <div id="best-bet-section" class="hidden">
+    <!-- ============================================================
+         Discover — best bet + CTA combined
+         ============================================================ -->
+    <div>
         <div class="flex items-center justify-between mb-3">
-            <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold">We think you'll love this</p>
-            <a href="/discover" class="text-xs text-sage hover:underline">More on Discover &rarr;</a>
+            <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold">Discover</p>
+            <a href="/discover" class="text-xs text-sage hover:underline">Explore more &rarr;</a>
         </div>
-        <div id="best-bet-card" class="best-bet-hero"></div>
+        <div id="best-bet-section" class="hidden mb-3">
+            <div id="best-bet-card" class="best-bet-hero"></div>
+        </div>
+        <a href="/discover" class="block relative overflow-hidden rounded-xl transition-all hover:scale-[1.01] hover:shadow-xl group">
+            <div class="absolute inset-0 flex">
+                {% for poster_url in nav_posters[:4] %}
+                <div class="flex-1 bg-cover bg-center" style="background-image: url('{{ poster_url }}')"></div>
+                {% endfor %}
+                {% if nav_posters|length < 4 %}
+                {% for _ in range(4 - nav_posters|length) %}
+                <div class="flex-1 gradient-sage"></div>
+                {% endfor %}
+                {% endif %}
+            </div>
+            <div class="absolute inset-0 bg-gradient-to-r from-black/80 via-black/60 to-black/40"></div>
+            <div class="relative z-10 p-4 flex items-center gap-3">
+                <div class="text-white flex-1">
+                    <p class="text-sm font-bold group-hover:text-sage-light transition-base">{% if queue_count == 0 %}Your queue is empty — let's fix that{% else %}Mood picks, blends, and AI-powered recs{% endif %}</p>
+                </div>
+                <svg class="w-4 h-4 text-white/50 flex-shrink-0 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </div>
+        </a>
     </div>
 
     <!-- ============================================================
@@ -304,6 +310,13 @@
         <div class="flex items-center justify-between mb-3 gap-2">
             <p class="text-[11px] text-navy dark:text-txt-light uppercase tracking-[0.18em] font-bold">Up next</p>
             <div class="flex items-center gap-2">
+                <div class="flex gap-1" id="queue-type-filter">
+                    <button onclick="filterQueue('')" class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-sage/10 text-sage transition-base" data-queue-filter="">All</button>
+                    <button onclick="filterQueue('movie')" class="px-2 py-0.5 text-[10px] font-medium rounded-full text-txt-muted hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-base" data-queue-filter="movie">Movies</button>
+                    <button onclick="filterQueue('tv')" class="px-2 py-0.5 text-[10px] font-medium rounded-full text-txt-muted hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-base" data-queue-filter="tv">TV</button>
+                    <button onclick="filterQueue('book')" class="px-2 py-0.5 text-[10px] font-medium rounded-full text-txt-muted hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-base" data-queue-filter="book">Books</button>
+                    <button onclick="filterQueue('podcast')" class="px-2 py-0.5 text-[10px] font-medium rounded-full text-txt-muted hover:bg-green-50 dark:hover:bg-green-900/20 transition-base" data-queue-filter="podcast">Pods</button>
+                </div>
                 <select id="queue-sort" onchange="window.location.href='/?queue_sort='+this.value" class="px-2 py-1 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-[10px] text-txt-muted">
                     <option value="predicted" {% if request.query_params.get('queue_sort', 'predicted') == 'predicted' %}selected{% endif %}>Best match</option>
                     <option value="recent" {% if request.query_params.get('queue_sort') == 'recent' %}selected{% endif %}>Recently added</option>
@@ -312,10 +325,10 @@
                 <a href="/profile" class="text-xs text-sage hover:underline">See all &rarr;</a>
             </div>
         </div>
-        <div class="grid grid-cols-3 md:grid-cols-6 gap-3">
+        <div class="grid grid-cols-3 md:grid-cols-6 gap-3" id="queue-grid">
             {% for item in up_next %}
             <a href="{% if item.external_id %}/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}{% else %}/profile{% endif %}"
-               class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm card-hover transition-base block">
+               class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm card-hover transition-base block" data-media-type="{{ item.media_type }}">
                 <div class="poster-frame relative">
                     {% if item.image_url %}
                         <img src="{{ item.image_url }}" alt="" class="{% if item.media_type == 'podcast' %}poster-contain{% else %}poster-cover{% endif %}">
@@ -340,109 +353,67 @@
     {% endif %}
 
     <!-- ============================================================
-         Discover teaser — stays prominent, pushes to Discover
+         My Taste — combined DNA insight + stats in one full-width box
          ============================================================ -->
-    <a href="/discover" class="block relative overflow-hidden rounded-2xl transition-all hover:scale-[1.01] hover:shadow-xl group">
-        <div class="absolute inset-0 flex">
-            {% for poster_url in nav_posters[:4] %}
-            <div class="flex-1 bg-cover bg-center" style="background-image: url('{{ poster_url }}')"></div>
-            {% endfor %}
-            {% if nav_posters|length < 4 %}
-            {% for _ in range(4 - nav_posters|length) %}
-            <div class="flex-1 gradient-sage"></div>
-            {% endfor %}
-            {% endif %}
+    <a href="/taste" class="block p-5 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark hover:border-coral/30 transition-all group">
+        <div class="flex items-center justify-between mb-3">
+            <p class="text-[11px] text-coral uppercase tracking-[0.18em] font-bold">My Taste</p>
+            <span class="text-xs text-txt-muted group-hover:text-coral transition-base">See full profile &rarr;</span>
         </div>
-        <div class="absolute inset-0 bg-gradient-to-r from-black/80 via-black/60 to-black/40"></div>
-        <div class="relative z-10 p-5 flex items-center gap-4">
-            <div class="w-10 h-10 rounded-xl bg-sage/30 backdrop-blur flex items-center justify-center flex-shrink-0">
-                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16zM11 8v6M8 11h6"/></svg>
+        <div class="flex flex-col md:flex-row md:items-center gap-4">
+            <!-- Stats row -->
+            <div class="flex gap-4 flex-shrink-0">
+                {% if type_counts.get('movie', 0) > 0 %}
+                <div class="text-center">
+                    <p class="text-xl font-bold text-navy dark:text-txt-light">{{ type_counts.movie }}</p>
+                    <p class="text-[9px] text-txt-muted uppercase tracking-wide">Movies</p>
+                </div>
+                {% endif %}
+                {% if type_counts.get('tv', 0) > 0 %}
+                <div class="text-center">
+                    <p class="text-xl font-bold text-navy dark:text-txt-light">{{ type_counts.tv }}</p>
+                    <p class="text-[9px] text-txt-muted uppercase tracking-wide">Shows</p>
+                </div>
+                {% endif %}
+                {% if type_counts.get('book', 0) > 0 %}
+                <div class="text-center">
+                    <p class="text-xl font-bold text-navy dark:text-txt-light">{{ type_counts.book }}</p>
+                    <p class="text-[9px] text-txt-muted uppercase tracking-wide">Books</p>
+                </div>
+                {% endif %}
+                {% if type_counts.get('podcast', 0) > 0 %}
+                <div class="text-center">
+                    <p class="text-xl font-bold text-navy dark:text-txt-light">{{ type_counts.podcast }}</p>
+                    <p class="text-[9px] text-txt-muted uppercase tracking-wide">Pods</p>
+                </div>
+                {% endif %}
+                {% if avg_rating %}
+                <div class="text-center border-l border-border-light dark:border-border-dark pl-4">
+                    <p class="text-xl font-bold text-sage">{{ avg_rating }}</p>
+                    <p class="text-[9px] text-txt-muted uppercase tracking-wide">Avg rating</p>
+                </div>
+                {% endif %}
+                {% if fives_count > 0 %}
+                <div class="text-center border-l border-border-light dark:border-border-dark pl-4">
+                    <p class="text-xl font-bold text-coral">{{ fives_count }}</p>
+                    <p class="text-[9px] text-txt-muted uppercase tracking-wide">Perfect 5s</p>
+                </div>
+                {% endif %}
             </div>
-            <div class="text-white flex-1">
-                <p class="text-sm font-bold group-hover:text-sage-light transition-base">Discover something new</p>
-                <p class="text-xs text-white/70">{% if queue_count == 0 %}Your queue is empty — let's fix that.{% else %}Best bets, mood picks, and AI recs.{% endif %}</p>
+            <!-- DNA insight -->
+            <div class="flex-1 min-w-0 md:border-l md:border-border-light md:dark:border-border-dark md:pl-4">
+                <p class="text-sm text-txt dark:text-txt-light leading-relaxed">
+                    {% if quizzes_done < 3 %}{{ quizzes_done }}/3 quizzes done — <span class="text-coral font-semibold">finish them to unlock your full taste profile.</span>
+                    {% elif taste_teaser %}{{ taste_teaser }}{% if taste_comparison %} {{ taste_comparison }}{% endif %}
+                    {% else %}{{ rated_count }} items rated — see what patterns emerge.
+                    {% endif %}
+                </p>
+                {% if rated_this_month > 0 %}
+                <p class="text-[10px] text-txt-muted mt-1">{{ rated_this_month }} rated this month</p>
+                {% endif %}
             </div>
-            <svg class="w-4 h-4 text-white/50 flex-shrink-0 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </div>
     </a>
-
-    <!-- ============================================================
-         Taste DNA + Your media stats
-         ============================================================ -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <!-- Taste DNA teaser -->
-        <a href="/taste" class="block p-5 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark hover:border-coral/40 transition-all group">
-            <div class="flex items-start gap-3">
-                <div class="w-9 h-9 rounded-lg bg-coral/10 flex items-center justify-center flex-shrink-0">
-                    <svg class="w-4.5 h-4.5 text-coral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-                </div>
-                <div class="flex-1 min-w-0">
-                    <p class="text-sm font-bold group-hover:text-coral transition-base">See your Taste DNA</p>
-                    <p class="text-xs text-txt-muted mt-0.5 leading-relaxed">
-                        {% if quizzes_done < 3 %}{{ quizzes_done }}/3 quizzes done — finish them to unlock your full profile.
-                        {% elif taste_teaser %}{{ taste_teaser }}{% if taste_comparison %} {{ taste_comparison }}{% endif %}
-                        {% else %}{{ rated_count }} items rated — see what patterns emerge.
-                        {% endif %}
-                    </p>
-                </div>
-                <svg class="w-4 h-4 text-txt-muted flex-shrink-0 mt-1 group-hover:translate-x-0.5 group-hover:text-coral transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-            </div>
-        </a>
-
-        <!-- Media stats + add more -->
-        <div class="p-5 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark">
-            <div class="flex items-center gap-4 mb-3">
-                <div class="flex gap-3 flex-1 min-w-0">
-                    {% if type_counts.get('movie', 0) > 0 %}
-                    <div class="text-center">
-                        <p class="text-lg font-bold text-navy dark:text-txt-light">{{ type_counts.movie }}</p>
-                        <p class="text-[9px] text-txt-muted uppercase tracking-wide">Movies</p>
-                    </div>
-                    {% endif %}
-                    {% if type_counts.get('tv', 0) > 0 %}
-                    <div class="text-center">
-                        <p class="text-lg font-bold text-navy dark:text-txt-light">{{ type_counts.tv }}</p>
-                        <p class="text-[9px] text-txt-muted uppercase tracking-wide">Shows</p>
-                    </div>
-                    {% endif %}
-                    {% if type_counts.get('book', 0) > 0 %}
-                    <div class="text-center">
-                        <p class="text-lg font-bold text-navy dark:text-txt-light">{{ type_counts.book }}</p>
-                        <p class="text-[9px] text-txt-muted uppercase tracking-wide">Books</p>
-                    </div>
-                    {% endif %}
-                    {% if type_counts.get('podcast', 0) > 0 %}
-                    <div class="text-center">
-                        <p class="text-lg font-bold text-navy dark:text-txt-light">{{ type_counts.podcast }}</p>
-                        <p class="text-[9px] text-txt-muted uppercase tracking-wide">Pods</p>
-                    </div>
-                    {% endif %}
-                    {% if avg_rating %}
-                    <div class="text-center border-l border-border-light dark:border-border-dark pl-3">
-                        <p class="text-lg font-bold text-sage">{{ avg_rating }}</p>
-                        <p class="text-[9px] text-txt-muted uppercase tracking-wide">Avg</p>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-            <p class="text-[10px] text-txt-muted mb-2.5">
-                {% if fives_count > 0 %}{{ fives_count }} perfect scores given.{% endif %}
-                {% if rated_this_month > 0 %} {{ rated_this_month }} rated this month.{% endif %}
-                {% if queue_count > 0 %} {{ queue_count }} waiting in your queue.{% endif %}
-                {% set types_present = type_counts.keys()|list %}
-                {% if 'book' not in types_present %} No books yet — add some to round out your taste.{% elif 'podcast' not in types_present %} Try adding some podcasts.{% endif %}
-            </p>
-            <div class="flex gap-2">
-                <a href="/add" class="flex items-center gap-1.5 px-3 py-1.5 bg-sage/10 hover:bg-sage hover:text-white text-sage rounded-lg text-xs font-semibold transition-base">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-                    Add items
-                </a>
-                <a href="/profile" class="flex items-center gap-1.5 px-3 py-1.5 text-txt-muted hover:text-txt text-xs font-medium transition-base">
-                    View library &rarr;
-                </a>
-            </div>
-        </div>
-    </div>
 
     <!-- ============================================================
          Together mode teaser — sells the shared-watching angle so
@@ -979,6 +950,26 @@ async function loadSignalStrength() {
         }
         localStorage.setItem('signal_level', data.level.toString());
     } catch {}
+}
+
+// Queue type filter — show/hide cards by media type
+function filterQueue(type) {
+    const grid = document.getElementById('queue-grid');
+    if (!grid) return;
+    grid.querySelectorAll('[data-media-type]').forEach(card => {
+        card.style.display = (!type || card.dataset.mediaType === type) ? '' : 'none';
+    });
+    document.querySelectorAll('[data-queue-filter]').forEach(btn => {
+        const isActive = btn.dataset.queueFilter === type;
+        btn.className = btn.className.replace(/bg-\S+\/10\s?|text-sage\s?/g, '');
+        if (isActive) {
+            btn.classList.add('bg-sage/10', 'text-sage');
+            btn.classList.remove('text-txt-muted');
+        } else {
+            btn.classList.remove('bg-sage/10', 'text-sage');
+            btn.classList.add('text-txt-muted');
+        }
+    });
 }
 
 function showSignalCelebration(level) {
