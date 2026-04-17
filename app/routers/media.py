@@ -2503,8 +2503,15 @@ async def best_bet(
     if _profile_age < 14:
         recent_loved.sort(key=lambda e: -(e.rating or 0))
 
-    # Pick a cross-medium anchor when possible
-    anchor = next((e for e in recent_loved if e.media_type != media_type), None) or recent_loved[0]
+    # Pick a cross-medium anchor, rotating so each media_type gets a
+    # different one when multiple high-rated items exist.
+    _anchor_offset = {"movie": 0, "tv": 1, "book": 2, "podcast": 3}
+    cross_type = [e for e in recent_loved if e.media_type != media_type]
+    if cross_type:
+        idx = _anchor_offset.get(media_type, 0) % len(cross_type)
+        anchor = cross_type[idx]
+    else:
+        anchor = recent_loved[0]
 
     known_normalized, _ = _build_known_titles(db, user.id)
 
@@ -2583,7 +2590,7 @@ GOOD EXAMPLE for the same anchor: "Random Family" by Adrian Nicole LeBlanc (narr
 RULES:
 - Each candidate must be a real, findable {type_label} — no invented titles.
 - DO NOT pick anything the user already has in their library: {', '.join(list(known_normalized)[:30]) if known_normalized else 'none'}
-- Each "reason" must have TWO parts: (1) What it is — a 1-sentence premise/hook so the user knows what they're looking at, (2) Why — start with "Because you loved {anchor.title}..." and cite a specific concrete, non-surface element.
+- Each "reason" must have EXACTLY TWO short sentences (total under 40 words): (1) What it is — one punchy sentence, the premise/hook. (2) Why — "Because you loved {anchor.title}, ..." citing ONE specific concrete connection. No run-on clauses, no stacking multiple connections.
 - ALWAYS include a "creator" field with the author, director, or creator name — this is critical for search accuracy.
 - Match audience and tonal register — don't suggest cozy/YA/how-to material for a prestige/literary profile, or vice versa. Use the TASTE PROFILE above to calibrate.
 - Include a "predicted_rating" for each candidate: your honest 1-10 prediction (one decimal) of how THIS SPECIFIC USER would rate it, based on the anchor AND the full taste profile above. Be ruthless — if a candidate fits the anchor thematically but sits outside the user's register, predict LOW (4-5), don't soft-pedal. The app drops anything below 6, so lying doesn't help you.
@@ -2597,21 +2604,21 @@ Return ONLY valid JSON, no markdown:
       "title": "...",
       "creator": "author/director/creator name",
       "year": 2020,
-      "reason": "A 1-sentence description of what this is about. Because you loved {anchor.title}, <specific concrete connection>.",
+      "reason": "A trapped crew unravels a conspiracy aboard a deep-space ark. Because you loved {anchor.title}, the same slow-burn paranoia of living inside a lie.",
       "predicted_rating": 8.5
     }},
     {{
       "title": "...",
       "creator": "...",
       "year": 2018,
-      "reason": "A 1-sentence premise. Because you loved {anchor.title}, <specific connection>.",
+      "reason": "Short punchy premise sentence. Because you loved {anchor.title}, one concrete connection.",
       "predicted_rating": 7.2
     }},
     {{
       "title": "...",
       "creator": "...",
       "year": 2022,
-      "reason": "A 1-sentence premise. Because you loved {anchor.title}, <specific connection>.",
+      "reason": "Short punchy premise sentence. Because you loved {anchor.title}, one concrete connection.",
       "predicted_rating": 6.4
     }}
   ]

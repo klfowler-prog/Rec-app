@@ -108,6 +108,17 @@ async function loadDetail() {
         document.getElementById('detail-creator').textContent = currentMedia.creator || '';
         renderDescription(currentMedia.description);
 
+        // Show AI reason if passed from a recommendation card
+        const reasonParam = new URLSearchParams(window.location.search).get('reason');
+        if (reasonParam) {
+            const banner = document.getElementById('rec-reason-banner');
+            const text = document.getElementById('rec-reason-text');
+            if (banner && text) {
+                text.textContent = reasonParam;
+                banner.classList.remove('hidden');
+            }
+        }
+
         // Image
         const img = document.getElementById('detail-image');
         const placeholder = document.getElementById('detail-placeholder');

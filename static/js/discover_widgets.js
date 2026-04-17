@@ -116,7 +116,8 @@
             ? `<img src="${pick.image_url}" alt="" class="${fit}">`
             : `<div class="poster-fallback ${accent}"><span class="text-white text-3xl font-bold">${escapeHtml((pick.title || '?')[0])}</span></div>`;
         const image = `<div class="poster-frame relative">${imageInner}${pr}</div>`;
-        const link = pick.external_id ? `/media/${pick.media_type || mediaType}/${pick.external_id}?source=${pick.source}` : '#';
+        const bbReasonParam = pick.reason ? `&reason=${encodeURIComponent(pick.reason)}` : '';
+        const link = pick.external_id ? `/media/${pick.media_type || mediaType}/${pick.external_id}?source=${pick.source}${bbReasonParam}` : '#';
         const itemForCard = {
             external_id: pick.external_id || '',
             source: pick.source || '',
@@ -212,7 +213,8 @@
             ? `<img src="${item.image_url}" alt="" class="${fit}">`
             : `<div class="poster-fallback ${accent}"><span class="text-white text-3xl font-bold">${escapeHtml((item.title || '?')[0])}</span></div>`;
         const image = `<div class="poster-frame relative">${imageInner}${pr}</div>`;
-        const link = item.external_id ? `/media/${mt}/${item.external_id}?source=${item.source}` : '#';
+        const reasonParam = item.reason ? `&reason=${encodeURIComponent(item.reason)}` : '';
+        const link = item.external_id ? `/media/${mt}/${item.external_id}?source=${item.source}${reasonParam}` : '#';
         const itemForCard = {
             external_id: item.external_id || '',
             source: item.source || '',
@@ -236,7 +238,7 @@
                     </div>
                     <a href="${link}" class="text-xs font-semibold hover:text-sage transition-base block truncate">${escapeHtml(item.title)}</a>
                     ${typeof renderProviderBadges === 'function' && item.watch_providers ? renderProviderBadges(item.watch_providers) : ''}
-                    ${item.reason ? `<p class="text-[11px] text-txt-muted leading-snug mt-1 line-clamp-2">${escapeHtml(item.reason)}</p>` : ''}
+                    ${item.reason ? `<p class="text-[11px] text-txt-muted leading-snug mt-1">${escapeHtml(item.reason)}</p>` : ''}
                     <div class="mt-2 quick-add-area">${actions}</div>
                 </div>
             </div>`;
