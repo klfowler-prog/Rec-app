@@ -223,7 +223,7 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
             db.query(MediaEntry)
             .filter(MediaEntry.user_id == user.id, MediaEntry.status == "want_to_consume", MediaEntry.media_type == mt)
             .order_by(*_order)
-            .limit(6)
+            .limit(12)
             .all()
         )
         for it in items:
@@ -231,14 +231,14 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
                 up_next.append(it)
                 seen_ids.add(it.id)
 
-    # Re-sort the merged list by the chosen order, cap at 18
+    # Re-sort the merged list by the chosen order, cap at 24
     if queue_sort == "recent":
         up_next.sort(key=lambda e: e.created_at or datetime.min, reverse=True)
     elif queue_sort == "title":
         up_next.sort(key=lambda e: (e.title or "").lower())
     else:
         up_next.sort(key=lambda e: (-(e.predicted_rating or 0), e.title or ""))
-    up_next = up_next[:18]
+    up_next = up_next[:24]
 
     # "Your best bet this week" — single hero card, one media type per
     # day. We rotate by day-of-year so each user sees movie / tv / book /
