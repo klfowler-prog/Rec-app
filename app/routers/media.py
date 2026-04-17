@@ -2391,7 +2391,7 @@ Return ONLY valid JSON, no markdown:
         # Sort scored items first (desc), unscored at end, cap at 6
         for key in list(enriched_themes.keys()):
             enriched_themes[key].sort(key=_pr_sort_key)
-            enriched_themes[key] = enriched_themes[key][:6]
+            enriched_themes[key] = enriched_themes[key][:4]
 
         log.info(
             "home_bundle [user=%d]: %d top_picks, suggestions=%s, themes=%s, %d insights",

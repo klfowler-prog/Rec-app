@@ -179,7 +179,6 @@
                 return;
             }
             wrap.innerHTML = rendered.join('');
-            wrap.querySelectorAll('.collapsible').forEach(el => applyCollapsible(el, 4));
         } catch {
             wrap.innerHTML = `<p class="text-sm text-txt-muted py-6 text-center">Couldn't load themed picks right now.</p>`;
         }
@@ -196,9 +195,8 @@
                         <h3 class="text-base font-semibold ${meta.accent}">${escapeHtml(meta.label)}</h3>
                         <p class="text-xs text-txt-muted">${escapeHtml(meta.blurb)}</p>
                     </div>
-                    <button type="button" onclick="toggleCollapsible('${containerId}', this)" class="hidden text-xs text-sage hover:underline" data-role="theme-toggle">Show all</button>
                 </div>
-                <div id="${containerId}" class="collapsible collapsed grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <div id="${containerId}" class="grid grid-cols-2 md:grid-cols-4 gap-4">
                     ${cards}
                 </div>
             </div>`;
