@@ -336,7 +336,7 @@
         <div class="grid grid-cols-3 md:grid-cols-6 gap-3" id="queue-grid">
             {% for item in up_next %}
             <a href="{% if item.external_id %}/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}{% else %}/profile{% endif %}"
-               class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm card-hover transition-base block" data-media-type="{{ item.media_type }}">
+               class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm card-hover transition-base block{% if loop.index > 12 %} hidden{% endif %}" data-media-type="{{ item.media_type }}" data-queue-idx="{{ loop.index }}">
                 <div class="poster-frame relative">
                     {% if item.image_url %}
                         <img src="{{ item.image_url }}" alt="" class="{% if item.media_type == 'podcast' %}poster-contain{% else %}poster-cover{% endif %}">
@@ -965,17 +965,25 @@ function filterQueue(type) {
     const grid = document.getElementById('queue-grid');
     if (!grid) return;
     const cards = grid.querySelectorAll('[data-media-type]');
-    let shown = 0;
     cards.forEach(card => {
-        const match = !type || card.getAttribute('data-media-type') === type;
-        card.style.display = match ? '' : 'none';
-        if (match) shown++;
+        const mt = card.getAttribute('data-media-type');
+        const idx = parseInt(card.getAttribute('data-queue-idx') || '0');
+        if (type) {
+            // Type filter: show all items of that type
+            card.classList.toggle('hidden', mt !== type);
+        } else {
+            // All: show first 12 only
+            card.classList.toggle('hidden', idx > 12);
+        }
     });
     document.querySelectorAll('[data-queue-filter]').forEach(btn => {
         const isActive = btn.getAttribute('data-queue-filter') === type;
         btn.classList.remove('bg-sage/10', 'text-sage', 'text-txt-muted');
-        btn.classList.add(isActive ? 'bg-sage/10' : 'text-txt-muted');
-        if (isActive) btn.classList.add('text-sage');
+        if (isActive) {
+            btn.classList.add('bg-sage/10', 'text-sage');
+        } else {
+            btn.classList.add('text-txt-muted');
+        }
     });
 }
 
