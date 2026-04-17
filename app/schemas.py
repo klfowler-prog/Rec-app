@@ -16,6 +16,9 @@ class MediaResult(BaseModel):
     external_url: str | None = None
     backdrop_url: str | None = None
     watch_providers: list[dict] | None = None
+    audience_score: float | None = None  # TMDB vote_average (0-10)
+    audience_count: int | None = None    # TMDB vote_count
+    popularity: float | None = None      # TMDB popularity score
 
 
 class MediaEntryCreate(BaseModel):

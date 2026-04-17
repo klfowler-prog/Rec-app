@@ -234,12 +234,15 @@ async def _fetch_list(path: str, limit: int = 20) -> list[MediaResult]:
     if not settings.tmdb_api_key:
         return []
 
+    from datetime import datetime
+
     pages_needed = min((limit + 19) // 20, 5)  # up to 5 pages (100 items)
     all_raw: list[dict] = []
     async with httpx.AsyncClient(timeout=15) as client:
         for page in range(1, pages_needed + 1):
             resp = await client.get(
-                f"{BASE_URL}{path}", headers=_headers(), params={"page": page}
+                f"{BASE_URL}{path}", headers=_headers(),
+                params={"page": page, "region": "US"},
             )
             if resp.status_code != 200:
                 break
@@ -250,6 +253,7 @@ async def _fetch_list(path: str, limit: int = 20) -> list[MediaResult]:
 
     # Infer media type from path
     mt = "tv" if "/tv/" in path else "movie"
+    current_year = datetime.now().year
     seen_ids: set[str] = set()
     results = []
     for item in all_raw:
@@ -260,6 +264,11 @@ async def _fetch_list(path: str, limit: int = 20) -> list[MediaResult]:
         title = item.get("title") or item.get("name", "")
         date = item.get("release_date") or item.get("first_air_date", "")
         year = int(date[:4]) if date and len(date) >= 4 else None
+
+        # Skip re-releases (Fight Club, Bridesmaids, etc.)
+        if year and year < current_year - 1:
+            continue
+
         poster = f"{IMAGE_BASE}{item['poster_path']}" if item.get("poster_path") else None
         genre_ids = item.get("genre_ids", [])
         genres = [GENRE_MAP.get(gid, "") for gid in genre_ids]
@@ -276,12 +285,15 @@ async def _fetch_list(path: str, limit: int = 20) -> list[MediaResult]:
                 genres=genres,
                 description=item.get("overview"),
                 external_url=f"https://www.themoviedb.org/{mt}/{item['id']}",
+                audience_score=item.get("vote_average"),
+                audience_count=item.get("vote_count"),
+                popularity=item.get("popularity"),
             )
         )
         if len(results) >= limit:
             break
-    # Float items with posters to the front
-    results.sort(key=lambda r: 0 if r.image_url else 1)
+    # Sort by popularity so the most widely-released films come first
+    results.sort(key=lambda r: r.popularity or 0, reverse=True)
     return results
 
 

@@ -3065,7 +3065,13 @@ async def new_releases(
                 all_items_flat.extend(items)
 
             items_json = [
-                {"title": it.title, "year": it.year, "genres": it.genres or []}
+                {
+                    "title": it.title,
+                    "year": it.year,
+                    "genres": it.genres or [],
+                    "audience_score": it.audience_score,
+                    "vote_count": it.audience_count,
+                }
                 for it in all_items_flat
             ]
 
@@ -3089,8 +3095,9 @@ SCORING RULES:
 2. Weight the negative signals heavily. If a candidate resembles anything in DISLIKED or REJECTED — same genre, same tone, same subject matter, same audience — score it 1-2.5 even if it's popular or prestigious. The user has told us directly that stuff in those categories isn't for them.
 3. When the candidate is a strong match to LOVED items — same genre, tone, and subject matter — score it 4-4.5. Only score 5 for a near-perfect match to one of their very top items.
 4. When you don't have enough information to score confidently (genres are missing, you don't recognize the title, the description is too thin), RETURN null for that title. It's better to admit uncertainty than to guess — guessed scores clutter the user's feed with garbage.
-5. Ignore popularity, critical acclaim, and cultural importance. A #1 bestseller the user clearly wouldn't enjoy still gets a low score or null.
-6. Do not inflate scores out of politeness. A rating of 2 that hides something the user wouldn't enjoy is better than a 3.5 that wastes their attention.
+5. Use the audience_score (TMDB 0-10 scale) as a quality signal. If a movie has an audience score below 5.0 with a meaningful number of votes (50+), be skeptical — it's probably not worth recommending unless it's an exact genre match for the user. Poorly-reviewed movies should need a stronger taste match to surface.
+6. Ignore raw popularity and cultural importance. A #1 bestseller the user clearly wouldn't enjoy still gets a low score or null.
+7. Do not inflate scores out of politeness. A rating of 2 that hides something the user wouldn't enjoy is better than a 3.5 that wastes their attention.
 
 ITEMS TO SCORE:
 {json.dumps(items_json, indent=2)}
@@ -3138,6 +3145,8 @@ Return ONLY a JSON object mapping each exact candidate title to either a number 
             "genres": item.genres or [],
             "description": item.description,
             "predicted_rating": predicted_map.get(item.title.lower()),
+            "audience_score": item.audience_score,
+            "audience_count": item.audience_count,
         }
 
     MIN_SCORE = 3.5
