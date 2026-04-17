@@ -106,7 +106,6 @@
             <div>
                 <h1 class="text-2xl md:text-3xl font-bold mb-1">{{ greeting }}</h1>
                 <p id="right-now-commentary" class="text-sm md:text-base text-white/75 leading-relaxed max-w-2xl">{{ suggestion }}</p>
-                <p class="text-xs text-white/50 mt-2">{{ day_hint }}</p>
             </div>
             <button onclick="refreshAll(this)" title="Get fresh picks" class="flex-shrink-0 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/60 hover:text-white transition-base">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h4.586M20 20v-5h-4.586M4.929 9A8 8 0 0119.07 9M19.071 15A8 8 0 014.93 15"/></svg>
@@ -114,19 +113,51 @@
         </div>
     </div>
 
-    {% if show_box_office %}
+    {% if featured_mode == 'theaters' %}
     <!-- In theaters now — scored against your taste -->
     <div>
         <div class="flex items-center justify-between mb-3">
             <div>
                 <p class="text-[11px] text-coral uppercase tracking-[0.18em] font-bold mb-0.5">In theaters now</p>
-                <p class="text-sm text-txt-muted">What's playing — scored against your taste.</p>
+                <p class="text-sm text-txt-muted">Scored against your taste.</p>
             </div>
         </div>
         <div id="box-office-cards" class="flex gap-3 overflow-x-auto pb-2" style="scroll-snap-type: x mandatory;">
             <div class="text-center py-4 w-full">
                 <div class="inline-block w-5 h-5 border-2 border-coral/30 border-t-coral rounded-full animate-spin"></div>
                 <p class="text-xs text-txt-muted mt-2">Checking what's playing...</p>
+            </div>
+        </div>
+    </div>
+    {% elif featured_mode == 'wind_down' %}
+    <!-- Sunday wind-down — cozy picks for tonight -->
+    <div>
+        <div class="flex items-center justify-between mb-3">
+            <div>
+                <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold mb-0.5">Tonight's pick</p>
+                <p class="text-sm text-txt-muted">Something good to settle in with.</p>
+            </div>
+        </div>
+        <div id="wind-down-cards" class="flex gap-3 overflow-x-auto pb-2" style="scroll-snap-type: x mandatory;">
+            <div class="text-center py-4 w-full">
+                <div class="inline-block w-5 h-5 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
+                <p class="text-xs text-txt-muted mt-2">Finding something cozy...</p>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- Weekday — quick pick for tonight -->
+    <div>
+        <div class="flex items-center justify-between mb-3">
+            <div>
+                <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold mb-0.5">For tonight</p>
+                <p class="text-sm text-txt-muted">A quick pick based on your taste.</p>
+            </div>
+        </div>
+        <div id="weekday-pick-cards" class="flex gap-3 overflow-x-auto pb-2" style="scroll-snap-type: x mandatory;">
+            <div class="text-center py-4 w-full">
+                <div class="inline-block w-5 h-5 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
+                <p class="text-xs text-txt-muted mt-2">Picking something for you...</p>
             </div>
         </div>
     </div>
@@ -937,7 +968,7 @@ function showSignalCelebration(level) {
     document.getElementById('signal-celebration').classList.remove('hidden');
 }
 
-{% if show_box_office %}
+{% if featured_mode == 'theaters' %}
 async function loadBoxOffice() {
     const container = document.getElementById('box-office-cards');
     if (!container) return;
@@ -946,7 +977,6 @@ async function loadBoxOffice() {
         if (!resp.ok) { container.innerHTML = ''; return; }
         const data = await resp.json();
         const sections = data.sections || [];
-        // Find the "In theaters" section
         const inTheaters = sections.find(s => s.label && s.label.toLowerCase().includes('theater'));
         const items = inTheaters ? inTheaters.items.slice(0, 6) : (sections[0]?.items || []).slice(0, 6);
         if (!items.length) { container.innerHTML = '<p class="text-xs text-txt-muted py-2">Nothing playing right now.</p>'; return; }
@@ -954,7 +984,6 @@ async function loadBoxOffice() {
             const pr = item.predicted_rating;
             const prColor = pr >= 4 ? 'bg-emerald-500' : pr >= 3 ? 'bg-yellow-500' : 'bg-amber-400';
             const prBadge = pr ? `<div class="absolute top-2 right-2 px-1.5 py-0.5 ${prColor} rounded-full shadow"><span class="text-[9px] font-bold text-white">${pr}</span></div>` : '';
-            // Audience score badge (TMDB 0-10 → display as %)
             const as = item.audience_score;
             const asPct = as ? Math.round(as * 10) : null;
             const asColor = asPct >= 70 ? 'text-emerald-500' : asPct >= 50 ? 'text-yellow-500' : 'text-coral';
@@ -980,6 +1009,73 @@ async function loadBoxOffice() {
     }
 }
 loadBoxOffice();
+{% elif featured_mode == 'wind_down' %}
+async function loadWindDown() {
+    const container = document.getElementById('wind-down-cards');
+    if (!container) return;
+    try {
+        // Pull top picks — the AI already scores these against taste
+        const resp = await fetch('/api/media/top-picks');
+        if (!resp.ok) { container.innerHTML = ''; return; }
+        const items = await resp.json();
+        // Prefer TV and books for a cozy night — filter if we have enough
+        const cozyTypes = ['tv', 'book', 'podcast'];
+        let picks = items.filter(i => cozyTypes.includes(i.media_type));
+        if (picks.length < 2) picks = items;
+        picks = picks.slice(0, 4);
+        if (!picks.length) { container.innerHTML = '<p class="text-xs text-txt-muted py-2">Nothing to suggest right now.</p>'; return; }
+        container.innerHTML = picks.map(item => {
+            const fit = item.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
+            const image = item.image_url
+                ? `<img src="${item.image_url}" alt="" class="${fit}" style="width:100%;height:100%;object-fit:cover;">`
+                : `<div class="w-full h-full bg-sage/10 flex items-center justify-center"><span class="text-sage text-2xl font-bold">${escapeHtml((item.title||'?')[0])}</span></div>`;
+            const link = item.external_id ? `/media/${item.media_type}/${item.external_id}?source=${item.source}` : '#';
+            const typeLabel = {movie:'Movie',tv:'TV',book:'Book',podcast:'Podcast'}[item.media_type] || '';
+            return `
+                <a href="${link}" class="flex-shrink-0 group" style="width: 130px; scroll-snap-align: start;">
+                    <div class="rounded-xl overflow-hidden shadow-md relative transition-all group-hover:shadow-lg group-hover:-translate-y-1" style="height: 195px;">
+                        ${image}
+                    </div>
+                    <p class="text-[11px] font-semibold mt-1.5 truncate">${escapeHtml(item.title)}</p>
+                    <span class="text-[9px] text-txt-muted">${typeLabel}</span>
+                </a>`;
+        }).join('');
+    } catch {
+        container.innerHTML = '';
+    }
+}
+loadWindDown();
+{% else %}
+async function loadWeekdayPick() {
+    const container = document.getElementById('weekday-pick-cards');
+    if (!container) return;
+    try {
+        const resp = await fetch('/api/media/top-picks');
+        if (!resp.ok) { container.innerHTML = ''; return; }
+        const items = await resp.json();
+        const picks = items.slice(0, 4);
+        if (!picks.length) { container.innerHTML = '<p class="text-xs text-txt-muted py-2">Nothing to suggest right now.</p>'; return; }
+        container.innerHTML = picks.map(item => {
+            const fit = item.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
+            const image = item.image_url
+                ? `<img src="${item.image_url}" alt="" class="${fit}" style="width:100%;height:100%;object-fit:cover;">`
+                : `<div class="w-full h-full bg-sage/10 flex items-center justify-center"><span class="text-sage text-2xl font-bold">${escapeHtml((item.title||'?')[0])}</span></div>`;
+            const link = item.external_id ? `/media/${item.media_type}/${item.external_id}?source=${item.source}` : '#';
+            const typeLabel = {movie:'Movie',tv:'TV',book:'Book',podcast:'Podcast'}[item.media_type] || '';
+            return `
+                <a href="${link}" class="flex-shrink-0 group" style="width: 130px; scroll-snap-align: start;">
+                    <div class="rounded-xl overflow-hidden shadow-md relative transition-all group-hover:shadow-lg group-hover:-translate-y-1" style="height: 195px;">
+                        ${image}
+                    </div>
+                    <p class="text-[11px] font-semibold mt-1.5 truncate">${escapeHtml(item.title)}</p>
+                    <span class="text-[9px] text-txt-muted">${typeLabel}</span>
+                </a>`;
+        }).join('');
+    } catch {
+        container.innerHTML = '';
+    }
+}
+loadWeekdayPick();
 {% endif %}
 
 wireRatingSlots();

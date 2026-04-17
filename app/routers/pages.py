@@ -16,7 +16,15 @@ router = APIRouter()
 
 
 def _get_greeting_context(user_name: str) -> dict:
-    """Generate time-aware greeting, content suggestion, and day-of-week context."""
+    """Generate day-aware greeting and featured content mode.
+
+    The hero greeting and the featured section below it are one cohesive
+    experience — the text introduces whatever content rotates in that day:
+
+      Thu evening – Sat: theaters (movies in theaters scored for you)
+      Sunday:            wind_down (cozy pick for the night before the week)
+      Mon – Thu daytime: weekday (quick pick — podcast, continue, or queue)
+    """
     now = datetime.now(ZoneInfo("America/New_York"))
     hour = now.hour
     weekday = now.weekday()  # 0=Mon, 4=Fri, 5=Sat, 6=Sun
@@ -24,57 +32,63 @@ def _get_greeting_context(user_name: str) -> dict:
     first_name = user_name.split()[0] if user_name else ""
     day_name = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][weekday]
 
-    # Show in-theaters card Thu evening through Sunday
-    show_box_office = (weekday == 3 and hour >= 17) or weekday in (4, 5, 6)
+    # Determine featured content mode
+    if (weekday == 3 and hour >= 17) or weekday in (4, 5):
+        featured_mode = "theaters"
+    elif weekday == 6:
+        featured_mode = "wind_down"
+    else:
+        featured_mode = "weekday"
 
-
+    # Time-of-day label
     if hour < 12:
         time_of_day = "morning"
-        greeting = f"Good morning, {first_name}"
-        if is_weekend:
-            suggestion = "Perfect time to start a new book or catch up on a film."
-            suggested_types = ["book", "movie"]
-        else:
-            suggestion = "How about a podcast or audiobook for your commute?"
-            suggested_types = ["podcast", "book"]
     elif hour < 17:
         time_of_day = "afternoon"
-        greeting = f"Good afternoon, {first_name}"
-        if is_weekend:
-            suggestion = "Great day for a movie marathon or diving into a new book."
-            suggested_types = ["movie", "book"]
-        else:
-            suggestion = "Need a break? Queue up something good for later."
-            suggested_types = ["podcast", "tv"]
     else:
         time_of_day = "evening"
-        greeting = f"Good evening, {first_name}"
-        if is_weekend:
-            suggestion = "Settle in with a great show or lose yourself in a book."
+
+    # Greeting + suggestion that ties directly into the featured section
+    if featured_mode == "theaters":
+        greeting = f"It's {day_name}, {first_name}!"
+        if weekday == 3:
+            suggestion = "The weekend's almost here — thinking about going to the movies? Here's what's playing."
+        elif weekday == 4:
+            suggestion = "Thinking about going to the movies this weekend? Here's what's in theaters right now."
+        else:  # Saturday
+            suggestion = "Still time to catch something on the big screen this weekend."
+        suggested_types = ["movie"]
+    elif featured_mode == "wind_down":
+        greeting = f"Happy Sunday, {first_name}."
+        if hour < 12:
+            suggestion = "Lazy morning — great time to start a new book or binge something good."
+            suggested_types = ["book", "tv"]
+        elif hour < 17:
+            suggestion = "Enjoy the rest of your day. Here's something good to settle in with tonight."
             suggested_types = ["tv", "book", "movie"]
         else:
-            suggestion = "Time to unwind. A great show or book awaits."
+            suggestion = "Time to wind down before the week starts. Here's something cozy for tonight."
+            suggested_types = ["tv", "book", "podcast"]
+    else:  # weekday
+        if hour < 12:
+            greeting = f"Good morning, {first_name}."
+            suggestion = "Need something for the commute or your morning routine?"
+            suggested_types = ["podcast", "book"]
+        elif hour < 17:
+            greeting = f"Good afternoon, {first_name}."
+            suggestion = "Need a break? Queue up something good for tonight."
+            suggested_types = ["podcast", "tv"]
+        else:
+            greeting = f"Good evening, {first_name}."
+            suggestion = "Time to unwind. Here's something good for tonight."
             suggested_types = ["tv", "book"]
-
-    # Day-aware content hint — changes based on day of week
-    if weekday == 4:  # Friday
-        day_hint = "Weekend's here — plenty of time to start something new."
-    elif weekday == 5:  # Saturday
-        day_hint = "Long day ahead — perfect for a movie or getting lost in a new show."
-    elif weekday == 6:  # Sunday
-        day_hint = "Last chance to finish something before the week starts."
-    elif weekday <= 2:  # Mon-Wed
-        day_hint = "Short on time? Continue what you started or try a quick podcast."
-    else:  # Thursday
-        day_hint = "Almost the weekend — queue up something good for Friday night."
 
     return {
         "greeting": greeting,
         "suggestion": suggestion,
-        "day_hint": day_hint,
+        "featured_mode": featured_mode,
         "time_of_day": time_of_day,
         "is_weekend": is_weekend,
-        "show_box_office": show_box_office,
         "day_name": day_name,
         "suggested_types": suggested_types,
     }
