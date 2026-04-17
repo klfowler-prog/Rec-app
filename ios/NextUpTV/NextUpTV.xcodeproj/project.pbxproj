@@ -1,0 +1,380 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0C574D1959AB629E8E4AB0B6 /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A590695D020586F77CA9007 /* LibraryView.swift */; };
+		19624B529FED767550D2D21B /* Endpoints.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E8B09CCEB8B1A5D38B3E7F2 /* Endpoints.swift */; };
+		421C87B33B6C24EB75D6F611 /* DTOs.swift in Sources */ = {isa = PBXBuildFile; fileRef = D43E8F3F8465046714054AB1 /* DTOs.swift */; };
+		4DAA6EFA44C990837BE67460 /* ServerConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9EF954DF5E62BE58872864 /* ServerConfig.swift */; };
+		6F942C7EE182FDD10A58EEC9 /* PosterCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20B5ADA7FDF1220B1630B5F /* PosterCard.swift */; };
+		799A7E38D70D7D62D2C968F6 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00352E087033431BF06242D6 /* APIClient.swift */; };
+		80AA7A97F6EE483BF80FD299 /* AuthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C959EDCC0AC9AE8BCEE69AE /* AuthStore.swift */; };
+		8716707869A46F84FD1161C7 /* RatingStepper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5848404186808D6DC02933EE /* RatingStepper.swift */; };
+		8D592F2E7519A70436EBDA3C /* StreamingLinks.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEA513818A70A6748F4314C1 /* StreamingLinks.swift */; };
+		C36B2FB8378C03C2AC8C2162 /* TogetherView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA1B801FFEF08B3884F38FFE /* TogetherView.swift */; };
+		D5074D599288EC8056E30E65 /* NextUpTVApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA6F3F76E3E1887962F68551 /* NextUpTVApp.swift */; };
+		D5A66A59A48554C7DC589FA4 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89621BBA9CAB0157EF7527C6 /* ContentView.swift */; };
+		E9DD3F96035733B0108E7D0A /* DevicePairingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3839179C09E31516232520B /* DevicePairingView.swift */; };
+		F04A3F867AF46951731CA13D /* DetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89E854F5E4E2E5C5099A15CB /* DetailView.swift */; };
+		F19619EC2BF89E669AABE614 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB5A7DE55F4038AB00CB90E0 /* KeychainStore.swift */; };
+		FC7327DEF0AE9191A181C5F8 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56ED13E29AD33E22A81B6A1C /* HomeView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		00352E087033431BF06242D6 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		0A590695D020586F77CA9007 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
+		1E8B09CCEB8B1A5D38B3E7F2 /* Endpoints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Endpoints.swift; sourceTree = "<group>"; };
+		1F9EF954DF5E62BE58872864 /* ServerConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerConfig.swift; sourceTree = "<group>"; };
+		4C959EDCC0AC9AE8BCEE69AE /* AuthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthStore.swift; sourceTree = "<group>"; };
+		56ED13E29AD33E22A81B6A1C /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		5848404186808D6DC02933EE /* RatingStepper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RatingStepper.swift; sourceTree = "<group>"; };
+		89621BBA9CAB0157EF7527C6 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		89E854F5E4E2E5C5099A15CB /* DetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetailView.swift; sourceTree = "<group>"; };
+		C20B5ADA7FDF1220B1630B5F /* PosterCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PosterCard.swift; sourceTree = "<group>"; };
+		C3839179C09E31516232520B /* DevicePairingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicePairingView.swift; sourceTree = "<group>"; };
+		D43E8F3F8465046714054AB1 /* DTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DTOs.swift; sourceTree = "<group>"; };
+		D9110BEB6F9720C85012DB84 /* NextUpTV.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NextUpTV.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DA6F3F76E3E1887962F68551 /* NextUpTVApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NextUpTVApp.swift; sourceTree = "<group>"; };
+		EA1B801FFEF08B3884F38FFE /* TogetherView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TogetherView.swift; sourceTree = "<group>"; };
+		EB5A7DE55F4038AB00CB90E0 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
+		EEA513818A70A6748F4314C1 /* StreamingLinks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamingLinks.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		A96C8667B07A41984FEDAC59 /* Auth */ = {
+			isa = PBXGroup;
+			children = (
+				4C959EDCC0AC9AE8BCEE69AE /* AuthStore.swift */,
+				C3839179C09E31516232520B /* DevicePairingView.swift */,
+				EB5A7DE55F4038AB00CB90E0 /* KeychainStore.swift */,
+			);
+			path = Auth;
+			sourceTree = "<group>";
+		};
+		CCF0D96802B6AA9B8EE6EA0F /* Screens */ = {
+			isa = PBXGroup;
+			children = (
+				89E854F5E4E2E5C5099A15CB /* DetailView.swift */,
+				56ED13E29AD33E22A81B6A1C /* HomeView.swift */,
+				0A590695D020586F77CA9007 /* LibraryView.swift */,
+				EA1B801FFEF08B3884F38FFE /* TogetherView.swift */,
+			);
+			path = Screens;
+			sourceTree = "<group>";
+		};
+		CD5BEAFC23DFCF79AE65F133 /* Networking */ = {
+			isa = PBXGroup;
+			children = (
+				00352E087033431BF06242D6 /* APIClient.swift */,
+				D43E8F3F8465046714054AB1 /* DTOs.swift */,
+				1E8B09CCEB8B1A5D38B3E7F2 /* Endpoints.swift */,
+				EEA513818A70A6748F4314C1 /* StreamingLinks.swift */,
+			);
+			path = Networking;
+			sourceTree = "<group>";
+		};
+		DBDBEF0114586D7024DBE4C4 = {
+			isa = PBXGroup;
+			children = (
+				E4131D4E53746E732FE1CB32 /* App */,
+				A96C8667B07A41984FEDAC59 /* Auth */,
+				DEE8F20505CF20A07C30F534 /* Components */,
+				CD5BEAFC23DFCF79AE65F133 /* Networking */,
+				CCF0D96802B6AA9B8EE6EA0F /* Screens */,
+				ECB808F13C92713062A5A98D /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		DEE8F20505CF20A07C30F534 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				C20B5ADA7FDF1220B1630B5F /* PosterCard.swift */,
+				5848404186808D6DC02933EE /* RatingStepper.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		E4131D4E53746E732FE1CB32 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				89621BBA9CAB0157EF7527C6 /* ContentView.swift */,
+				DA6F3F76E3E1887962F68551 /* NextUpTVApp.swift */,
+				1F9EF954DF5E62BE58872864 /* ServerConfig.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		ECB808F13C92713062A5A98D /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				D9110BEB6F9720C85012DB84 /* NextUpTV.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		49B1C38CFB079529B59B0AB8 /* NextUpTV */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EF4F8BDDF26B869A4F9B1E86 /* Build configuration list for PBXNativeTarget "NextUpTV" */;
+			buildPhases = (
+				1005EED3239464D6897537E1 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = NextUpTV;
+			packageProductDependencies = (
+			);
+			productName = NextUpTV;
+			productReference = D9110BEB6F9720C85012DB84 /* NextUpTV.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		B78D975B4877CF41D2F694BF /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1600;
+			};
+			buildConfigurationList = 0B2CF8BFDD4ACEAF901A1FDD /* Build configuration list for PBXProject "NextUpTV" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = DBDBEF0114586D7024DBE4C4;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = ECB808F13C92713062A5A98D /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				49B1C38CFB079529B59B0AB8 /* NextUpTV */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		1005EED3239464D6897537E1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				799A7E38D70D7D62D2C968F6 /* APIClient.swift in Sources */,
+				80AA7A97F6EE483BF80FD299 /* AuthStore.swift in Sources */,
+				D5A66A59A48554C7DC589FA4 /* ContentView.swift in Sources */,
+				421C87B33B6C24EB75D6F611 /* DTOs.swift in Sources */,
+				F04A3F867AF46951731CA13D /* DetailView.swift in Sources */,
+				E9DD3F96035733B0108E7D0A /* DevicePairingView.swift in Sources */,
+				19624B529FED767550D2D21B /* Endpoints.swift in Sources */,
+				FC7327DEF0AE9191A181C5F8 /* HomeView.swift in Sources */,
+				F19619EC2BF89E669AABE614 /* KeychainStore.swift in Sources */,
+				0C574D1959AB629E8E4AB0B6 /* LibraryView.swift in Sources */,
+				D5074D599288EC8056E30E65 /* NextUpTVApp.swift in Sources */,
+				6F942C7EE182FDD10A58EEC9 /* PosterCard.swift in Sources */,
+				8716707869A46F84FD1161C7 /* RatingStepper.swift in Sources */,
+				4DAA6EFA44C990837BE67460 /* ServerConfig.swift in Sources */,
+				8D592F2E7519A70436EBDA3C /* StreamingLinks.swift in Sources */,
+				C36B2FB8378C03C2AC8C2162 /* TogetherView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		0A66419F1A8B8AB2011630DE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "App Icon & Top Shelf Image";
+				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 76A36GRLK8;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nextup.tv;
+				SDKROOT = appletvos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 3;
+			};
+			name = Release;
+		};
+		2FD9D6E5151D9E15A960F820 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "App Icon & Top Shelf Image";
+				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 76A36GRLK8;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nextup.tv;
+				SDKROOT = appletvos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 3;
+			};
+			name = Debug;
+		};
+		4081FB29729A95AC39B67B57 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = appletvos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TVOS_DEPLOYMENT_TARGET = 17.0;
+			};
+			name = Debug;
+		};
+		C23769F236FF55DB28C0217A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = appletvos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TVOS_DEPLOYMENT_TARGET = 17.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		0B2CF8BFDD4ACEAF901A1FDD /* Build configuration list for PBXProject "NextUpTV" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4081FB29729A95AC39B67B57 /* Debug */,
+				C23769F236FF55DB28C0217A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		EF4F8BDDF26B869A4F9B1E86 /* Build configuration list for PBXNativeTarget "NextUpTV" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2FD9D6E5151D9E15A960F820 /* Debug */,
+				0A66419F1A8B8AB2011630DE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = B78D975B4877CF41D2F694BF /* Project object */;
+}

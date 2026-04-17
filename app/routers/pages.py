@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_user
 from app.database import get_db
-from app.models import MediaEntry, User
+from app.models import DevicePairing, MediaEntry, User
 
 templates = Jinja2Templates(directory="app/templates")
 templates.env.globals["admin_email"] = __import__("app.config", fromlist=["settings"]).settings.admin_email.lower()
@@ -88,6 +88,55 @@ async def welcome_page(request: Request):
     if user_id:
         return RedirectResponse("/")
     return templates.TemplateResponse("welcome.html", {"request": request})
+
+
+@router.get("/device")
+async def device_pair_page(request: Request, user: User = Depends(require_user)):
+    return templates.TemplateResponse("device_pair.html", {
+        "request": request,
+        "user": user,
+        "error": None,
+        "success": False,
+    })
+
+
+@router.post("/device/approve")
+async def device_approve(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    from datetime import datetime, timezone
+
+    form = await request.form()
+    user_code = str(form.get("user_code", "")).strip().upper()
+
+    now = datetime.now(timezone.utc)
+    pairing = db.query(DevicePairing).filter(
+        DevicePairing.user_code == user_code,
+        DevicePairing.status == "pending",
+    ).first()
+
+    if not pairing:
+        return templates.TemplateResponse("device_pair.html", {
+            "request": request, "user": user,
+            "error": "Code not found or expired. Check your TV and try again.",
+            "success": False,
+        })
+
+    expires_at = pairing.expires_at if pairing.expires_at.tzinfo else pairing.expires_at.replace(tzinfo=timezone.utc)
+    if now > expires_at:
+        return templates.TemplateResponse("device_pair.html", {
+            "request": request, "user": user,
+            "error": "That code has expired. Start a new pairing on your TV.",
+            "success": False,
+        })
+
+    pairing.user_id = user.id
+    pairing.status = "approved"
+    db.commit()
+
+    return templates.TemplateResponse("device_pair.html", {
+        "request": request, "user": user,
+        "error": None,
+        "success": True,
+    })
 
 
 @router.get("/")

@@ -1451,9 +1451,15 @@ async def taste_test():
 
 
 @router.post("/refresh-recommendations")
-async def refresh_recommendations():
+async def refresh_recommendations(user: User = Depends(require_user)):
     """Explicitly clear recommendation caches so they regenerate on next load."""
+    from fastapi import HTTPException
+
     from app import cache
+    from app.config import settings
+
+    if not settings.admin_email or user.email.lower() != settings.admin_email.lower():
+        raise HTTPException(status_code=403, detail="Admin only")
 
     cache.force_refresh()
     return {"ok": True}

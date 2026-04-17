@@ -54,6 +54,14 @@ app.add_middleware(SessionMiddleware, secret_key=settings.secret_key, https_only
 
 @app.exception_handler(_LoginRequired)
 async def login_required_handler(request: Request, exc: _LoginRequired):
+    is_api = (
+        request.url.path.startswith("/api/")
+        or "application/json" in request.headers.get("accept", "")
+        or request.headers.get("authorization", "").startswith("Bearer ")
+    )
+    if is_api:
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"detail": "authentication required"}, status_code=401)
     return RedirectResponse("/welcome")
 
 
@@ -61,7 +69,7 @@ async def login_required_handler(request: Request, exc: _LoginRequired):
 static_dir = Path(__file__).resolve().parent.parent / "static"
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
-from app.routers import admin, auth, collections, media, pages, profile, recommend, together
+from app.routers import admin, auth, collections, device_auth, media, pages, profile, recommend, together
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(admin.router, prefix="/admin", tags=["admin"])
@@ -71,3 +79,12 @@ app.include_router(profile.router, prefix="/api/profile", tags=["profile"])
 app.include_router(recommend.router, prefix="/api/recommend", tags=["recommend"])
 app.include_router(collections.router, prefix="/api/collections", tags=["collections"])
 app.include_router(together.router, prefix="/api/together", tags=["together"])
+
+# Device auth (pairing flow + token refresh)
+app.include_router(device_auth.router, prefix="/api/v1/auth", tags=["device-auth"])
+
+# v1 JSON API — stable namespace for TV/mobile clients (same routers, aliased prefix)
+app.include_router(media.router, prefix="/api/v1/media", tags=["v1-media"])
+app.include_router(profile.router, prefix="/api/v1/profile", tags=["v1-profile"])
+app.include_router(together.router, prefix="/api/v1/together", tags=["v1-together"])
+app.include_router(recommend.router, prefix="/api/v1/recommend", tags=["v1-recommend"])

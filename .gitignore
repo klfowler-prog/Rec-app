@@ -19,3 +19,4 @@ build/
 .env.*
 .save
 *.save
+prod_dump.pgc
