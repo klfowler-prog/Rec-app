@@ -1893,7 +1893,7 @@ CONTEXT:
 
 NONFICTION IS WELCOME: documentaries, memoirs, idea books, interview/explainer podcasts, narrative nonfiction — all valid. Match the user's fiction/nonfiction balance.
 
-CRITICAL: The reason MUST cite at least ONE specific item from a DIFFERENT media type in their profile by name, and the connection must be a concrete theme/idea/tone — not a surface-level shared setting or keyword.
+REASON FORMAT: Each "reason" MUST have TWO parts: (1) What it is — a 1-sentence premise so the user knows what they're looking at. (2) Why they'll like it — cite a specific item from their profile and name a concrete connection (theme, tone, idea). Never match on surface features.
 
 Do NOT recommend any of these titles (already in their library or dismissed): {avoid_str}
 
@@ -3258,7 +3258,7 @@ NONFICTION IS WELCOME:
 - Podcasts can be interview, science, news, explainer (*Radiolab*, *The Daily*, *Hidden Brain*, *Ezra Klein Show*)
 - Look at the user's profile — if they rate nonfiction or documentaries highly, recommend more of it. If they lean narrative, lean that way.
 
-CRITICAL REQUIREMENT: Each "reason" MUST explicitly cite at least ONE specific item from a DIFFERENT media type in their profile. Good examples:
+REASON FORMAT: Each "reason" MUST have TWO parts: (1) What it is — a 1-sentence premise so the user knows what they're looking at. (2) Why they'll like it — cite a specific item from their profile. Good examples:
 - "The atmospheric dread of *Dune* (book) translates directly to this slow-burn sci-fi film."
 - "You loved the careful character work in *The Wire* (TV) — this nonfiction book has the same patient, morally complex portrait of institutional failure."
 - "If *Serial* (podcast) hooked you on ambiguity and moral inquiry, this documentary explores similar unresolved tension."
@@ -3454,7 +3454,7 @@ NONFICTION IS WELCOME:
 - Podcasts include interview, science, explainer, news
 Look at the user's profile and match their fiction/nonfiction balance.
 
-CRITICAL: Each "reason" MUST cite at least one specific item from a DIFFERENT media type in their profile AND name a CONCRETE shared element (theme, idea, emotional register, subject). Never match on surface features like setting, demographic, or keyword alone.
+REASON FORMAT: Each "reason" MUST have TWO parts: (1) What it is — a 1-sentence premise so the user knows what they're looking at. (2) Why they'll like it — cite a specific item from their profile and name a concrete shared element. Never match on surface features.
 
 Good example: "You gave *The Wire* (TV) a 10/10 — this nonfiction book on the war on drugs delivers the same unflinching institutional critique."
 Bad example: "Both are about cities."
@@ -3670,7 +3670,7 @@ ADAPTATION: If the current item has a direct adaptation in another medium, inclu
 
 Return ONLY valid JSON, no markdown:
 {{
-  "adaptation": {{"title": "...", "media_type": "movie|tv|book", "year": 2020, "note": "one sentence about the adaptation"}} OR null if no direct adaptation,
+  "adaptation": {{"title": "...", "creator": "author/director name", "media_type": "movie|tv|book", "year": 2020, "note": "one sentence about the adaptation"}} OR null if no direct adaptation,
   "related": {{
     {', '.join([f'"{t}": [{{"title": "...", "year": 2020, "reason": "specific thematic/idea connection citing a concrete element from the current item AND confirming audience/tone match"}}]' for t in other_types])}
   }}
@@ -3765,12 +3765,22 @@ Return ONLY valid JSON, no markdown:
         if surfaced_titles:
             cache.add_recent_recs(user.id, surfaced_titles)
 
-        # Enrich adaptation if present
+        # Enrich adaptation if present — include creator for accuracy
         adaptation = parsed.get("adaptation")
         if adaptation and adaptation.get("title"):
             try:
-                ad_matches = await unified_search(adaptation["title"], adaptation.get("media_type"))
-                ad_matches = _rank_by_title_match(adaptation["title"], ad_matches)
+                ad_title = adaptation["title"]
+                ad_creator = adaptation.get("creator") or adaptation.get("author") or ""
+                ad_mt = adaptation.get("media_type")
+                ad_matches = []
+                if ad_creator:
+                    try:
+                        ad_matches = await unified_search(f"{ad_title} {ad_creator}", ad_mt)
+                    except Exception:
+                        pass
+                if not ad_matches:
+                    ad_matches = await unified_search(ad_title, ad_mt)
+                ad_matches = _rank_by_title_match(ad_title, ad_matches, prefer_type=ad_mt)
                 if ad_matches:
                     best = ad_matches[0]
                     adaptation = {
