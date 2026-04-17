@@ -241,7 +241,8 @@ async function renderCards(container, items) {
 
     const enriched = await Promise.all(items.slice(0, 5).map(async (item) => {
         try {
-            const params = new URLSearchParams({ q: item.title });
+            const searchQuery = item.creator ? `${item.title} ${item.creator}` : item.title;
+            const params = new URLSearchParams({ q: searchQuery });
             if (item.media_type) params.set('media_type', item.media_type);
             const resp = await fetch(`/api/media/search?${params}`);
             const results = await resp.json();

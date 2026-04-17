@@ -147,12 +147,12 @@ Then, at the very end of your response, include a special JSON block for structu
 
 ===ITEMS===
 [
-  {"title": "...", "media_type": "movie|tv|book|podcast", "year": 2020, "reason": "one-sentence cross-medium reason citing a concrete element"},
-  {"title": "...", "media_type": "...", "year": 2020, "reason": "..."}
+  {"title": "...", "creator": "author/director name", "media_type": "movie|tv|book|podcast", "year": 2020, "reason": "What it is (1 sentence premise) + why you'll like it (connection to profile)"},
+  {"title": "...", "creator": "...", "media_type": "...", "year": 2020, "reason": "..."}
 ]
 ===END===
 
-The ===ITEMS=== block is REQUIRED. Include every item you recommended in prose as a JSON entry. This is how the app renders action cards after your text."""
+The ===ITEMS=== block is REQUIRED. Include every item you recommended in prose as a JSON entry. The "creator" field is REQUIRED — include the author, director, or creator name for accurate search matching. This is how the app renders action cards after your text."""
 
 
 async def stream_recommendation(

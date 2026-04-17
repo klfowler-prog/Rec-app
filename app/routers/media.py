@@ -2075,7 +2075,7 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
             suggestions_schema = (
                 "  \"suggestions\": {\n"
                 + ",\n".join(
-                    f'    "{mt}": [{{"title": "...", "year": 2020, "reason": "...", "predicted_rating": 8.5}}, ... 5 items]'
+                    f'    "{mt}": [{{"title": "...", "creator": "...", "year": 2020, "reason": "What it is + why", "predicted_rating": 8.5}}, ... 5 items]'
                     for mt in missing_types_list
                 )
                 + "\n  },"
@@ -2106,7 +2106,7 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
             ("quick_escape",     "Quick escape",                                                                                   "movie",   "movie or short-form tv: 15-90 min, fun, the thing you'd watch when you have a pocket of time and need out of your own head, a laugh, or to feel inspired or positive"),
         ]
         theme_schema_lines = [
-            f'    "{slug}": [{{"title": "...", "media_type": "movie|tv|book|podcast", "year": 2020, "reason": "...", "predicted_rating": 8.3}}, ... 4 items]'
+            f'    "{slug}": [{{"title": "...", "creator": "...", "media_type": "movie|tv|book|podcast", "year": 2020, "reason": "What it is + why", "predicted_rating": 8.3}}, ... 8 items]'
             for (slug, _label, _primary, _guide) in theme_catalog
         ]
         theme_schema = "  \"themes\": {\n" + ",\n".join(theme_schema_lines) + "\n  },"
@@ -2160,8 +2160,14 @@ Match the user's fiction/nonfiction balance.
 GENRE DEPTH vs EXPOSURE — CRITICAL:
 One or two items in a genre does NOT mean the user is a fan of that genre. Someone who watched Spirited Away does not want niche anime. Someone who read one thriller does not want serial-killer deep cuts. Look at DENSITY: how many items in the genre, how highly rated, how recently consumed. A single 7/10 in a genre means casual exposure. Five 9/10s in a genre means genuine enthusiasm. Only recommend deep-genre picks when the profile shows genuine depth in that genre. Otherwise, stick to accessible, widely-known titles.
 
+REASON FORMAT — CRITICAL:
+Each "reason" field MUST have TWO parts:
+1. WHAT IT IS: A 1-sentence description of the actual item — what it's about, the premise, the hook. The user has never heard of this and needs to know what they're looking at.
+2. WHY YOU'LL LIKE IT: Why this specific user will enjoy it, citing a concrete connection to a specific item from a DIFFERENT media type in their profile.
+Example: "A sci-fi thriller about a man who wakes up with no memory on a deep-space mission to save Earth. You loved The Martian's problem-solving energy and Severance's identity crisis — this hits both."
+
 CRITICAL RULES:
-- Each "reason" field for top_picks and suggestions MUST cite at least ONE specific item from a DIFFERENT media type in their profile, by name. Connection must be CONCRETE — shared theme, idea, emotional beat, narrative approach. Never match on surface features like setting, demographic, or keyword.
+- The connection in the reason MUST be CONCRETE — shared theme, idea, emotional beat, narrative approach. Never match on surface features like setting, demographic, or keyword.
 - The no-surface-match rule applies to themes too. A shared word in the title is NOT a connection. A shared setting alone is NOT a connection. A shared genre label is NOT a connection. Example of what NOT to do: anchor is "The Florida Project" (a Sean Baker movie about poverty and childhood on the margins of Orlando); picking "Probate and Settle an Estate in Florida" (a legal how-to guide) is a surface match on the word "Florida" — it is NOT a valid theme pick. A valid match would be something like "Random Family" by Adrian Nicole LeBlanc, which shares the concrete themes of marginalized families and structural precarity.
 - DO NOT recommend any of these — the user has already consumed, queued, or dismissed them: {avoid_str}
 - Insights must reference actual items from their profile. Bad: "You like drama". Good: "Your top-rated book (The Road) and your top-rated TV show (The Last of Us) both center on post-apocalyptic parent-child journeys."
@@ -2169,14 +2175,8 @@ CRITICAL RULES:
 Return ONLY valid JSON, no markdown:
 {{
   "top_picks": [
-    {{"title": "...", "media_type": "movie", "year": 2020, "reason": "...", "predicted_rating": 8.5}},
-    {{"title": "...", "media_type": "movie", "year": 2020, "reason": "...", "predicted_rating": 7.8}},
-    {{"title": "...", "media_type": "tv", "year": 2020, "reason": "...", "predicted_rating": 8.2}},
-    {{"title": "...", "media_type": "tv", "year": 2020, "reason": "...", "predicted_rating": 7.5}},
-    {{"title": "...", "media_type": "book", "year": 2020, "reason": "...", "predicted_rating": 8.0}},
-    {{"title": "...", "media_type": "book", "year": 2020, "reason": "...", "predicted_rating": 7.2}},
-    {{"title": "...", "media_type": "podcast", "year": 2020, "reason": "...", "predicted_rating": 8.1}},
-    {{"title": "...", "media_type": "podcast", "year": 2020, "reason": "...", "predicted_rating": 7.4}}
+    {{"title": "...", "creator": "author or director name", "media_type": "movie", "year": 2020, "reason": "What it is + why you'll like it", "predicted_rating": 8.5}},
+    ... 8 items total, 2 per media type
   ],
 {suggestions_schema}
 {theme_schema}
@@ -2228,9 +2228,13 @@ Return ONLY valid JSON, no markdown:
         async def enrich_pick(pick: dict, allow_known: bool = False) -> dict | None:
             title = pick.get("title", "")
             mt = pick.get("media_type")
+            creator = pick.get("creator") or pick.get("author") or ""
             pr = _coerce_pr(pick.get("predicted_rating"))
+            # Include author/creator in search to avoid title-only mismatches
+            # (e.g. "Recursion" by Blake Crouch vs "Recursion and Human Language")
+            search_query = f"{title} {creator}".strip() if creator else title
             try:
-                matches = await unified_search(title, mt)
+                matches = await unified_search(search_query, mt)
             except Exception:
                 matches = []
             matches = _rank_by_title_match(title, matches, prefer_type=mt)
@@ -2265,9 +2269,11 @@ Return ONLY valid JSON, no markdown:
 
         async def enrich_suggestion(item: dict, media_type: str) -> dict | None:
             title = item.get("title", "")
+            creator = item.get("creator") or item.get("author") or ""
             pr = item.get("predicted_rating")
+            search_query = f"{title} {creator}".strip() if creator else title
             try:
-                matches = await unified_search(title, media_type)
+                matches = await unified_search(search_query, media_type)
             except Exception:
                 matches = []
             matches = _rank_by_title_match(title, matches, prefer_type=media_type)
@@ -2566,7 +2572,8 @@ GOOD EXAMPLE for the same anchor: "Random Family" by Adrian Nicole LeBlanc (narr
 RULES:
 - Each candidate must be a real, findable {type_label} — no invented titles.
 - DO NOT pick anything the user already has in their library: {', '.join(list(known_normalized)[:30]) if known_normalized else 'none'}
-- Each "reason" must start with "Because you loved {anchor.title}..." and cite a specific concrete, non-surface element.
+- Each "reason" must have TWO parts: (1) What it is — a 1-sentence premise/hook so the user knows what they're looking at, (2) Why — start with "Because you loved {anchor.title}..." and cite a specific concrete, non-surface element.
+- ALWAYS include a "creator" field with the author, director, or creator name — this is critical for search accuracy.
 - Match audience and tonal register — don't suggest cozy/YA/how-to material for a prestige/literary profile, or vice versa. Use the TASTE PROFILE above to calibrate.
 - Include a "predicted_rating" for each candidate: your honest 1-10 prediction (one decimal) of how THIS SPECIFIC USER would rate it, based on the anchor AND the full taste profile above. Be ruthless — if a candidate fits the anchor thematically but sits outside the user's register, predict LOW (4-5), don't soft-pedal. The app drops anything below 6, so lying doesn't help you.
 - It is completely fine for ALL 3 candidates to score below 6. In that case the app will show "no best bet this week" rather than force a bad match. Do not inflate scores to keep the section populated.
