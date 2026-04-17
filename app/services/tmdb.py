@@ -269,6 +269,16 @@ async def _fetch_list(path: str, limit: int = 20) -> list[MediaResult]:
         if year and year < current_year - 1:
             continue
 
+        # Skip niche/foreign releases unlikely to be at a typical US theater.
+        # English-language films need popularity >= 10, foreign films need >= 40
+        # (only the biggest foreign releases like anime blockbusters get wide US runs).
+        pop = item.get("popularity", 0)
+        lang = item.get("original_language", "en")
+        if lang == "en" and pop < 10:
+            continue
+        if lang != "en" and pop < 40:
+            continue
+
         poster = f"{IMAGE_BASE}{item['poster_path']}" if item.get("poster_path") else None
         genre_ids = item.get("genre_ids", [])
         genres = [GENRE_MAP.get(gid, "") for gid in genre_ids]
