@@ -1,6 +1,23 @@
 // Shared card actions: quick-add (consumed + rate), save-for-later, dismiss, inline rating dots.
 // Used by search results and home page recommendation cards.
 
+// Unified rating color scale — sage (5) → gold (3) → coral (1)
+// Matches the app's palette instead of clashing Tailwind defaults.
+function ratingTextColor(r) {
+    if (r >= 5) return 'text-sage';
+    if (r >= 4) return 'text-sage-light';
+    if (r >= 3) return 'text-gold';
+    if (r >= 2) return 'text-coral-light';
+    return 'text-coral';
+}
+function ratingBgColor(r) {
+    if (r >= 4.5) return 'bg-sage';
+    if (r >= 4) return 'bg-sage-light';
+    if (r >= 3.5) return 'bg-gold';
+    if (r >= 3) return 'bg-gold';
+    return 'bg-coral-light';
+}
+
 async function quickAdd(btn, data) {
     btn.disabled = true;
     const originalHTML = btn.innerHTML;
@@ -91,10 +108,10 @@ function showRatingDots(container, entryId) {
     container.innerHTML = `
         <div class="flex items-center gap-1 flex-wrap">
             <button onclick="rateItem(this,${entryId},1)" class="w-7 h-7 rounded-full bg-border-light dark:bg-border-dark hover:bg-coral transition-base text-xs font-bold text-transparent hover:text-white" title="1/5">1</button>
-            <button onclick="rateItem(this,${entryId},2)" class="w-7 h-7 rounded-full bg-border-light dark:bg-border-dark hover:bg-amber-400 transition-base text-xs font-bold text-transparent hover:text-white" title="2/5">2</button>
-            <button onclick="rateItem(this,${entryId},3)" class="w-7 h-7 rounded-full bg-border-light dark:bg-border-dark hover:bg-yellow-500 transition-base text-xs font-bold text-transparent hover:text-white" title="3/5">3</button>
-            <button onclick="rateItem(this,${entryId},4)" class="w-7 h-7 rounded-full bg-border-light dark:bg-border-dark hover:bg-emerald-400 transition-base text-xs font-bold text-transparent hover:text-white" title="4/5">4</button>
-            <button onclick="rateItem(this,${entryId},5)" class="w-7 h-7 rounded-full bg-border-light dark:bg-border-dark hover:bg-emerald-500 transition-base text-xs font-bold text-transparent hover:text-white" title="5/5">5</button>
+            <button onclick="rateItem(this,${entryId},2)" class="w-7 h-7 rounded-full bg-border-light dark:bg-border-dark hover:bg-coral-light transition-base text-xs font-bold text-transparent hover:text-white" title="2/5">2</button>
+            <button onclick="rateItem(this,${entryId},3)" class="w-7 h-7 rounded-full bg-border-light dark:bg-border-dark hover:bg-gold transition-base text-xs font-bold text-transparent hover:text-white" title="3/5">3</button>
+            <button onclick="rateItem(this,${entryId},4)" class="w-7 h-7 rounded-full bg-border-light dark:bg-border-dark hover:bg-sage-light transition-base text-xs font-bold text-transparent hover:text-white" title="4/5">4</button>
+            <button onclick="rateItem(this,${entryId},5)" class="w-7 h-7 rounded-full bg-border-light dark:bg-border-dark hover:bg-sage transition-base text-xs font-bold text-transparent hover:text-white" title="5/5">5</button>
         </div>
     `;
 }
@@ -116,7 +133,7 @@ async function rateItem(btn, entryId, rating) {
         return;
     }
     const container = btn.parentElement;
-    const ratingColor = rating <= 1 ? 'text-coral' : rating <= 2 ? 'text-amber-500' : rating <= 3 ? 'text-yellow-600' : 'text-emerald-500';
+    const ratingColor = ratingTextColor(rating);
     container.innerHTML = `<span class="text-xs font-semibold ${ratingColor}">${rating}/5 ✓</span>`;
     const card = btn.closest('[data-rec-card]') || btn.closest('.swim-lane-item') || btn.closest('.rounded-lg');
     if (card) {

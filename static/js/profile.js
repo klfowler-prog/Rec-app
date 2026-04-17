@@ -107,8 +107,8 @@ function profileEntry(entry) {
                 ${statusSwitcher}
                 <div class="flex items-center gap-0.5" id="rating-row-${entry.id}">
                     ${ratingDots}
-                    ${entry.rating ? `<span class="text-xs font-semibold ml-1.5 ${entry.rating <= 1 ? 'text-coral' : entry.rating <= 2 ? 'text-amber-500' : entry.rating <= 3 ? 'text-yellow-600' : 'text-emerald-500'}">${entry.rating}/5</span>` : `<span class="text-[10px] text-txt-muted ml-1.5">rate</span>`}
-                    ${!entry.rating && entry.predicted_rating ? `<span class="text-[10px] ml-1.5 px-1.5 py-0.5 rounded-full ${entry.predicted_rating >= 4 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' : entry.predicted_rating >= 3 ? 'bg-yellow-50 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400' : entry.predicted_rating >= 2 ? 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-red-50 text-red-500 dark:bg-red-900/30 dark:text-red-400'}" title="AI predicted rating">~${entry.predicted_rating}</span>` : ''}
+                    ${entry.rating ? `<span class="text-xs font-semibold ml-1.5 ${ratingTextColor(entry.rating)}">${entry.rating}/5</span>` : `<span class="text-[10px] text-txt-muted ml-1.5">rate</span>`}
+                    ${!entry.rating && entry.predicted_rating ? `<span class="text-[10px] ml-1.5 px-1.5 py-0.5 rounded-full bg-sage/10 ${ratingTextColor(entry.predicted_rating)}" title="AI predicted rating">~${entry.predicted_rating}</span>` : ''}
                 </div>
             </div>
             <div class="flex gap-1 flex-shrink-0">
@@ -172,7 +172,7 @@ async function inlineRate(entryId, rating, btn) {
     });
     // Update label
     const label = row.querySelector('span:last-child');
-    const labelColor = rating <= 1 ? 'text-coral' : rating <= 2 ? 'text-amber-500' : rating <= 3 ? 'text-yellow-600' : 'text-emerald-500';
+    const labelColor = ratingTextColor(rating);
     if (label) { label.className = `text-xs font-semibold ml-1.5 ${labelColor}`; label.textContent = `${rating}/5`; }
 
     await fetch(`/api/profile/${entryId}`, {
@@ -273,7 +273,7 @@ async function loadTopTen() {
                 ? `<div class="poster-frame"><img src="${item.image_url}" alt="" class="${fit}"></div>`
                 : `<div class="poster-frame"><div class="poster-fallback bg-sage/10"><span class="text-sage text-2xl">${escapeHtml(item.title[0] || '?')}</span></div></div>`;
             const badge = typeColors[item.media_type] || typeColors.movie;
-            const rc = item.rating <= 1 ? 'text-coral' : item.rating <= 2 ? 'text-amber-500' : item.rating <= 3 ? 'text-yellow-600' : 'text-emerald-500';
+            const rc = ratingTextColor(item.rating);
             return `
                 <a href="/media/${item.media_type}/${item.external_id}?source=${item.source}" class="group">
                     <div class="bg-surface-light dark:bg-surface-dark rounded-lg border border-border-light dark:border-border-dark overflow-hidden transition-base card-hover relative">
@@ -340,7 +340,7 @@ async function loadTasteShape() {
         const genreEl = document.getElementById('top-genres-avg');
         genreEl.innerHTML = genres.slice(0, 6).map(g => {
             const avgRating = g.avg_rating;
-            const rc = !avgRating ? 'text-txt-muted' : avgRating <= 1 ? 'text-coral' : avgRating <= 2 ? 'text-amber-500' : avgRating <= 3 ? 'text-yellow-600' : 'text-emerald-500';
+            const rc = !avgRating ? 'text-txt-muted' : ratingTextColor(avgRating);
             return `
                 <div class="flex items-center justify-between text-xs">
                     <span class="truncate">${escapeHtml(g.genre)}</span>

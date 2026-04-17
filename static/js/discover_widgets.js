@@ -35,10 +35,10 @@
 
     function prBadge(pr) {
         if (pr == null || typeof pr !== 'number' || pr < 3) return '';
-        const color = pr >= 4.5 ? 'bg-emerald-500'
-                   : pr >= 4   ? 'bg-emerald-400'
-                   : pr >= 3.5 ? 'bg-yellow-500'
-                   : 'bg-amber-400';
+        const color = pr >= 4.5 ? 'bg-sage'
+                   : pr >= 4   ? 'bg-sage-light'
+                   : pr >= 3.5 ? 'bg-gold'
+                   : 'bg-gold';
         return `<div class="absolute top-2 right-2 px-2 py-0.5 ${color} rounded-full shadow"><span class="text-[10px] font-bold text-white">${pr.toFixed(1)}</span></div>`;
     }
 

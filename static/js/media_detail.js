@@ -220,7 +220,7 @@ function mountStatusSwitcher(entry) {
     // If already rated, show the rating. Otherwise, if status is
     // consumed, reveal rating dots so the user can rate in place.
     if (entry.rating) {
-        const color = entry.rating <= 1 ? 'text-coral' : entry.rating <= 2 ? 'text-amber-500' : entry.rating <= 3 ? 'text-yellow-600' : 'text-emerald-500';
+        const color = ratingTextColor(entry.rating);
         ratingMount.innerHTML = `<span class="text-xs font-semibold ${color} cursor-pointer hover:underline" onclick="toggleInlineRate(this, ${entry.id}, ${entry.rating})">Rated ${entry.rating}/5</span>`;
     } else if (entry.status === 'consumed' && typeof showRatingDots === 'function') {
         showRatingDots(ratingMount, entry.id);
@@ -343,19 +343,13 @@ async function loadTasteFit() {
         if (!data.predicted_rating && !data.reason) return;
 
         const pr = data.predicted_rating;
-        const color = pr >= 4 ? 'text-emerald-500' : pr >= 3 ? 'text-sage' : pr >= 2 ? 'text-amber-500' : 'text-coral';
+        const color = ratingTextColor(pr);
         const fitLabel = pr >= 4 ? 'Strong fit' : pr >= 3 ? 'Decent fit' : pr >= 2 ? 'Might not be for you' : 'Probably not your thing';
 
         card.innerHTML = `
-            <div class="flex items-start gap-3">
-                ${pr ? `<div class="flex-shrink-0 text-center">
-                    <p class="text-2xl font-bold ${color}">${pr}</p>
-                    <p class="text-[9px] text-txt-muted uppercase tracking-wide">/5</p>
-                </div>` : ''}
-                <div class="flex-1">
-                    ${pr ? `<p class="text-xs font-semibold ${color} uppercase tracking-wide mb-0.5">${fitLabel}</p>` : ''}
-                    ${data.reason ? `<p class="text-sm leading-relaxed text-txt dark:text-txt-light/80">${escapeHtml(data.reason)}</p>` : ''}
-                </div>
+            <div>
+                ${pr ? `<p class="text-xs font-semibold ${color} mb-1"><span class="uppercase tracking-wide">${fitLabel}</span> · ${pr}/5</p>` : ''}
+                ${data.reason ? `<p class="text-sm leading-relaxed text-txt dark:text-txt-light/80">${escapeHtml(data.reason)}</p>` : ''}
             </div>
         `;
         section.classList.remove('hidden');

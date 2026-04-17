@@ -95,7 +95,7 @@ function mediaCard(item) {
 
     if (profileEntry) {
         if (profileEntry.rating) {
-            const rc = profileEntry.rating <= 1 ? 'text-coral' : profileEntry.rating <= 2 ? 'text-amber-500' : profileEntry.rating <= 3 ? 'text-yellow-600' : 'text-emerald-500';
+            const rc = ratingTextColor(profileEntry.rating);
             actionArea = `<span class="text-xs font-semibold ${rc}">${profileEntry.rating}/5 ✓</span>`;
         } else if (profileEntry.status === 'consumed') {
             actionArea = `<span class="text-xs text-txt-muted">✓ Done</span>`;

@@ -346,7 +346,7 @@
                         </div>
                     {% endif %}
                     {% if item.predicted_rating and item.predicted_rating >= 3 %}
-                    <div class="absolute top-1.5 right-1.5 px-1.5 py-0.5 {% if item.predicted_rating >= 4.5 %}bg-emerald-500{% elif item.predicted_rating >= 4 %}bg-emerald-400{% elif item.predicted_rating >= 3.5 %}bg-yellow-500{% else %}bg-amber-400{% endif %} rounded-full shadow">
+                    <div class="absolute top-1.5 right-1.5 px-1.5 py-0.5 {% if item.predicted_rating >= 4.5 %}bg-sage{% elif item.predicted_rating >= 4 %}bg-sage-light{% elif item.predicted_rating >= 3.5 %}bg-gold{% else %}bg-gold{% endif %} rounded-full shadow">
                         <span class="text-[9px] font-bold text-white">{{ "%.1f"|format(item.predicted_rating) }}</span>
                     </div>
                     {% endif %}
@@ -736,9 +736,9 @@ async function startFinishFlow(entryId, title, mediaType) {
     flow.innerHTML = `
         <p class="text-white text-xs mb-2">How was it?</p>
         <div class="grid grid-cols-4 gap-1.5">
-            <button onclick="finishAndRate(${entryId}, 5, '${doneVerb}')" class="py-2 bg-emerald-500/80 hover:bg-emerald-500 text-white text-[11px] font-semibold rounded-lg transition-base text-center">Loved it</button>
-            <button onclick="finishAndRate(${entryId}, 4, '${doneVerb}')" class="py-2 bg-sage/80 hover:bg-sage text-white text-[11px] font-semibold rounded-lg transition-base text-center">Good</button>
-            <button onclick="finishAndRate(${entryId}, 3, '${doneVerb}')" class="py-2 bg-amber-500/80 hover:bg-amber-500 text-white text-[11px] font-semibold rounded-lg transition-base text-center">Meh</button>
+            <button onclick="finishAndRate(${entryId}, 5, '${doneVerb}')" class="py-2 bg-sage/80 hover:bg-sage text-white text-[11px] font-semibold rounded-lg transition-base text-center">Loved it</button>
+            <button onclick="finishAndRate(${entryId}, 4, '${doneVerb}')" class="py-2 bg-sage-light/80 hover:bg-sage-light text-white text-[11px] font-semibold rounded-lg transition-base text-center">Good</button>
+            <button onclick="finishAndRate(${entryId}, 3, '${doneVerb}')" class="py-2 bg-gold/80 hover:bg-gold text-white text-[11px] font-semibold rounded-lg transition-base text-center">Meh</button>
             <button onclick="finishAndRate(${entryId}, 1, '${doneVerb}')" class="py-2 bg-coral/80 hover:bg-coral text-white text-[11px] font-semibold rounded-lg transition-base text-center">Nope</button>
         </div>
         <button onclick="showFullRatingScale(${entryId}, '${doneVerb}')" class="w-full mt-1.5 text-[10px] text-white/50 hover:text-white/80 transition-base">
@@ -753,7 +753,7 @@ function showFullRatingScale(entryId, doneVerb) {
     if (!flow) return;
     let dots = '';
     for (let n = 1; n <= 5; n++) {
-        const color = n <= 1 ? 'bg-coral' : n <= 2 ? 'bg-amber-400' : n <= 3 ? 'bg-yellow-500' : 'bg-emerald-500';
+        const color = n <= 1 ? 'bg-coral' : n <= 2 ? 'bg-coral-light' : n <= 3 ? 'bg-gold' : 'bg-sage';
         dots += `<button onclick="finishAndRate(${entryId}, ${n}, '${doneVerb}')" class="w-8 h-8 rounded-full ${color} hover:scale-110 transition-base text-xs font-bold text-white">${n}</button>`;
     }
     flow.innerHTML = `
@@ -930,7 +930,7 @@ async function loadSignalStrength() {
         const label = document.getElementById('signal-label');
         const nudge = document.getElementById('signal-nudge');
         // Fill bars
-        const colors = ['bg-coral', 'bg-amber-400', 'bg-yellow-500', 'bg-sage', 'bg-emerald-500'];
+        const colors = ['bg-coral', 'bg-coral-light', 'bg-gold', 'bg-sage-light', 'bg-sage'];
         for (let i = 0; i < 5; i++) {
             if (i < data.bars) {
                 bars[i].classList.remove('bg-border-light', 'dark:bg-border-dark');
@@ -1016,11 +1016,11 @@ async function loadBoxOffice() {
         if (!items.length) { container.innerHTML = '<p class="text-xs text-white/50 py-2">Nothing playing right now.</p>'; return; }
         container.innerHTML = items.map(item => {
             const pr = item.predicted_rating;
-            const prColor = pr >= 4 ? 'bg-emerald-500' : pr >= 3 ? 'bg-yellow-500' : 'bg-amber-400';
+            const prColor = pr >= 4 ? 'bg-sage' : pr >= 3 ? 'bg-gold' : 'bg-coral-light';
             const prBadge = pr ? `<div class="absolute top-2 right-2 px-1.5 py-0.5 ${prColor} rounded-full shadow"><span class="text-[9px] font-bold text-white">${pr}</span></div>` : '';
             const as = item.audience_score;
             const asPct = as ? Math.round(as * 10) : null;
-            const asColor = asPct >= 70 ? 'text-emerald-500' : asPct >= 50 ? 'text-yellow-500' : 'text-coral';
+            const asColor = asPct >= 70 ? 'text-sage' : asPct >= 50 ? 'text-gold' : 'text-coral';
             const asBadge = (asPct && item.audience_count >= 10) ? `<span class="${asColor} text-[9px] font-bold">${asPct}% audience</span>` : '';
             const image = item.image_url
                 ? `<img src="${item.image_url}" alt="" class="w-full h-full object-cover">`
