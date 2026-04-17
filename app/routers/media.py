@@ -2230,13 +2230,18 @@ Return ONLY valid JSON, no markdown:
             mt = pick.get("media_type")
             creator = pick.get("creator") or pick.get("author") or ""
             pr = _coerce_pr(pick.get("predicted_rating"))
-            # Include author/creator in search to avoid title-only mismatches
-            # (e.g. "Recursion" by Blake Crouch vs "Recursion and Human Language")
-            search_query = f"{title} {creator}".strip() if creator else title
-            try:
-                matches = await unified_search(search_query, mt)
-            except Exception:
-                matches = []
+            # Search with creator for accuracy, fall back to title-only if no results
+            matches = []
+            if creator:
+                try:
+                    matches = await unified_search(f"{title} {creator}", mt)
+                except Exception:
+                    pass
+            if not matches:
+                try:
+                    matches = await unified_search(title, mt)
+                except Exception:
+                    matches = []
             matches = _rank_by_title_match(title, matches, prefer_type=mt)
             if matches:
                 best = matches[0]
@@ -2271,11 +2276,17 @@ Return ONLY valid JSON, no markdown:
             title = item.get("title", "")
             creator = item.get("creator") or item.get("author") or ""
             pr = item.get("predicted_rating")
-            search_query = f"{title} {creator}".strip() if creator else title
-            try:
-                matches = await unified_search(search_query, media_type)
-            except Exception:
-                matches = []
+            matches = []
+            if creator:
+                try:
+                    matches = await unified_search(f"{title} {creator}", media_type)
+                except Exception:
+                    pass
+            if not matches:
+                try:
+                    matches = await unified_search(title, media_type)
+                except Exception:
+                    matches = []
             matches = _rank_by_title_match(title, matches, prefer_type=media_type)
             if matches:
                 best = matches[0]
@@ -2666,10 +2677,19 @@ Return ONLY valid JSON, no markdown:
         title = chosen["title"]
         pr = chosen["predicted_rating"]
 
-        # Enrich via search for poster + external_id — include creator for accuracy
+        # Enrich via search — try with creator first, fall back to title-only
         creator = chosen.get("creator") or ""
-        search_query = f"{title} {creator}".strip() if creator else title
-        matches = await unified_search(search_query, media_type)
+        matches = []
+        if creator:
+            try:
+                matches = await unified_search(f"{title} {creator}", media_type)
+            except Exception:
+                pass
+        if not matches:
+            try:
+                matches = await unified_search(title, media_type)
+            except Exception:
+                matches = []
         matches = _rank_by_title_match(title, matches, prefer_type=media_type)
         enriched_pick: dict | None = None
         if matches:
@@ -3682,8 +3702,17 @@ Return ONLY valid JSON, no markdown:
         async def enrich(rel_item, rel_type):
             title = rel_item.get("title", "")
             creator = rel_item.get("creator") or rel_item.get("author") or ""
-            sq = f"{title} {creator}".strip() if creator else title
-            matches = await unified_search(sq, rel_type)
+            matches = []
+            if creator:
+                try:
+                    matches = await unified_search(f"{title} {creator}", rel_type)
+                except Exception:
+                    pass
+            if not matches:
+                try:
+                    matches = await unified_search(title, rel_type)
+                except Exception:
+                    matches = []
             matches = _rank_by_title_match(title, matches, prefer_type=rel_type)
             if matches:
                 best = matches[0]
