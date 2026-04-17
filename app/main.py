@@ -35,10 +35,10 @@ with engine.connect() as conn:
         ).fetchone()
         if has_old_scale:
             conn.execute(text(
-                "UPDATE media_entries SET rating = MAX(1, ROUND(rating / 2.0)) WHERE rating IS NOT NULL AND rating > 5"
+                "UPDATE media_entries SET rating = GREATEST(1, ROUND(rating / 2.0)) WHERE rating IS NOT NULL AND rating > 5"
             ))
             conn.execute(text(
-                "UPDATE media_entries SET predicted_rating = MAX(1.0, ROUND(predicted_rating / 2.0, 1)) WHERE predicted_rating IS NOT NULL AND predicted_rating > 5"
+                "UPDATE media_entries SET predicted_rating = GREATEST(1.0, ROUND(predicted_rating::numeric / 2.0, 1)) WHERE predicted_rating IS NOT NULL AND predicted_rating > 5"
             ))
             conn.commit()
             # Flush all cached AI responses — they contain old 10-point data
