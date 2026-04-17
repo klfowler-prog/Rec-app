@@ -2026,19 +2026,34 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
             taste_sections.append(f"{label}:\n" + "\n".join(lines))
     taste_summary = "\n\n".join(taste_sections) if taste_sections else "No rated items yet."
 
+    # Determine profile maturity based on age, not just item count.
+    # A profile is "settled" after ~14 days — before that, the user is
+    # still remembering and adding things, so recency is data-entry
+    # order, not genuine mood signal.
+    from datetime import timedelta
+    profile_age_days = 0
+    oldest_entry = (
+        db.query(MediaEntry.created_at)
+        .filter(MediaEntry.user_id == user.id)
+        .order_by(MediaEntry.created_at.asc())
+        .first()
+    )
+    if oldest_entry and oldest_entry.created_at:
+        profile_age_days = (datetime.utcnow() - oldest_entry.created_at).days
+
     recent_section = ""
-    total_rated = len(consumed)
-    if recent_items and total_rated >= 50:
-        # Mature profile: recent ratings reflect genuine current mood
+    profile_settled = profile_age_days >= 14
+    if recent_items and profile_settled:
+        # Settled profile: recent ratings reflect genuine current mood
         recent_items.sort(key=lambda e: e.rated_at, reverse=True)
         recent_lines = [f"  - {e.title} ({e.media_type}, {e.rating}/10)" for e in recent_items[:10]]
         recent_section = "\n\nRECENT MOOD (last 30 days — what they're gravitating toward right now):\n" + "\n".join(recent_lines)
-    elif recent_items and total_rated >= 25:
-        # Building profile: recent ratings are a light signal, not a strong mood indicator
+    elif recent_items:
+        # New profile (under 14 days old): user is still building,
+        # recency reflects data-entry order, not taste direction
         recent_items.sort(key=lambda e: e.rated_at, reverse=True)
         recent_lines = [f"  - {e.title} ({e.media_type}, {e.rating}/10)" for e in recent_items[:5]]
-        recent_section = "\n\nRECENTLY ADDED (this is NOT a mood signal — the user is still building their profile, so these reflect data entry order, not current preference. Weight the FULL profile above equally):\n" + "\n".join(recent_lines)
-    # For profiles under 25 items: omit recent section entirely — everything IS recent
+        recent_section = "\n\nRECENTLY ADDED (this profile is less than 2 weeks old — the user is still building their library. These items reflect data entry order, NOT current mood or preference. Weight the FULL taste profile above equally across all items. Do not over-index on the last few things added):\n" + "\n".join(recent_lines)
 
     # Avoid list — pack as many titles as fit in the budget.
     avoid_titles: list[str] = []
@@ -2461,12 +2476,14 @@ async def best_bet(
     if not recent_loved:
         return {"pick": None, "anchor": None, "message": "Rate a few items 9 or 10 out of 10 to unlock your best bet."}
 
-    # For thin profiles (<50 items), pick the highest-rated anchor
-    # rather than the most recent — recency is noise when the user
-    # is still building their library. For mature profiles, recency
-    # is a genuine mood signal.
-    total_rated = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None)).count()
-    if total_rated < 50:
+    # For new profiles (under 14 days old), pick the highest-rated
+    # anchor rather than the most recent — recency is noise when
+    # the user is still building their library.
+    _oldest = db.query(MediaEntry.created_at).filter(
+        MediaEntry.user_id == user.id
+    ).order_by(MediaEntry.created_at.asc()).first()
+    _profile_age = (datetime.utcnow() - _oldest.created_at).days if _oldest and _oldest.created_at else 0
+    if _profile_age < 14:
         recent_loved.sort(key=lambda e: -(e.rating or 0))
 
     # Pick a cross-medium anchor when possible
