@@ -379,17 +379,23 @@ async def predict_ratings(user: User = Depends(require_user), db: Session = Depe
         try:
             from app.services.gemini import generate
 
-            prompt = f"""You are a media taste predictor. Based on this user's rated items, predict how much they would enjoy each unrated item on a scale of 1-5.
+            prompt = f"""Predict how much this user would enjoy each unrated item on a 1-5 scale.
 
-User's rated items (their actual ratings):
+User's taste profile (their actual ratings):
 {chr(10).join(taste_lines)}
 
 Predict ratings for these items:
 {chr(10).join(batch)}
 
-Return ONLY valid JSON — a list of objects with "id" (the number after "id:") and "predicted_rating" (1-5, can use decimals like 3.5). No markdown, no explanation.
+RULES:
+- Be honest, not generous. Most items are a 3-3.5 for any given person.
+- Only give 4+ for genuine taste matches — same genre, tone, and style as their top-rated items.
+- If the item resembles their abandoned or low-rated items, score it 1.5-2.5.
+- If you don't recognize the item, give 3.0 as a neutral score.
+- 5.0 is extremely rare — near-perfect match to their absolute favorites only.
+- Use the FULL 1-5 range. A realistic distribution: ~20% below 3, ~50% at 3-3.9, ~30% at 4+.
 
-Be honest — not everything will be a high rating. Use the full 1-5 range."""
+Return ONLY valid JSON — a list of objects with "id" (the number after "id:") and "predicted_rating" (1-5, one decimal). No markdown, no explanation."""
 
             text = (await generate(prompt)).strip()
             if text.startswith("```"):
