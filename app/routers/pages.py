@@ -24,6 +24,9 @@ def _get_greeting_context(user_name: str) -> dict:
     first_name = user_name.split()[0] if user_name else ""
     day_name = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][weekday]
 
+    # Show in-theaters card Thu evening through Sunday
+    show_box_office = (weekday == 3 and hour >= 17) or weekday in (4, 5, 6)
+
 
     if hour < 12:
         time_of_day = "morning"
@@ -71,6 +74,7 @@ def _get_greeting_context(user_name: str) -> dict:
         "day_hint": day_hint,
         "time_of_day": time_of_day,
         "is_weekend": is_weekend,
+        "show_box_office": show_box_office,
         "day_name": day_name,
         "suggested_types": suggested_types,
     }

@@ -114,6 +114,7 @@
         </div>
     </div>
 
+    {% if show_box_office %}
     <!-- In theaters now — scored against your taste -->
     <div>
         <div class="flex items-center justify-between mb-3">
@@ -129,6 +130,7 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
     <!-- Signal strength meter -->
     <div id="signal-meter" class="hidden">
@@ -935,6 +937,7 @@ function showSignalCelebration(level) {
     document.getElementById('signal-celebration').classList.remove('hidden');
 }
 
+{% if show_box_office %}
 async function loadBoxOffice() {
     const container = document.getElementById('box-office-cards');
     if (!container) return;
@@ -969,6 +972,7 @@ async function loadBoxOffice() {
     }
 }
 loadBoxOffice();
+{% endif %}
 
 wireRatingSlots();
 loadRightNow();
