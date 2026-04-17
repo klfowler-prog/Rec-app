@@ -964,19 +964,18 @@ async function loadSignalStrength() {
 function filterQueue(type) {
     const grid = document.getElementById('queue-grid');
     if (!grid) return;
-    grid.querySelectorAll('[data-media-type]').forEach(card => {
-        card.style.display = (!type || card.dataset.mediaType === type) ? '' : 'none';
+    const cards = grid.querySelectorAll('[data-media-type]');
+    let shown = 0;
+    cards.forEach(card => {
+        const match = !type || card.getAttribute('data-media-type') === type;
+        card.style.display = match ? '' : 'none';
+        if (match) shown++;
     });
     document.querySelectorAll('[data-queue-filter]').forEach(btn => {
-        const isActive = btn.dataset.queueFilter === type;
-        btn.className = btn.className.replace(/bg-\S+\/10\s?|text-sage\s?/g, '');
-        if (isActive) {
-            btn.classList.add('bg-sage/10', 'text-sage');
-            btn.classList.remove('text-txt-muted');
-        } else {
-            btn.classList.remove('bg-sage/10', 'text-sage');
-            btn.classList.add('text-txt-muted');
-        }
+        const isActive = btn.getAttribute('data-queue-filter') === type;
+        btn.classList.remove('bg-sage/10', 'text-sage', 'text-txt-muted');
+        btn.classList.add(isActive ? 'bg-sage/10' : 'text-txt-muted');
+        if (isActive) btn.classList.add('text-sage');
     });
 }
 

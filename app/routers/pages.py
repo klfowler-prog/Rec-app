@@ -207,17 +207,38 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
 
     # "Up next on your list" — sortable queue
     queue_sort = request.query_params.get("queue_sort", "predicted")
-    up_next_query = db.query(MediaEntry).filter(
-        MediaEntry.user_id == user.id,
-        MediaEntry.status == "want_to_consume",
-    )
+    # Load queue items — pull top items per type so the type filter is
+    # useful even when one type dominates the predicted ratings.
     if queue_sort == "recent":
-        up_next_query = up_next_query.order_by(MediaEntry.created_at.desc())
+        _order = [MediaEntry.created_at.desc()]
     elif queue_sort == "title":
-        up_next_query = up_next_query.order_by(MediaEntry.title.asc())
+        _order = [MediaEntry.title.asc()]
     else:
-        up_next_query = up_next_query.order_by(MediaEntry.predicted_rating.desc().nullslast(), MediaEntry.created_at.desc())
-    up_next = up_next_query.limit(6).all()
+        _order = [MediaEntry.predicted_rating.desc().nullslast(), MediaEntry.created_at.desc()]
+
+    up_next: list[MediaEntry] = []
+    seen_ids: set[int] = set()
+    for mt in ("movie", "tv", "book", "podcast"):
+        items = (
+            db.query(MediaEntry)
+            .filter(MediaEntry.user_id == user.id, MediaEntry.status == "want_to_consume", MediaEntry.media_type == mt)
+            .order_by(*_order)
+            .limit(6)
+            .all()
+        )
+        for it in items:
+            if it.id not in seen_ids:
+                up_next.append(it)
+                seen_ids.add(it.id)
+
+    # Re-sort the merged list by the chosen order, cap at 18
+    if queue_sort == "recent":
+        up_next.sort(key=lambda e: e.created_at or datetime.min, reverse=True)
+    elif queue_sort == "title":
+        up_next.sort(key=lambda e: (e.title or "").lower())
+    else:
+        up_next.sort(key=lambda e: (-(e.predicted_rating or 0), e.title or ""))
+    up_next = up_next[:18]
 
     # "Your best bet this week" — single hero card, one media type per
     # day. We rotate by day-of-year so each user sees movie / tv / book /
