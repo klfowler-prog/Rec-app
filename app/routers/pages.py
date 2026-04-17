@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -269,7 +269,6 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
     top_genre = max(genre_counts, key=genre_counts.get) if genre_counts else None
 
     # Items rated this month
-    from datetime import datetime, timedelta
     month_ago = datetime.utcnow() - timedelta(days=30)
     rated_this_month = db.query(MediaEntry).filter(
         MediaEntry.user_id == user.id,
