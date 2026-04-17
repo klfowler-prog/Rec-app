@@ -2584,20 +2584,23 @@ Return ONLY valid JSON, no markdown:
   "candidates": [
     {{
       "title": "...",
+      "creator": "author/director/creator name",
       "year": 2020,
-      "reason": "Because you loved {anchor.title}, <specific concrete connection grounded in theme/tone/idea, not surface>.",
+      "reason": "A 1-sentence description of what this is about. Because you loved {anchor.title}, <specific concrete connection>.",
       "predicted_rating": 8.5
     }},
     {{
       "title": "...",
+      "creator": "...",
       "year": 2018,
-      "reason": "Because you loved {anchor.title}, <specific concrete connection>.",
+      "reason": "A 1-sentence premise. Because you loved {anchor.title}, <specific connection>.",
       "predicted_rating": 7.2
     }},
     {{
       "title": "...",
+      "creator": "...",
       "year": 2022,
-      "reason": "Because you loved {anchor.title}, <specific concrete connection>.",
+      "reason": "A 1-sentence premise. Because you loved {anchor.title}, <specific connection>.",
       "predicted_rating": 6.4
     }}
   ]
@@ -2663,9 +2666,11 @@ Return ONLY valid JSON, no markdown:
         title = chosen["title"]
         pr = chosen["predicted_rating"]
 
-        # Enrich via search for poster + external_id
-        matches = await unified_search(title, media_type)
-        matches = _rank_by_title_match(title, matches)
+        # Enrich via search for poster + external_id — include creator for accuracy
+        creator = chosen.get("creator") or ""
+        search_query = f"{title} {creator}".strip() if creator else title
+        matches = await unified_search(search_query, media_type)
+        matches = _rank_by_title_match(title, matches, prefer_type=media_type)
         enriched_pick: dict | None = None
         if matches:
             best = matches[0]
@@ -3676,8 +3681,10 @@ Return ONLY valid JSON, no markdown:
         # Enrich related items with posters via parallel search
         async def enrich(rel_item, rel_type):
             title = rel_item.get("title", "")
-            matches = await unified_search(title, rel_type)
-            matches = _rank_by_title_match(title, matches)
+            creator = rel_item.get("creator") or rel_item.get("author") or ""
+            sq = f"{title} {creator}".strip() if creator else title
+            matches = await unified_search(sq, rel_type)
+            matches = _rank_by_title_match(title, matches, prefer_type=rel_type)
             if matches:
                 best = matches[0]
                 return {
