@@ -250,68 +250,39 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
 
     greeting_ctx = _get_greeting_context(user.name)
 
-    # Contextual data for navigation teasers
-    rated_count = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None)).count()
-    queue_count = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.status == "want_to_consume").count()
+    # --- Consolidated stats: one query for counts + averages -----------
+    from sqlalchemy import func as sqlfunc, case, literal_column
 
-    # Type breakdown for "Add" card context
-    from sqlalchemy import func as sqlfunc
-    type_counts = dict(
-        db.query(MediaEntry.media_type, sqlfunc.count())
+    month_ago = datetime.utcnow() - timedelta(days=30)
+    stats_row = db.query(
+        sqlfunc.count().filter(MediaEntry.rating.isnot(None)).label("rated_count"),
+        sqlfunc.count().filter(MediaEntry.status == "want_to_consume").label("queue_count"),
+        sqlfunc.count().filter(MediaEntry.rating == 5).label("fives_count"),
+        sqlfunc.count().filter(MediaEntry.rated_at >= month_ago).label("rated_this_month"),
+        sqlfunc.avg(case((MediaEntry.rating.isnot(None), MediaEntry.rating))).label("avg_rating"),
+    ).filter(MediaEntry.user_id == user.id).first()
+
+    rated_count = stats_row.rated_count or 0
+    queue_count = stats_row.queue_count or 0
+    fives_count = stats_row.fives_count or 0
+    rated_this_month = stats_row.rated_this_month or 0
+    avg_rating = round(float(stats_row.avg_rating), 1) if stats_row.avg_rating else None
+
+    # Type breakdown + per-type averages in one query
+    type_rows = (
+        db.query(
+            MediaEntry.media_type,
+            sqlfunc.count().label("cnt"),
+            sqlfunc.avg(case((MediaEntry.rating.isnot(None), MediaEntry.rating))).label("avg_r"),
+        )
         .filter(MediaEntry.user_id == user.id)
         .group_by(MediaEntry.media_type)
         .all()
     )
+    type_counts = {r.media_type: r.cnt for r in type_rows}
+    type_avgs = {r.media_type: round(float(r.avg_r), 2) for r in type_rows if r.avg_r}
 
-    # Quiz status for taste card
-    from app.services.taste_quiz_scoring import load_quiz_results
-    quiz_results = load_quiz_results(db, user.id)
-    quizzes_done = sum(1 for t in ("movies", "tv", "books") if quiz_results and quiz_results.get(t, {}).get("profiles"))
-
-    # Interesting stats for the profile section
-    avg_rating = db.query(sqlfunc.avg(MediaEntry.rating)).filter(
-        MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None)
-    ).scalar()
-    avg_rating = round(float(avg_rating), 1) if avg_rating else None
-
-    # Items rated this month
-    month_ago = datetime.utcnow() - timedelta(days=30)
-    rated_this_month = db.query(MediaEntry).filter(
-        MediaEntry.user_id == user.id,
-        MediaEntry.rated_at.isnot(None),
-        MediaEntry.rated_at >= month_ago,
-    ).count()
-
-    # Taste DNA teaser — pull the top quiz profile name for an intriguing hook
-    taste_teaser = ""
-    if quiz_results and quizzes_done > 0:
-        # Collect all profiles across categories, pick the highest match
-        all_profiles: list[tuple[str, str, float]] = []
-        category_labels = {"movies": "movie", "tv": "TV", "books": "book"}
-        for cat, label in category_labels.items():
-            profiles = (quiz_results.get(cat) or {}).get("profiles", [])
-            for p in profiles[:1]:  # top profile per category
-                name = p.get("name", "")
-                sim = p.get("similarity", 0)
-                if name:
-                    all_profiles.append((name, label, sim))
-
-        if all_profiles:
-            # Pick the strongest match
-            best = max(all_profiles, key=lambda x: x[2])
-            pct = round(best[2] * 100)
-            taste_teaser = f'Your {best[1]} taste: {pct}% "{best[0]}"'
-
-    # Per-type average for a fun comparison
-    type_avgs: dict[str, float] = {}
-    for mt in ("movie", "tv", "book", "podcast"):
-        a = db.query(sqlfunc.avg(MediaEntry.rating)).filter(
-            MediaEntry.user_id == user.id, MediaEntry.media_type == mt,
-            MediaEntry.rating.isnot(None),
-        ).scalar()
-        if a:
-            type_avgs[mt] = round(float(a), 2)
-    # Find what they rate highest vs lowest
+    # Taste comparison from per-type averages
     taste_comparison = ""
     if len(type_avgs) >= 2:
         highest = max(type_avgs, key=type_avgs.get)
@@ -320,9 +291,27 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
         if type_avgs[highest] - type_avgs[lowest] >= 0.2:
             taste_comparison = f"You rate {labels[highest]} higher than {labels[lowest]}."
 
-    fives_count = db.query(MediaEntry).filter(
-        MediaEntry.user_id == user.id, MediaEntry.rating == 5
-    ).count()
+    # Quiz status for taste card
+    from app.services.taste_quiz_scoring import load_quiz_results
+    quiz_results = load_quiz_results(db, user.id)
+    quizzes_done = sum(1 for t in ("movies", "tv", "books") if quiz_results and quiz_results.get(t, {}).get("profiles"))
+
+    # Taste DNA teaser — pull the top quiz profile name for an intriguing hook
+    taste_teaser = ""
+    if quiz_results and quizzes_done > 0:
+        all_profiles: list[tuple[str, str, float]] = []
+        category_labels = {"movies": "movie", "tv": "TV", "books": "book"}
+        for cat, label in category_labels.items():
+            profiles = (quiz_results.get(cat) or {}).get("profiles", [])
+            for p in profiles[:1]:
+                name = p.get("name", "")
+                sim = p.get("similarity", 0)
+                if name:
+                    all_profiles.append((name, label, sim))
+        if all_profiles:
+            best = max(all_profiles, key=lambda x: x[2])
+            pct = round(best[2] * 100)
+            taste_teaser = f'Your {best[1]} taste: {pct}% "{best[0]}"'
 
     # Grab a few poster URLs for card backgrounds
     poster_items = (
@@ -338,93 +327,93 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
     # Together mode. Drives the Home teaser copy — zero partners gets
     # a strong 'invite your people' hook, non-zero gets the standard
     # pairing sell with a secondary 'invite more' nudge.
-    together_partner_count = db.query(User).filter(User.id != user.id).count()
+    # --- Together social feed (batch query, no N+1) ------------------
+    partners = db.query(User).filter(User.id != user.id).all()
+    together_partner_count = len(partners)
 
-    # Together social feed — interesting recent activity from partners,
-    # prioritizing overlap with the current user's taste.
     together_highlights: list[dict] = []
     if together_partner_count > 0:
-        # Get the current user's titles for overlap detection
-        my_titles = set(
-            t.lower() for (t,) in
-            db.query(MediaEntry.title)
+        partner_ids = [p.id for p in partners]
+        partner_map = {p.id: p for p in partners}
+
+        # Get current user's titles in one query
+        my_title_rows = (
+            db.query(MediaEntry.title, MediaEntry.status)
             .filter(MediaEntry.user_id == user.id)
             .all()
         )
-        my_queue_titles = set(
-            t.lower() for (t,) in
-            db.query(MediaEntry.title)
-            .filter(MediaEntry.user_id == user.id, MediaEntry.status == "want_to_consume")
+        my_titles = set(t.lower() for t, _ in my_title_rows)
+        my_queue_titles = set(t.lower() for t, s in my_title_rows if s == "want_to_consume")
+
+        # Batch load: all partner entries rated 4+ (one query for ALL partners)
+        all_partner_rated = (
+            db.query(MediaEntry)
+            .filter(
+                MediaEntry.user_id.in_(partner_ids),
+                MediaEntry.rating.isnot(None),
+                MediaEntry.rating >= 4,
+            )
+            .order_by(MediaEntry.rated_at.desc().nullslast(), MediaEntry.updated_at.desc())
             .all()
         )
 
-        partners = db.query(User).filter(User.id != user.id).all()
-        raw_highlights: list[tuple[int, dict]] = []  # (priority, highlight)
-
-        for partner in partners:
-            first_name = partner.name.split()[0] if partner.name else "Someone"
-
-            # Recent high ratings from this partner
-            recent_rated = (
-                db.query(MediaEntry)
-                .filter(
-                    MediaEntry.user_id == partner.id,
-                    MediaEntry.rating.isnot(None),
-                    MediaEntry.rating >= 4,
-                )
-                .order_by(MediaEntry.rated_at.desc().nullslast(), MediaEntry.updated_at.desc())
-                .limit(10)
-                .all()
+        # Batch load: all partner queue items
+        all_partner_queued = (
+            db.query(MediaEntry)
+            .filter(
+                MediaEntry.user_id.in_(partner_ids),
+                MediaEntry.status == "want_to_consume",
             )
-            for entry in recent_rated:
-                title_lower = entry.title.lower()
-                verb = {"movie": "watched", "tv": "watched", "book": "read", "podcast": "listened to"}.get(entry.media_type, "checked out")
-                # Priority: 0 = both have it, 1 = it's in user's queue, 2 = general
-                if title_lower in my_titles:
-                    priority = 0
-                    overlap_note = f"you've {verb} this too"
-                    action = f"{first_name} rated {entry.title} {entry.rating}/5 — {overlap_note}"
-                elif title_lower in my_queue_titles:
-                    priority = 1
-                    action = f"{first_name} rated {entry.title} {entry.rating}/5 — it's in your queue"
-                else:
-                    priority = 2
-                    action = f"{first_name} rated {entry.title} {entry.rating}/5"
-                recency = (entry.rated_at or entry.updated_at).timestamp() if (entry.rated_at or entry.updated_at) else 0
-                raw_highlights.append((priority, recency, {
-                    "action": action,
+            .order_by(MediaEntry.created_at.desc())
+            .all()
+        )
+
+        raw_highlights: list[tuple[int, float, dict]] = []
+
+        for entry in all_partner_rated:
+            partner = partner_map.get(entry.user_id)
+            if not partner:
+                continue
+            first_name = partner.name.split()[0] if partner.name else "Someone"
+            title_lower = entry.title.lower()
+            verb = {"movie": "watched", "tv": "watched", "book": "read", "podcast": "listened to"}.get(entry.media_type, "checked out")
+            if title_lower in my_titles:
+                priority = 0
+                action = f"{first_name} rated {entry.title} {entry.rating}/5 — you've {verb} this too"
+            elif title_lower in my_queue_titles:
+                priority = 1
+                action = f"{first_name} rated {entry.title} {entry.rating}/5 — it's in your queue"
+            else:
+                priority = 2
+                action = f"{first_name} rated {entry.title} {entry.rating}/5"
+            recency = (entry.rated_at or entry.updated_at).timestamp() if (entry.rated_at or entry.updated_at) else 0
+            raw_highlights.append((priority, recency, {
+                "action": action,
+                "partner_name": first_name,
+                "partner_picture": partner.picture or "",
+                "title": entry.title,
+                "media_type": entry.media_type,
+                "rating": entry.rating,
+                "has_overlap": priority < 2,
+            }))
+
+        for entry in all_partner_queued:
+            title_lower = entry.title.lower()
+            if title_lower in my_queue_titles:
+                partner = partner_map.get(entry.user_id)
+                if not partner:
+                    continue
+                first_name = partner.name.split()[0] if partner.name else "Someone"
+                recency = entry.created_at.timestamp() if entry.created_at else 0
+                raw_highlights.append((0, recency, {
+                    "action": f"You and {first_name} both want to check out {entry.title}",
                     "partner_name": first_name,
-                    "partner_picture": partner.picture,
+                    "partner_picture": partner.picture or "",
                     "title": entry.title,
                     "media_type": entry.media_type,
-                    "rating": entry.rating,
-                    "has_overlap": priority < 2,
+                    "rating": None,
+                    "has_overlap": True,
                 }))
-
-            # Items partner wants to consume (queue)
-            partner_queue = (
-                db.query(MediaEntry)
-                .filter(
-                    MediaEntry.user_id == partner.id,
-                    MediaEntry.status == "want_to_consume",
-                )
-                .order_by(MediaEntry.created_at.desc())
-                .limit(5)
-                .all()
-            )
-            for entry in partner_queue:
-                title_lower = entry.title.lower()
-                if title_lower in my_queue_titles:
-                    recency = entry.created_at.timestamp() if entry.created_at else 0
-                    raw_highlights.append((0, recency, {
-                        "action": f"You and {first_name} both want to check out {entry.title}",
-                        "partner_name": first_name,
-                        "partner_picture": partner.picture,
-                        "title": entry.title,
-                        "media_type": entry.media_type,
-                        "rating": None,
-                        "has_overlap": True,
-                    }))
 
         # Sort by priority (overlap first), then most recent activity
         raw_highlights.sort(key=lambda x: (x[0], -x[1]))

@@ -70,9 +70,17 @@ async def login_required_handler(request: Request, exc: _LoginRequired):
     return RedirectResponse("/welcome")
 
 
-# Mount static files
+# Mount static files with cache headers
 static_dir = Path(__file__).resolve().parent.parent / "static"
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+
+@app.middleware("http")
+async def add_cache_headers(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "public, max-age=86400"  # 1 day
+    return response
 
 from app.routers import admin, auth, collections, device_auth, media, pages, profile, recommend, together
 
