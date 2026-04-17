@@ -27,6 +27,21 @@ with engine.connect() as conn:
             conn.execute(text("ALTER TABLE user_preferences ADD COLUMN quiz_results TEXT"))
             conn.commit()
 
+    # One-time migration: convert 10-point ratings to 5-point scale.
+    # Detects unconverted data by checking if any rating > 5 exists.
+    if "media_entries" in inspector.get_table_names():
+        has_old_scale = conn.execute(
+            text("SELECT 1 FROM media_entries WHERE rating > 5 LIMIT 1")
+        ).fetchone()
+        if has_old_scale:
+            conn.execute(text(
+                "UPDATE media_entries SET rating = ROUND(rating / 2.0) WHERE rating IS NOT NULL"
+            ))
+            conn.execute(text(
+                "UPDATE media_entries SET predicted_rating = ROUND(predicted_rating / 2.0, 1) WHERE predicted_rating IS NOT NULL"
+            ))
+            conn.commit()
+
 app = FastAPI(title="NextUp", description="Personal media recommendation engine")
 
 # Session middleware for auth cookies
