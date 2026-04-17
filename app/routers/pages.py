@@ -346,15 +346,31 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
                         "has_overlap": True,
                     }))
 
-        # Sort by priority (overlap first), then take top 3
-        raw_highlights.sort(key=lambda x: x[0])
+        # Sort by priority (overlap first), then by rating (5/5 first)
+        # so we don't show 3 highlights from the same person.
+        raw_highlights.sort(key=lambda x: (x[0], -(x[1].get("rating") or 0)))
         seen_titles: set[str] = set()
+        seen_partners: set[str] = set()
+        # First pass: one highlight per partner (overlap preferred)
         for _, h in raw_highlights:
-            if h["title"].lower() not in seen_titles:
-                together_highlights.append(h)
-                seen_titles.add(h["title"].lower())
+            if h["partner_name"] in seen_partners:
+                continue
+            if h["title"].lower() in seen_titles:
+                continue
+            together_highlights.append(h)
+            seen_titles.add(h["title"].lower())
+            seen_partners.add(h["partner_name"])
             if len(together_highlights) >= 3:
                 break
+        # Second pass: if we don't have 3 yet, allow repeat partners
+        if len(together_highlights) < 3:
+            for _, h in raw_highlights:
+                if h["title"].lower() in seen_titles:
+                    continue
+                together_highlights.append(h)
+                seen_titles.add(h["title"].lower())
+                if len(together_highlights) >= 3:
+                    break
 
     return templates.TemplateResponse(
         "index.html",
