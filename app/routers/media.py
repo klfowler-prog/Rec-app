@@ -4088,6 +4088,7 @@ Return ONLY valid JSON — a list of objects with "title", "media_type" (movie/t
 async def taste_fit(
     media_type: str, external_id: str,
     title: str = Query(""), source: str = Query(""),
+    description: str = Query(""), creator: str = Query(""), genres: str = Query(""),
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
@@ -4146,6 +4147,9 @@ ITEMS THEY DISLIKED (rated 1-2):
 ITEM TO EVALUATE:
 Title: {title}
 Type: {media_type}
+{f'By: {creator}' if creator else ''}
+{f'Genres: {genres}' if genres else ''}
+{f'Description: {description}' if description else ''}
 
 RULES:
 - Be honest, not generous. Most items are a 3-3.5 for any given person. Only give 4+ for genuine taste matches.

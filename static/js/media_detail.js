@@ -337,6 +337,9 @@ async function loadTasteFit() {
     if (!section || !card || !currentMedia) return;
     try {
         const params = new URLSearchParams({ title: currentMedia.title, source: currentMedia.source || SOURCE });
+        if (currentMedia.description) params.set('description', currentMedia.description.slice(0, 500));
+        if (currentMedia.creator) params.set('creator', currentMedia.creator);
+        if (currentMedia.genres && currentMedia.genres.length) params.set('genres', currentMedia.genres.join(', '));
         const resp = await fetch(`/api/media/taste-fit/${MEDIA_TYPE}/${EXTERNAL_ID}?${params}`);
         if (!resp.ok) return;
         const data = await resp.json();
