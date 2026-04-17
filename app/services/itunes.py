@@ -99,6 +99,25 @@ async def get_details(collection_id: str) -> MediaResult | None:
     genres = [item.get("primaryGenreName")] if item.get("primaryGenreName") else []
     description = item.get("description") or item.get("collectionDescription") or None
 
+    # iTunes lookup rarely includes descriptions for podcasts.
+    # Fall back to the RSS feed which always has one.
+    if not description and item.get("feedUrl"):
+        try:
+            from xml.etree import ElementTree
+
+            async with httpx.AsyncClient(timeout=10, follow_redirects=True) as feed_client:
+                feed_resp = await feed_client.get(item["feedUrl"])
+                if feed_resp.status_code == 200:
+                    root = ElementTree.fromstring(feed_resp.text)
+                    channel = root.find("channel")
+                    if channel is not None:
+                        description = (
+                            channel.findtext("{http://www.itunes.com/dtds/podcast-1.0.dtd}summary")
+                            or channel.findtext("description")
+                        )
+        except Exception:
+            pass
+
     return MediaResult(
         external_id=str(item.get("collectionId", item.get("trackId", ""))),
         source="itunes",
