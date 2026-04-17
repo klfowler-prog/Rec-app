@@ -106,12 +106,31 @@
             <div>
                 <h1 class="text-2xl md:text-3xl font-bold mb-1">{{ greeting }}</h1>
                 <p id="right-now-commentary" class="text-sm md:text-base text-white/75 leading-relaxed max-w-2xl">{{ suggestion }}</p>
+                <p class="text-xs text-white/50 mt-2">{{ day_hint }}</p>
             </div>
             <button onclick="refreshAll(this)" title="Get fresh picks" class="flex-shrink-0 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/60 hover:text-white transition-base">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h4.586M20 20v-5h-4.586M4.929 9A8 8 0 0119.07 9M19.071 15A8 8 0 014.93 15"/></svg>
             </button>
         </div>
     </div>
+
+    {% if show_box_office %}
+    <!-- Weekend box office — new theatrical releases scored against your taste -->
+    <div>
+        <div class="flex items-center justify-between mb-3">
+            <div>
+                <p class="text-[11px] text-coral uppercase tracking-[0.18em] font-bold mb-0.5">Opening this weekend</p>
+                <p class="text-sm text-txt-muted">New in theaters — scored against your taste.</p>
+            </div>
+        </div>
+        <div id="box-office-cards" class="flex gap-3 overflow-x-auto pb-2" style="scroll-snap-type: x mandatory;">
+            <div class="text-center py-4 w-full">
+                <div class="inline-block w-5 h-5 border-2 border-coral/30 border-t-coral rounded-full animate-spin"></div>
+                <p class="text-xs text-txt-muted mt-2">Checking what's new...</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Signal strength meter -->
     <div id="signal-meter" class="hidden">
@@ -917,6 +936,43 @@ function showSignalCelebration(level) {
     document.getElementById('celeb-message').textContent = c.message;
     document.getElementById('signal-celebration').classList.remove('hidden');
 }
+
+{% if show_box_office %}
+async function loadBoxOffice() {
+    const container = document.getElementById('box-office-cards');
+    if (!container) return;
+    try {
+        const resp = await fetch('/api/media/new-releases/movie');
+        if (!resp.ok) { container.innerHTML = ''; return; }
+        const data = await resp.json();
+        const sections = data.sections || [];
+        // Find the "In theaters" section
+        const inTheaters = sections.find(s => s.label && s.label.toLowerCase().includes('theater'));
+        const items = inTheaters ? inTheaters.items.slice(0, 6) : (sections[0]?.items || []).slice(0, 6);
+        if (!items.length) { container.innerHTML = '<p class="text-xs text-txt-muted py-2">Nothing new this week.</p>'; return; }
+        container.innerHTML = items.map(item => {
+            const pr = item.predicted_rating;
+            const prColor = pr >= 4 ? 'bg-emerald-500' : pr >= 3 ? 'bg-yellow-500' : 'bg-amber-400';
+            const prBadge = pr ? `<div class="absolute top-2 right-2 px-1.5 py-0.5 ${prColor} rounded-full shadow"><span class="text-[9px] font-bold text-white">${pr}</span></div>` : '';
+            const image = item.image_url
+                ? `<img src="${item.image_url}" alt="" class="w-full h-full object-cover">`
+                : `<div class="w-full h-full bg-sage/10 flex items-center justify-center"><span class="text-sage text-2xl font-bold">${escapeHtml((item.title||'?')[0])}</span></div>`;
+            const link = item.external_id ? `/media/movie/${item.external_id}?source=${item.source}` : '#';
+            return `
+                <a href="${link}" class="flex-shrink-0 group" style="width: 130px; scroll-snap-align: start;">
+                    <div class="rounded-xl overflow-hidden shadow-md relative transition-all group-hover:shadow-lg group-hover:-translate-y-1" style="height: 195px;">
+                        ${image}${prBadge}
+                    </div>
+                    <p class="text-[11px] font-semibold mt-1.5 truncate">${escapeHtml(item.title)}</p>
+                    ${item.year ? `<p class="text-[9px] text-txt-muted">${item.year}</p>` : ''}
+                </a>`;
+        }).join('');
+    } catch {
+        container.innerHTML = '';
+    }
+}
+loadBoxOffice();
+{% endif %}
 
 wireRatingSlots();
 loadRightNow();
