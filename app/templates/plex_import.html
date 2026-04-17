@@ -117,8 +117,8 @@ async function connectPlex() {
                 <div class="flex items-center gap-3 px-4 py-2 rounded-lg text-sm ${r.status === 'added' ? 'border-l-2 border-emerald-500' : 'border-l-2 border-coral'} bg-surface-light dark:bg-surface-dark">
                     ${r.image_url ? `<img src="${r.image_url}" class="w-6 h-9 object-cover rounded" alt="">` : '<div class="w-6 h-9 bg-sage/10 rounded"></div>'}
                     <span class="flex-1 truncate">${escapeHtml(r.title)}</span>
-                    ${r.rating ? `<span class="text-xs font-medium text-emerald-500">${r.rating}/5</span>` : ''}
-                    <span class="text-xs ${r.status === 'added' ? 'text-emerald-500' : 'text-txt-muted'}">${r.status === 'added' ? 'Added' : 'Skipped'}</span>
+                    ${r.rating ? `<span class="text-xs font-medium text-sage">${r.rating}/5</span>` : ''}
+                    <span class="text-xs ${r.status === 'added' ? 'text-sage' : 'text-txt-muted'}">${r.status === 'added' ? 'Added' : 'Skipped'}</span>
                 </div>
             `).join('');
         }

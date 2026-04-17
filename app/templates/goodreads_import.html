@@ -194,7 +194,7 @@ function renderPreview() {
 
     previewBody.innerHTML = parsedRows.slice(0, 50).map(row => {
         const stars = row.rating > 0 ? '★'.repeat(row.rating) + '☆'.repeat(5 - row.rating) : '—';
-        const ratingColor = row.rating >= 4 ? 'text-emerald-500' : row.rating >= 3 ? 'text-amber-500' : row.rating > 0 ? 'text-coral' : 'text-txt-muted';
+        const ratingColor = row.rating >= 4 ? 'text-sage' : row.rating >= 3 ? 'text-gold' : row.rating > 0 ? 'text-coral' : 'text-txt-muted';
         return `
             <tr class="border-t border-border-light dark:border-border-dark">
                 <td class="px-4 py-2 font-medium">${escapeHtml(row.title)}</td>
@@ -236,8 +236,8 @@ importBtn.addEventListener('click', async () => {
             <div class="flex items-center gap-3 px-4 py-2 rounded-lg text-sm ${r.status === 'added' ? 'import-result-added' : 'import-result-skipped'} bg-surface-light dark:bg-surface-dark">
                 ${r.image_url ? `<img src="${r.image_url}" class="w-6 h-9 object-cover rounded" alt="">` : `<div class="w-6 h-9 bg-sage/10 rounded"></div>`}
                 <span class="flex-1 truncate">${escapeHtml(r.title)}</span>
-                ${r.rating ? `<span class="text-xs font-medium ${r.rating >= 4 ? 'text-emerald-500' : r.rating >= 3 ? 'text-amber-500' : 'text-coral'}">${r.rating}/5</span>` : ''}
-                <span class="text-xs ${r.status === 'added' ? 'text-emerald-500' : 'text-txt-muted'}">${r.status === 'added' ? 'Added' : 'Skipped'}</span>
+                ${r.rating ? `<span class="text-xs font-medium ${r.rating >= 4 ? 'text-sage' : r.rating >= 3 ? 'text-gold' : 'text-coral'}">${r.rating}/5</span>` : ''}
+                <span class="text-xs ${r.status === 'added' ? 'text-sage' : 'text-txt-muted'}">${r.status === 'added' ? 'Added' : 'Skipped'}</span>
             </div>
         `).join('');
 

@@ -273,9 +273,9 @@ function renderResponseButtons() {
 
     ratingWrap.innerHTML = ratingOptions.map(opt => {
         const color =
-            opt.value === 2  ? 'hover:bg-emerald-500 hover:border-emerald-500' :
+            opt.value === 2  ? 'hover:bg-sage hover:border-sage' :
             opt.value === 1  ? 'hover:bg-sage hover:border-sage' :
-            opt.value === 0  ? 'hover:bg-amber-400 hover:border-amber-400' :
+            opt.value === 0  ? 'hover:bg-gold hover:border-gold' :
                                'hover:bg-coral hover:border-coral';
         return `
             <button type="button" data-value="${opt.value}" onclick="pickResponse('${opt.value}')"
@@ -705,7 +705,7 @@ async function rateBonusPodcast(btn, item, value) {
             }
         }
         // Replace the row with a saved confirmation
-        const color = rating <= 1 ? 'text-coral' : rating <= 2 ? 'text-amber-500' : rating <= 3 ? 'text-yellow-600' : 'text-emerald-500';
+        const color = rating <= 1 ? 'text-coral' : rating <= 2 ? 'text-coral-light' : rating <= 3 ? 'text-gold' : rating <= 4 ? 'text-sage-light' : 'text-sage';
         row.innerHTML = `<span class="text-xs font-semibold ${color}">${rating}/5 ✓ saved</span>`;
     } catch {
         // Re-enable on failure

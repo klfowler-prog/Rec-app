@@ -160,9 +160,9 @@ function toggleInlineRate(el, entryId, currentRating) {
     for (let n = 1; n <= 5; n++) {
         const active = n <= currentRating;
         const color = n <= 1 ? (active ? 'bg-coral' : 'bg-border-light dark:bg-border-dark')
-                    : n <= 2 ? (active ? 'bg-amber-400' : 'bg-border-light dark:bg-border-dark')
-                    : n <= 3 ? (active ? 'bg-yellow-500' : 'bg-border-light dark:bg-border-dark')
-                    : (active ? 'bg-emerald-500' : 'bg-border-light dark:bg-border-dark');
+                    : n <= 2 ? (active ? 'bg-coral-light' : 'bg-border-light dark:bg-border-dark')
+                    : n <= 3 ? (active ? 'bg-gold' : 'bg-border-light dark:bg-border-dark')
+                    : (active ? 'bg-sage' : 'bg-border-light dark:bg-border-dark');
         const dot = document.createElement('button');
         dot.className = `w-7 h-7 rounded-full ${color} hover:bg-sage transition-base text-xs font-bold ${active ? 'text-white' : 'text-transparent hover:text-white'}`;
         dot.textContent = n;
@@ -246,7 +246,7 @@ const STATUS_LABELS = {
 const STATUS_COLORS = {
     want_to_consume: 'bg-sage/15 text-sage-dark dark:text-sage-light',
     consuming: 'bg-coral/15 text-coral',
-    consumed: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
+    consumed: 'bg-sage/15 text-sage-dark dark:text-sage-light',
     abandoned: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
 };
 
@@ -310,7 +310,7 @@ async function changeStatus(entryId, newStatus, btn) {
             const buttons = switcher.querySelectorAll('button');
             buttons.forEach(b => {
                 // Reset all to muted
-                b.className = b.className.replace(/bg-sage\/15 text-sage-dark dark:text-sage-light|bg-coral\/15 text-coral|bg-emerald-100 text-emerald-700 dark:bg-emerald-900\/30 dark:text-emerald-300|bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400/g, '').trim();
+                b.className = b.className.replace(/bg-sage\/15 text-sage-dark dark:text-sage-light|bg-coral\/15 text-coral|bg-sage\/15 text-sage-dark dark:text-sage-light|bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400/g, '').trim();
                 if (!b.className.includes('text-txt-muted')) {
                     b.className += ' text-txt-muted hover:text-txt';
                 }

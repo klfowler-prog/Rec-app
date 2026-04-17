@@ -156,7 +156,7 @@
     const THEME_META = {
         walking_the_dog:  { label: "While walking the dog",     blurb: "Podcasts you can drop in and out of.",                accent: 'text-green-500' },
         tonight_binge:    { label: "Tonight's binge",           blurb: "TV that actually earns the next episode.",            accent: 'text-purple-500' },
-        wind_down:        { label: "Wind down before bed",      blurb: "Low-stakes, slow your pulse.",                        accent: 'text-amber-500' },
+        wind_down:        { label: "Wind down before bed",      blurb: "Low-stakes, slow your pulse.",                        accent: 'text-gold' },
         background_work:  { label: "Background while you work", blurb: "Familiar and conversational, half-attention-safe.",   accent: 'text-sky-500' },
         weekend_binge:    { label: "Lose the weekend",          blurb: "Binge it. Fall in. Look up and it's dark outside.",   accent: 'text-coral' },
         quick_escape:     { label: "Quick escape",              blurb: "15-90 minutes, out of your own head.",                accent: 'text-rose-500' },

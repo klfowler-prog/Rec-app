@@ -155,10 +155,10 @@ editForm.addEventListener('submit', async (e) => {
 
 function ratingColor(n) {
     if (n <= 1) return 'bg-coral';
-    if (n <= 2) return 'bg-amber-400';
-    if (n <= 3) return 'bg-yellow-500';
-    if (n <= 4) return 'bg-emerald-400';
-    return 'bg-emerald-500';
+    if (n <= 2) return 'bg-coral-light';
+    if (n <= 3) return 'bg-gold';
+    if (n <= 4) return 'bg-sage-light';
+    return 'bg-sage';
 }
 
 async function inlineRate(entryId, rating, btn) {
@@ -308,7 +308,7 @@ async function loadTasteShape() {
         for (let i = 1; i <= 5; i++) {
             const count = hist[i] || 0;
             const height = (count / maxCount) * 100;
-            const color = i <= 1 ? 'bg-coral' : i <= 2 ? 'bg-amber-400' : i <= 3 ? 'bg-yellow-500' : 'bg-emerald-500';
+            const color = i <= 1 ? 'bg-coral' : i <= 2 ? 'bg-coral-light' : i <= 3 ? 'bg-gold' : i <= 4 ? 'bg-sage-light' : 'bg-sage';
             histEl.innerHTML += `
                 <div class="flex-1 ${color} rounded-t opacity-80" style="height: ${Math.max(height, 3)}%" title="${i}/5: ${count} item${count === 1 ? '' : 's'}"></div>
             `;

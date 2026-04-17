@@ -169,7 +169,7 @@ function newReleaseCard(item) {
         ? `<div class="poster-frame"><img src="${item.image_url}" alt="" class="${fit}" loading="lazy"></div>`
         : `<div class="poster-frame"><div class="poster-fallback bg-sage/10"><span class="text-sage text-xl">${escapeHtml((item.title || '?')[0])}</span></div></div>`;
     const pr = item.predicted_rating;
-    const prBadge = pr ? `<div class="absolute top-2 right-2 px-1.5 py-0.5 ${pr >= 4 ? 'bg-emerald-500' : pr >= 3 ? 'bg-yellow-500' : pr >= 2 ? 'bg-amber-400' : 'bg-coral'} rounded-full"><span class="text-[10px] font-bold text-white">${pr}</span></div>` : '';
+    const prBadge = pr ? `<div class="absolute top-2 right-2 px-1.5 py-0.5 ${pr >= 4 ? 'bg-sage' : pr >= 3 ? 'bg-gold' : pr >= 2 ? 'bg-coral-light' : 'bg-coral'} rounded-full"><span class="text-[10px] font-bold text-white">${pr}</span></div>` : '';
 
     const cardItem = {...item, media_type: item.media_type || MEDIA_TYPE};
 
@@ -390,7 +390,7 @@ function suggestionCard(item) {
         description: item.description || null, status: 'want_to_consume',
     }));
     const pr = item.predicted_rating;
-    const prBadge = pr ? `<div class="absolute top-1.5 right-1.5 px-1.5 py-0.5 ${pr >= 8 ? 'bg-emerald-500' : pr >= 6 ? 'bg-yellow-500' : 'bg-amber-400'} rounded-full"><span class="text-[9px] font-bold text-white">${pr}</span></div>` : '';
+    const prBadge = pr ? `<div class="absolute top-1.5 right-1.5 px-1.5 py-0.5 ${pr >= 4 ? 'bg-sage' : pr >= 3 ? 'bg-gold' : 'bg-coral-light'} rounded-full"><span class="text-[9px] font-bold text-white">${pr}</span></div>` : '';
     return `
         <div class="rounded-lg overflow-hidden border-2 border-dashed border-border-light dark:border-border-dark hover:border-sage transition-base" data-suggestion-card>
             <a href="${link}" class="relative block">${image}${prBadge}</a>
