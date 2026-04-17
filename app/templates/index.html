@@ -114,23 +114,21 @@
         </div>
     </div>
 
-    {% if show_box_office %}
-    <!-- Weekend box office — new theatrical releases scored against your taste -->
+    <!-- In theaters now — scored against your taste -->
     <div>
         <div class="flex items-center justify-between mb-3">
             <div>
-                <p class="text-[11px] text-coral uppercase tracking-[0.18em] font-bold mb-0.5">Opening this weekend</p>
-                <p class="text-sm text-txt-muted">New in theaters — scored against your taste.</p>
+                <p class="text-[11px] text-coral uppercase tracking-[0.18em] font-bold mb-0.5">In theaters now</p>
+                <p class="text-sm text-txt-muted">What's playing — scored against your taste.</p>
             </div>
         </div>
         <div id="box-office-cards" class="flex gap-3 overflow-x-auto pb-2" style="scroll-snap-type: x mandatory;">
             <div class="text-center py-4 w-full">
                 <div class="inline-block w-5 h-5 border-2 border-coral/30 border-t-coral rounded-full animate-spin"></div>
-                <p class="text-xs text-txt-muted mt-2">Checking what's new...</p>
+                <p class="text-xs text-txt-muted mt-2">Checking what's playing...</p>
             </div>
         </div>
     </div>
-    {% endif %}
 
     <!-- Signal strength meter -->
     <div id="signal-meter" class="hidden">
@@ -937,19 +935,18 @@ function showSignalCelebration(level) {
     document.getElementById('signal-celebration').classList.remove('hidden');
 }
 
-{% if show_box_office %}
 async function loadBoxOffice() {
     const container = document.getElementById('box-office-cards');
     if (!container) return;
     try {
-        const resp = await fetch('/api/media/new-releases/movie');
+        const resp = await fetch('/api/media/new-releases/movie?refresh=' + (new URLSearchParams(window.location.search).has('refresh') ? '1' : '0'));
         if (!resp.ok) { container.innerHTML = ''; return; }
         const data = await resp.json();
         const sections = data.sections || [];
         // Find the "In theaters" section
         const inTheaters = sections.find(s => s.label && s.label.toLowerCase().includes('theater'));
         const items = inTheaters ? inTheaters.items.slice(0, 6) : (sections[0]?.items || []).slice(0, 6);
-        if (!items.length) { container.innerHTML = '<p class="text-xs text-txt-muted py-2">Nothing new this week.</p>'; return; }
+        if (!items.length) { container.innerHTML = '<p class="text-xs text-txt-muted py-2">Nothing playing right now.</p>'; return; }
         container.innerHTML = items.map(item => {
             const pr = item.predicted_rating;
             const prColor = pr >= 4 ? 'bg-emerald-500' : pr >= 3 ? 'bg-yellow-500' : 'bg-amber-400';
@@ -972,7 +969,6 @@ async function loadBoxOffice() {
     }
 }
 loadBoxOffice();
-{% endif %}
 
 wireRatingSlots();
 loadRightNow();

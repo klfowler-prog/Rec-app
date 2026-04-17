@@ -24,8 +24,6 @@ def _get_greeting_context(user_name: str) -> dict:
     first_name = user_name.split()[0] if user_name else ""
     day_name = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][weekday]
 
-    # Show box office card Thu evening through Sunday
-    show_box_office = (weekday == 3 and hour >= 17) or weekday in (4, 5, 6)
 
     if hour < 12:
         time_of_day = "morning"
@@ -56,17 +54,15 @@ def _get_greeting_context(user_name: str) -> dict:
             suggested_types = ["tv", "book"]
 
     # Day-aware content hint — changes based on day of week
-    if weekday == 3 and hour >= 17:  # Thursday evening
-        day_hint = "New movies hit theaters tomorrow — check what's opening this weekend."
-    elif weekday == 4:  # Friday
-        day_hint = "Opening this weekend — see what's new at the box office."
+    if weekday == 4:  # Friday
+        day_hint = "Weekend's here — plenty of time to start something new."
     elif weekday == 5:  # Saturday
         day_hint = "Long day ahead — perfect for a movie or getting lost in a new show."
     elif weekday == 6:  # Sunday
         day_hint = "Last chance to finish something before the week starts."
     elif weekday <= 2:  # Mon-Wed
         day_hint = "Short on time? Continue what you started or try a quick podcast."
-    else:  # Thursday daytime
+    else:  # Thursday
         day_hint = "Almost the weekend — queue up something good for Friday night."
 
     return {
@@ -75,7 +71,6 @@ def _get_greeting_context(user_name: str) -> dict:
         "day_hint": day_hint,
         "time_of_day": time_of_day,
         "is_weekend": is_weekend,
-        "show_box_office": show_box_office,
         "day_name": day_name,
         "suggested_types": suggested_types,
     }
