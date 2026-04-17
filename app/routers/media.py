@@ -4130,28 +4130,32 @@ async def taste_fit(
         .all()
     )
 
-    loved = "\n".join(f"- {e.title} ({e.media_type}, {e.rating}/5)" for e in top_rated) or "no data"
-    disliked = "\n".join(f"- {e.title} ({e.media_type}, {e.rating}/5)" for e in low_rated) or "none"
+    loved = "\n".join(f"- {e.title} ({e.media_type}, {e.rating}/5) [{e.genres or ''}]" for e in top_rated) or "no data"
+    disliked = "\n".join(f"- {e.title} ({e.media_type}, {e.rating}/5) [{e.genres or ''}]" for e in low_rated) or "none"
 
     from app.services.gemini import generate
 
-    prompt = f"""You are predicting how much this user would enjoy a specific item, and explaining why in one sentence.
+    prompt = f"""Predict how much this user would enjoy a specific item on a 1-5 scale, and explain why in one sentence.
 
-USER'S LOVED ITEMS:
+ITEMS THEY LOVED (rated 4-5):
 {loved}
 
-USER'S DISLIKED ITEMS:
+ITEMS THEY DISLIKED (rated 1-2):
 {disliked}
 
 ITEM TO EVALUATE:
 Title: {title}
 Type: {media_type}
 
-Return ONLY a JSON object with:
-- "predicted_rating": number 1-5 (one decimal) or null if you can't tell
-- "reason": one sentence explaining why they'd like or dislike it, referencing something specific from their profile. If predicted_rating is null, reason should say why you're unsure.
+RULES:
+- Be honest, not generous. Most items are a 3-3.5 for any given person. Only give 4+ for genuine taste matches.
+- If the item's genre/tone/style resembles their disliked items, score it 1.5-2.5.
+- If you don't recognize the item or can't tell, return null.
+- A 5.0 means near-perfect match to their absolute favorites. Extremely rare.
+- The reason should cite a specific item from their profile and name a concrete connection.
 
-Example: {{"predicted_rating": 4.2, "reason": "Your love of psychological thrillers like Gone Girl suggests you'd enjoy this dark, twisty narrative."}}
+Return ONLY a JSON object:
+{{"predicted_rating": 3.2, "reason": "Your mixed feelings about similar memoirs suggest this would be pleasant but not a standout."}}
 """
     try:
         text = (await generate(prompt)).strip()

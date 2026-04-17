@@ -46,11 +46,9 @@ with engine.connect() as conn:
                 conn.execute(text("DELETE FROM cache_entries"))
                 conn.commit()
 
-    # One-time fix: clear new_releases caches that were saved with the
-    # wrong MIN_SCORE threshold (5.5 instead of 3.5). Safe to run once —
-    # the cache will repopulate on next request.
+    # Clear taste_fit caches — prompt was updated to be less inflated
     if "cache_entries" in inspector.get_table_names():
-        conn.execute(text("DELETE FROM cache_entries WHERE key LIKE 'new_releases:%'"))
+        conn.execute(text("DELETE FROM cache_entries WHERE key LIKE 'taste_fit:%'"))
         conn.commit()
 
 app = FastAPI(title="NextUp", description="Personal media recommendation engine")

@@ -63,18 +63,29 @@ async def _predict_single_item(user_id: int, entry_id: int):
             return
 
         rated = sorted(consumed, key=lambda e: e.rating or 0, reverse=True)
-        taste_lines = [f"- {e.title} ({e.media_type}) — {e.rating}/5 [{e.genres or 'no genres'}]" for e in rated[:20]]
+        top_lines = [f"- {e.title} ({e.media_type}) — {e.rating}/5 [{e.genres or 'no genres'}]" for e in rated[:15]]
+        low = [e for e in consumed if (e.rating or 5) <= 2]
+        low_lines = [f"- {e.title} ({e.media_type}) — {e.rating}/5 [{e.genres or 'no genres'}]" for e in low[:10]]
 
         from app.services.gemini import generate
-        prompt = f"""You are a media taste predictor. Based on this user's rated items, predict how much they would enjoy this specific item on a scale of 1-5.
+        prompt = f"""Predict how much this user would enjoy a specific item on a 1-5 scale.
 
-User's rated items:
-{chr(10).join(taste_lines)}
+ITEMS THEY LOVED (rated 4-5):
+{chr(10).join(top_lines)}
 
-Predict rating for:
+ITEMS THEY DISLIKED (rated 1-2):
+{chr(10).join(low_lines) if low_lines else 'none recorded'}
+
+PREDICT FOR:
 - {entry.title} by {entry.creator or 'unknown'} ({entry.media_type}) [{entry.genres or 'no genres'}]
 
-Return ONLY a JSON object with "predicted_rating" (1-5, one decimal). No markdown. Example: {{"predicted_rating": 3.5}}"""
+RULES:
+- Be honest, not generous. Most items are a 3-3.5 for any given person. Only give 4+ for genuine taste matches.
+- If the item's genre/tone/style resembles their disliked items, score it 1.5-2.5.
+- If you don't recognize the item or can't tell, return 3.0 as a neutral score.
+- A 5.0 means near-perfect match to their absolute favorites. Extremely rare.
+
+Return ONLY a JSON object: {{"predicted_rating": 3.5}}"""
 
         text = (await generate(prompt)).strip()
         if text.startswith("```"):
