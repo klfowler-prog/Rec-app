@@ -4084,6 +4084,88 @@ Return ONLY valid JSON — a list of objects with "title", "media_type" (movie/t
     return {"items": enriched}
 
 
+@router.get("/taste-fit/{media_type}/{external_id}")
+async def taste_fit(
+    media_type: str, external_id: str,
+    title: str = Query(""), source: str = Query(""),
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Quick AI prediction: how well does this item fit the user's taste?"""
+    import json
+
+    from app import cache
+    from app.config import settings
+    from app.models import MediaEntry
+
+    cache_key = f"taste_fit:{user.id}:{media_type}:{external_id}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    if not settings.gemini_api_key or not title:
+        return {"predicted_rating": None, "reason": None}
+
+    top_rated = (
+        db.query(MediaEntry)
+        .filter(MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None))
+        .order_by(MediaEntry.rating.desc())
+        .limit(15)
+        .all()
+    )
+    low_rated = (
+        db.query(MediaEntry)
+        .filter(MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None), MediaEntry.rating <= 2)
+        .order_by(MediaEntry.rating.asc())
+        .limit(10)
+        .all()
+    )
+
+    loved = "\n".join(f"- {e.title} ({e.media_type}, {e.rating}/5)" for e in top_rated) or "no data"
+    disliked = "\n".join(f"- {e.title} ({e.media_type}, {e.rating}/5)" for e in low_rated) or "none"
+
+    from app.services.gemini import generate
+
+    prompt = f"""You are predicting how much this user would enjoy a specific item, and explaining why in one sentence.
+
+USER'S LOVED ITEMS:
+{loved}
+
+USER'S DISLIKED ITEMS:
+{disliked}
+
+ITEM TO EVALUATE:
+Title: {title}
+Type: {media_type}
+
+Return ONLY a JSON object with:
+- "predicted_rating": number 1-5 (one decimal) or null if you can't tell
+- "reason": one sentence explaining why they'd like or dislike it, referencing something specific from their profile. If predicted_rating is null, reason should say why you're unsure.
+
+Example: {{"predicted_rating": 4.2, "reason": "Your love of psychological thrillers like Gone Girl suggests you'd enjoy this dark, twisty narrative."}}
+"""
+    try:
+        text = (await generate(prompt)).strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+            text = text.rsplit("```", 1)[0]
+        first_brace = text.find("{")
+        last_brace = text.rfind("}")
+        if first_brace >= 0 and last_brace > first_brace:
+            text = text[first_brace:last_brace + 1]
+        parsed = json.loads(text)
+        result = {
+            "predicted_rating": parsed.get("predicted_rating"),
+            "reason": parsed.get("reason"),
+        }
+    except Exception as e:
+        log.error("taste_fit failed: %s", str(e))
+        result = {"predicted_rating": None, "reason": None}
+
+    cache.set(cache_key, result, ttl_seconds=604800)
+    return result
+
+
 @router.get("/{media_type}/{external_id}")
 async def get_media_detail(media_type: str, external_id: str, source: str = ""):
     """Get detailed info for a specific media item."""

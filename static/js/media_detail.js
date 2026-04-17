@@ -154,13 +154,19 @@ async function loadDetail() {
             const container = document.getElementById('watch-providers');
             section.classList.remove('hidden');
 
+            // Group by type for a clean layout
             const typeLabels = { flatrate: 'Stream', rent: 'Rent', buy: 'Buy' };
-            container.innerHTML = currentMedia.watch_providers.map(p => `
-                <div class="flex items-center gap-2 px-3 py-2 bg-surface-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg">
-                    ${p.logo_url ? `<img src="${p.logo_url}" alt="${escapeHtml(p.name)}" class="provider-logo">` : ''}
-                    <div>
-                        <p class="text-xs font-medium">${escapeHtml(p.name)}</p>
-                        <p class="text-[10px] text-txt-muted">${typeLabels[p.type] || p.type}</p>
+            const grouped = {};
+            for (const p of currentMedia.watch_providers) {
+                const label = typeLabels[p.type] || p.type;
+                if (!grouped[label]) grouped[label] = [];
+                grouped[label].push(p);
+            }
+            container.innerHTML = Object.entries(grouped).map(([label, providers]) => `
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] text-txt-muted font-medium">${label}</span>
+                    <div class="flex gap-1.5">
+                        ${providers.map(p => p.logo_url ? `<img src="${p.logo_url}" alt="${escapeHtml(p.name)}" title="${escapeHtml(p.name)}" class="provider-logo">` : `<span class="text-[10px] text-txt-muted">${escapeHtml(p.name)}</span>`).join('')}
                     </div>
                 </div>
             `).join('');
@@ -186,6 +192,11 @@ async function loadDetail() {
 
         // Update page title
         document.title = `${currentMedia.title} — NextUp`;
+
+        // Load taste fit prediction (only if not already in profile with a rating)
+        if (!checkData.in_profile || !checkData.entry?.rating) {
+            loadTasteFit();
+        }
 
         // Load cross-medium related items
         loadRelated();
@@ -319,6 +330,37 @@ function renderAdaptation(adaptation) {
     section.classList.remove('hidden');
 }
 
+
+async function loadTasteFit() {
+    const section = document.getElementById('taste-fit-section');
+    const card = document.getElementById('taste-fit-card');
+    if (!section || !card || !currentMedia) return;
+    try {
+        const params = new URLSearchParams({ title: currentMedia.title, source: currentMedia.source || SOURCE });
+        const resp = await fetch(`/api/media/taste-fit/${MEDIA_TYPE}/${EXTERNAL_ID}?${params}`);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (!data.predicted_rating && !data.reason) return;
+
+        const pr = data.predicted_rating;
+        const color = pr >= 4 ? 'text-emerald-500' : pr >= 3 ? 'text-sage' : pr >= 2 ? 'text-amber-500' : 'text-coral';
+        const fitLabel = pr >= 4 ? 'Strong fit' : pr >= 3 ? 'Decent fit' : pr >= 2 ? 'Might not be for you' : 'Probably not your thing';
+
+        card.innerHTML = `
+            <div class="flex items-start gap-3">
+                ${pr ? `<div class="flex-shrink-0 text-center">
+                    <p class="text-2xl font-bold ${color}">${pr}</p>
+                    <p class="text-[9px] text-txt-muted uppercase tracking-wide">/5</p>
+                </div>` : ''}
+                <div class="flex-1">
+                    ${pr ? `<p class="text-xs font-semibold ${color} uppercase tracking-wide mb-0.5">${fitLabel}</p>` : ''}
+                    ${data.reason ? `<p class="text-sm leading-relaxed text-txt dark:text-txt-light/80">${escapeHtml(data.reason)}</p>` : ''}
+                </div>
+            </div>
+        `;
+        section.classList.remove('hidden');
+    } catch {}
+}
 
 function escapeHtml(text) {
     const div = document.createElement('div');
