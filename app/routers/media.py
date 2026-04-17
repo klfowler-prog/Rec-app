@@ -4098,6 +4098,15 @@ async def taste_fit(
     from app.config import settings
     from app.models import MediaEntry
 
+    # If this item is already in the user's profile with a predicted_rating,
+    # use that instead of generating a new (potentially conflicting) one.
+    existing = db.query(MediaEntry).filter(
+        MediaEntry.user_id == user.id,
+        MediaEntry.external_id == external_id,
+    ).first()
+    if existing and existing.predicted_rating:
+        return {"predicted_rating": existing.predicted_rating, "reason": None}
+
     cache_key = f"taste_fit:{user.id}:{media_type}:{external_id}"
     cached = cache.get(cache_key)
     if cached is not None:
