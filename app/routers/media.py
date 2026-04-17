@@ -2914,7 +2914,7 @@ async def new_releases(
         if media_type == "movie":
             from app.services.tmdb import get_movies_now_playing, get_movies_popular
             now_playing, popular = await asyncio.gather(
-                get_movies_now_playing(limit=30),
+                get_movies_now_playing(limit=60),
                 get_movies_popular(limit=30),
             )
             # Deduplicate by external_id — popular often overlaps now_playing

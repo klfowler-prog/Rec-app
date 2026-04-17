@@ -229,19 +229,34 @@ async def get_trending(media_type: str = "all", time_window: str = "week", limit
 
 async def _fetch_list(path: str, limit: int = 20) -> list[MediaResult]:
     """Shared helper for TMDB list endpoints (now_playing, upcoming,
-    on_the_air, etc.)."""
+    on_the_air, etc.).  Fetches multiple pages when limit > 20 so we
+    get a wide pool for the AI scorer to pick from."""
     if not settings.tmdb_api_key:
         return []
+
+    pages_needed = min((limit + 19) // 20, 5)  # up to 5 pages (100 items)
+    all_raw: list[dict] = []
     async with httpx.AsyncClient(timeout=15) as client:
-        resp = await client.get(f"{BASE_URL}{path}", headers=_headers(), params={"page": 1})
-        if resp.status_code != 200:
-            return []
-        data = resp.json()
+        for page in range(1, pages_needed + 1):
+            resp = await client.get(
+                f"{BASE_URL}{path}", headers=_headers(), params={"page": page}
+            )
+            if resp.status_code != 200:
+                break
+            data = resp.json()
+            all_raw.extend(data.get("results", []))
+            if page >= data.get("total_pages", 1):
+                break
 
     # Infer media type from path
     mt = "tv" if "/tv/" in path else "movie"
+    seen_ids: set[str] = set()
     results = []
-    for item in data.get("results", [])[:limit]:
+    for item in all_raw:
+        eid = str(item["id"])
+        if eid in seen_ids:
+            continue
+        seen_ids.add(eid)
         title = item.get("title") or item.get("name", "")
         date = item.get("release_date") or item.get("first_air_date", "")
         year = int(date[:4]) if date and len(date) >= 4 else None
@@ -251,7 +266,7 @@ async def _fetch_list(path: str, limit: int = 20) -> list[MediaResult]:
         genres = [g for g in genres if g]
         results.append(
             MediaResult(
-                external_id=str(item["id"]),
+                external_id=eid,
                 source="tmdb",
                 media_type=mt,
                 title=title,
@@ -263,6 +278,8 @@ async def _fetch_list(path: str, limit: int = 20) -> list[MediaResult]:
                 external_url=f"https://www.themoviedb.org/{mt}/{item['id']}",
             )
         )
+        if len(results) >= limit:
+            break
     # Float items with posters to the front
     results.sort(key=lambda r: 0 if r.image_url else 1)
     return results
