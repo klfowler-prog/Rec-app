@@ -301,7 +301,7 @@ function relatedCard(item, fallbackType) {
             <div class="flex-1 min-w-0">
                 <p class="text-sm font-semibold truncate">${escapeHtml(safeTitle)}</p>
                 ${item.year ? `<p class="text-[10px] text-txt-muted mb-1">${item.year}</p>` : ''}
-                <p class="text-xs text-txt-muted leading-snug line-clamp-3">${escapeHtml(item.reason || '')}</p>
+                <p class="text-xs text-txt-muted leading-snug">${escapeHtml(item.reason || '')}</p>
             </div>
         </a>
     `;
