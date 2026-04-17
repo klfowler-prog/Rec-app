@@ -477,8 +477,8 @@ async function generateTasteSnapshot() {
         for (const [idx, rating] of Object.entries(miniQuizRatings)) {
             const item = window._miniQuizItems[parseInt(idx)];
             if (item) {
-                if (rating >= 8) loved.push(item.title);
-                else if (rating <= 4) meh.push(item.title);
+                if (rating >= 4) loved.push(item.title);
+                else if (rating <= 2) meh.push(item.title);
             }
         }
     }

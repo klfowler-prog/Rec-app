@@ -199,7 +199,7 @@ function renderPreview() {
             <tr class="border-t border-border-light dark:border-border-dark">
                 <td class="px-4 py-2 font-medium">${escapeHtml(row.title)}</td>
                 <td class="px-4 py-2 text-txt-muted">${escapeHtml(row.author)}</td>
-                <td class="px-4 py-2 ${ratingColor}">${stars} <span class="text-[10px]">${row.rating > 0 ? `→ ${row.rating * 2}/10` : ''}</span></td>
+                <td class="px-4 py-2 ${ratingColor}">${stars} <span class="text-[10px]">${row.rating > 0 ? `→ ${row.rating}/5` : ''}</span></td>
                 <td class="px-4 py-2"><span class="text-xs">${shelfLabels[row.shelf] || row.shelf}</span></td>
             </tr>
         `;

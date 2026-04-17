@@ -134,7 +134,7 @@ async def generate_collections(user: User = Depends(require_user), db: Session =
     # Build cross-medium taste summary
     by_type: dict[str, list] = {"movie": [], "tv": [], "book": [], "podcast": []}
     for e in entries:
-        if e.rating and e.rating >= 6:
+        if e.rating and e.rating >= 3:
             by_type.setdefault(e.media_type, []).append(e)
     for mt in by_type:
         by_type[mt].sort(key=lambda x: x.rating or 0, reverse=True)

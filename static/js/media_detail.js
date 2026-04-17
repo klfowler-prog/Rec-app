@@ -209,8 +209,8 @@ function mountStatusSwitcher(entry) {
     // If already rated, show the rating. Otherwise, if status is
     // consumed, reveal rating dots so the user can rate in place.
     if (entry.rating) {
-        const color = entry.rating <= 3 ? 'text-coral' : entry.rating <= 5 ? 'text-amber-500' : entry.rating <= 7 ? 'text-yellow-600' : 'text-emerald-500';
-        ratingMount.innerHTML = `<span class="text-xs font-semibold ${color} cursor-pointer hover:underline" onclick="toggleInlineRate(this, ${entry.id}, ${entry.rating})">Rated ${entry.rating}/10</span>`;
+        const color = entry.rating <= 1 ? 'text-coral' : entry.rating <= 2 ? 'text-amber-500' : entry.rating <= 3 ? 'text-yellow-600' : 'text-emerald-500';
+        ratingMount.innerHTML = `<span class="text-xs font-semibold ${color} cursor-pointer hover:underline" onclick="toggleInlineRate(this, ${entry.id}, ${entry.rating})">Rated ${entry.rating}/5</span>`;
     } else if (entry.status === 'consumed' && typeof showRatingDots === 'function') {
         showRatingDots(ratingMount, entry.id);
     } else {

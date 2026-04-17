@@ -33,13 +33,11 @@
         podcast: 'Podcasts',
     };
 
-    // Predicted-rating badge — same coloring as Home: 8.5+ emerald,
-    // 7.5+ light emerald, 6.5+ yellow, 6+ amber, < 6 hidden.
     function prBadge(pr) {
-        if (pr == null || typeof pr !== 'number' || pr < 6) return '';
-        const color = pr >= 8.5 ? 'bg-emerald-500'
-                   : pr >= 7.5 ? 'bg-emerald-400'
-                   : pr >= 6.5 ? 'bg-yellow-500'
+        if (pr == null || typeof pr !== 'number' || pr < 3) return '';
+        const color = pr >= 4.5 ? 'bg-emerald-500'
+                   : pr >= 4   ? 'bg-emerald-400'
+                   : pr >= 3.5 ? 'bg-yellow-500'
                    : 'bg-amber-400';
         return `<div class="absolute top-2 right-2 px-2 py-0.5 ${color} rounded-full shadow"><span class="text-[10px] font-bold text-white">${pr.toFixed(1)}</span></div>`;
     }

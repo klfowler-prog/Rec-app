@@ -168,7 +168,7 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
     # Grab a few poster URLs for card backgrounds
     poster_items = (
         db.query(MediaEntry.image_url, MediaEntry.media_type)
-        .filter(MediaEntry.user_id == user.id, MediaEntry.image_url.isnot(None), MediaEntry.rating >= 8)
+        .filter(MediaEntry.user_id == user.id, MediaEntry.image_url.isnot(None), MediaEntry.rating >= 4)
         .order_by(MediaEntry.rating.desc())
         .limit(6)
         .all()

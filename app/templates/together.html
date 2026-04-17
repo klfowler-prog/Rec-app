@@ -96,11 +96,11 @@ async function compareWith(otherUserId, evt) {
                             <div class="flex gap-4 mb-3">
                                 <div class="text-center">
                                     <p class="text-xs text-white/50 mb-0.5">${escapeHtml(myName)}</p>
-                                    <p class="text-xl font-bold">${w.predicted_rating_me || '—'}<span class="text-sm text-white/50">/10</span></p>
+                                    <p class="text-xl font-bold">${w.predicted_rating_me || '—'}<span class="text-sm text-white/50">/5</span></p>
                                 </div>
                                 <div class="text-center">
                                     <p class="text-xs text-white/50 mb-0.5">${escapeHtml(themName)}</p>
-                                    <p class="text-xl font-bold">${w.predicted_rating_them || '—'}<span class="text-sm text-white/50">/10</span></p>
+                                    <p class="text-xl font-bold">${w.predicted_rating_them || '—'}<span class="text-sm text-white/50">/5</span></p>
                                 </div>
                             </div>
                             <p class="text-sm text-white/80 leading-relaxed">${escapeHtml(w.reason || '')}</p>
@@ -176,7 +176,7 @@ function candidateCard(c, myName, themName) {
 
     const myRating = c.predicted_rating_me;
     const themRating = c.predicted_rating_them;
-    const ratingColor = r => !r ? 'text-txt-muted' : r >= 8 ? 'text-emerald-500' : r >= 6 ? 'text-yellow-600' : r >= 4 ? 'text-amber-500' : 'text-coral';
+    const ratingColor = r => !r ? 'text-txt-muted' : r >= 4 ? 'text-emerald-500' : r >= 3 ? 'text-yellow-600' : r >= 2 ? 'text-amber-500' : 'text-coral';
 
     const actions = typeof buildActionBar === 'function'
         ? `<div class="quick-add-area mt-2">${buildActionBar(c, 'sm')}</div>`

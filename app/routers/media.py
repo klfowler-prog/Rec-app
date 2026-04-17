@@ -1484,7 +1484,7 @@ async def insights(user: User = Depends(require_user), db: Session = Depends(get
     # Build grouped summary
     by_type: dict[str, list] = {"movie": [], "tv": [], "book": [], "podcast": []}
     for e in entries:
-        if e.rating and e.rating >= 6:
+        if e.rating and e.rating >= 3:
             by_type.setdefault(e.media_type, []).append(e)
     for mt in by_type:
         by_type[mt].sort(key=lambda x: x.rating or 0, reverse=True)
@@ -1498,13 +1498,13 @@ async def insights(user: User = Depends(require_user), db: Session = Depends(get
     for mt, label in label_map.items():
         items = by_type.get(mt, [])[:8]
         if items:
-            item_lines = [f"  - {e.title} — {e.rating}/10 [{e.genres or ''}]" for e in items]
+            item_lines = [f"  - {e.title} — {e.rating}/5 [{e.genres or ''}]" for e in items]
             lines.append(f"{label}:\n" + "\n".join(item_lines))
     profile_summary = "\n\n".join(lines)
 
     recent_summary = ""
     if recent:
-        recent_lines = [f"  - {e.title} ({e.media_type}, {e.rating}/10)" for e in recent[:8]]
+        recent_lines = [f"  - {e.title} ({e.media_type}, {e.rating}/5)" for e in recent[:8]]
         recent_summary = f"\n\nRECENTLY RATED:\n" + "\n".join(recent_lines)
 
     try:
@@ -1598,11 +1598,11 @@ async def taste_dna(
         return {"themes": [], "summary": "Add at least a few items to see your taste DNA.", "by_medium": {}, "signature_items": [], "avoided": "", "recent_shift": ""}
 
     # Partition: loved (rated 8+), liked (6-7), consumed-unrated, queued (want_to_consume), low-rated
-    loved = sorted([e for e in entries if e.rating and e.rating >= 8], key=lambda e: e.rating or 0, reverse=True)
-    liked = sorted([e for e in entries if e.rating and 6 <= e.rating <= 7], key=lambda e: e.rating or 0, reverse=True)
+    loved = sorted([e for e in entries if e.rating and e.rating >= 4], key=lambda e: e.rating or 0, reverse=True)
+    liked = sorted([e for e in entries if e.rating and e.rating == 3], key=lambda e: e.rating or 0, reverse=True)
     consumed_unrated = [e for e in entries if e.status == "consumed" and not e.rating]
     queued = [e for e in entries if e.status == "want_to_consume"]
-    low_rated = sorted([e for e in entries if e.rating and e.rating <= 4], key=lambda e: e.rating or 0)[:10]
+    low_rated = sorted([e for e in entries if e.rating and e.rating <= 2], key=lambda e: e.rating or 0)[:10]
 
     # Recent items — rated OR added
     thirty_days_ago = datetime.utcnow() - timedelta(days=30)
@@ -1643,13 +1643,13 @@ async def taste_dna(
 
         block = [f"{label} ({total} total):"]
         if mt_loved:
-            block.append("  Loved (8+/10):")
+            block.append("  Loved (4-5/5):")
             for e in _sample(mt_loved, 10):
-                block.append(f"    - {e.title} ({e.year or '?'}) — {e.rating}/10 [{e.genres or ''}]")
+                block.append(f"    - {e.title} ({e.year or '?'}) — {e.rating}/5 [{e.genres or ''}]")
         if mt_liked:
-            block.append("  Liked (6-7/10):")
+            block.append("  Liked (3/5):")
             for e in _sample(mt_liked, 6):
-                block.append(f"    - {e.title} ({e.year or '?'}) — {e.rating}/10 [{e.genres or ''}]")
+                block.append(f"    - {e.title} ({e.year or '?'}) — {e.rating}/5 [{e.genres or ''}]")
         if mt_consumed:
             block.append(f"  Finished but not rated ({len(mt_consumed)} total — strong signal, they chose to consume these):")
             for e in _sample(mt_consumed, 12):
@@ -1668,13 +1668,13 @@ async def taste_dna(
     if recent:
         recent_lines = []
         for e in recent[:10]:
-            rating_str = f", {e.rating}/10" if e.rating else ""
+            rating_str = f", {e.rating}/5" if e.rating else ""
             recent_lines.append(f"  - {e.title} ({e.media_type}{rating_str})")
         recent_summary = "\n\nRECENT MOOD (last 30 days, rated or added):\n" + "\n".join(recent_lines)
 
     avoided_summary = ""
     if low_rated or dismissed:
-        avoided_lines = [f"  - {e.title} ({e.media_type}) — rated {e.rating}/10" for e in low_rated[:6]]
+        avoided_lines = [f"  - {e.title} ({e.media_type}) — rated {e.rating}/5" for e in low_rated[:6]]
         avoided_lines += [f"  - {row[0]} ({row[1]}) — dismissed" for row in list(dismissed)[:6]]
         if avoided_lines:
             avoided_summary = "\n\nITEMS THEY LOW-RATED OR DISMISSED:\n" + "\n".join(avoided_lines)
@@ -1689,7 +1689,7 @@ async def taste_dna(
 {avoided_summary}
 
 IMPORTANT INSTRUCTIONS about the data you're seeing:
-- "Loved (8+/10)" items are the strongest signal of taste — weight these heaviest.
+- "Loved (4-5/5)" items are the strongest signal of taste — weight these heaviest.
 - "Finished but not rated" items are real signal too: the user deliberately added AND consumed them. Hundreds of bulk-imported books with no ratings still reveal genre, author, and subject-matter preferences. DO NOT say "not enough info" just because ratings are sparse — the sheer set of items they chose to read/watch is itself the profile.
 - "In their queue" items show aspirational taste — what they want to engage with.
 - If one medium has many items but few ratings, infer from titles, genres, and authors directly.
@@ -1830,7 +1830,7 @@ async def tonight_pick(
     thirty_days_ago = datetime.utcnow() - timedelta(days=30)
     recent_items = []
     for e in entries:
-        if e.rating and e.rating >= 7:
+        if e.rating and e.rating >= 4:
             by_type.setdefault(e.media_type, []).append(e)
         if e.rated_at and e.rated_at >= thirty_days_ago and e.rating:
             recent_items.append(e)
@@ -1843,7 +1843,7 @@ async def tonight_pick(
     for mt, label in labels.items():
         items = by_type.get(mt, [])[:6]
         if items:
-            lines = [f"  - {e.title} — {e.rating}/10" for e in items]
+            lines = [f"  - {e.title} — {e.rating}/5" for e in items]
             taste_sections.append(f"{label}:\n" + "\n".join(lines))
 
     taste_summary = "\n\n".join(taste_sections) if taste_sections else "No rated items yet."
@@ -1851,7 +1851,7 @@ async def tonight_pick(
     recent_text = ""
     if recent_items:
         recent_items.sort(key=lambda e: e.rated_at, reverse=True)
-        recent_lines = [f"  - {e.title} ({e.media_type}, {e.rating}/10)" for e in recent_items[:6]]
+        recent_lines = [f"  - {e.title} ({e.media_type}, {e.rating}/5)" for e in recent_items[:6]]
         recent_text = f"\n\nRECENTLY RATED (last 30 days):\n" + "\n".join(recent_lines)
 
     # Pack as many known titles into the prompt as will fit in ~6000 chars.
@@ -2009,7 +2009,7 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
     by_type: dict[str, list] = {"movie": [], "tv": [], "book": [], "podcast": []}
     recent_items = []
     for e in consumed:
-        if e.rating and e.rating >= 7:
+        if e.rating and e.rating >= 4:
             by_type.setdefault(e.media_type, []).append(e)
         if e.rated_at and e.rated_at >= thirty_days_ago and e.rating:
             recent_items.append(e)
@@ -2022,7 +2022,7 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
     for mt, label in label_map.items():
         items = by_type.get(mt, [])[:8]
         if items:
-            lines = [f"  - {e.title} ({e.year or '?'}) — {e.rating}/10 [{e.genres or ''}]" for e in items]
+            lines = [f"  - {e.title} ({e.year or '?'}) — {e.rating}/5 [{e.genres or ''}]" for e in items]
             taste_sections.append(f"{label}:\n" + "\n".join(lines))
     taste_summary = "\n\n".join(taste_sections) if taste_sections else "No rated items yet."
 
@@ -2046,13 +2046,13 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
     if recent_items and profile_settled:
         # Settled profile: recent ratings reflect genuine current mood
         recent_items.sort(key=lambda e: e.rated_at, reverse=True)
-        recent_lines = [f"  - {e.title} ({e.media_type}, {e.rating}/10)" for e in recent_items[:10]]
+        recent_lines = [f"  - {e.title} ({e.media_type}, {e.rating}/5)" for e in recent_items[:10]]
         recent_section = "\n\nRECENT MOOD (last 30 days — what they're gravitating toward right now):\n" + "\n".join(recent_lines)
     elif recent_items:
         # New profile (under 14 days old): user is still building,
         # recency reflects data-entry order, not taste direction
         recent_items.sort(key=lambda e: e.rated_at, reverse=True)
-        recent_lines = [f"  - {e.title} ({e.media_type}, {e.rating}/10)" for e in recent_items[:5]]
+        recent_lines = [f"  - {e.title} ({e.media_type}, {e.rating}/5)" for e in recent_items[:5]]
         recent_section = "\n\nRECENTLY ADDED (this profile is less than 2 weeks old — the user is still building their library. These items reflect data entry order, NOT current mood or preference. Weight the FULL taste profile above equally across all items. Do not over-index on the last few things added):\n" + "\n".join(recent_lines)
 
     # Avoid list — pack as many titles as fit in the budget.
@@ -2075,7 +2075,7 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
             suggestions_schema = (
                 "  \"suggestions\": {\n"
                 + ",\n".join(
-                    f'    "{mt}": [{{"title": "...", "creator": "...", "year": 2020, "reason": "What it is + why", "predicted_rating": 8.5}}, ... 5 items]'
+                    f'    "{mt}": [{{"title": "...", "creator": "...", "year": 2020, "reason": "What it is + why", "predicted_rating": 4.5}}, ... 5 items]'
                     for mt in missing_types_list
                 )
                 + "\n  },"
@@ -2106,7 +2106,7 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
             ("quick_escape",     "Quick escape",                                                                                   "movie",   "movie or short-form tv: 15-90 min, fun, the thing you'd watch when you have a pocket of time and need out of your own head, a laugh, or to feel inspired or positive"),
         ]
         theme_schema_lines = [
-            f'    "{slug}": [{{"title": "...", "creator": "...", "media_type": "movie|tv|book|podcast", "year": 2020, "reason": "What it is + why", "predicted_rating": 8.3}}, ... 8 items]'
+            f'    "{slug}": [{{"title": "...", "creator": "...", "media_type": "movie|tv|book|podcast", "year": 2020, "reason": "What it is + why", "predicted_rating": 4.5}}, ... 8 items]'
             for (slug, _label, _primary, _guide) in theme_catalog
         ]
         theme_schema = "  \"themes\": {\n" + ",\n".join(theme_schema_lines) + "\n  },"
@@ -2142,14 +2142,14 @@ You are producing FOUR outputs in one JSON response — do NOT repeat the same i
 4. insights: 3 sharp, specific observations about cross-medium patterns in their profile.
 
 PREDICTED RATINGS — CRITICAL:
-Every item in top_picks and every item in themes MUST include a "predicted_rating" field: your honest 1-10 prediction (with one decimal) of how this specific user would actually rate the item, based on their taste profile.
-- Be ruthlessly honest. If a pick genuinely fits the moment but doesn't match the user's taste register (cozy family film for a prestige-drama person, YA for a literary reader, broad comedy for a dark-comedy person), predict LOW — 4, 5 — don't soft-pedal. The app drops anything below 6, so lying gets the item dropped later anyway.
-- Their taste register is visible in the PROFILE above. If they rate prestige TV 9/10 and cozy family movies aren't in their profile at all, a Paddington-style pick should be a 5 at best for them, not an 8.
-- A score of 8+ means "this person will probably love this." 7 means "solid match." 6 means "borderline — worth trying but not a sure thing." Below 6 means "outside their lane."
+Every item in top_picks and every item in themes MUST include a "predicted_rating" field: your honest 1-5 prediction (with one decimal) of how this specific user would actually rate the item, based on their taste profile.
+- Be ruthlessly honest. If a pick genuinely fits the moment but doesn't match the user's taste register (cozy family film for a prestige-drama person, YA for a literary reader, broad comedy for a dark-comedy person), predict LOW — 2 or 2.5 — don't soft-pedal. The app drops anything below 3, so lying gets the item dropped later anyway.
+- Their taste register is visible in the PROFILE above. If they rate prestige TV 5/5 and cozy family movies aren't in their profile at all, a Paddington-style pick should be a 2.5 at best for them, not a 4.
+- A score of 4+ means "this person will probably love this." 3.5 means "solid match." 3 means "borderline — worth trying but not a sure thing." Below 3 means "outside their lane."
 - DO NOT inflate. Spread the ratings across the range. It is better to return fewer high-confidence picks than to lie up.
 
 RECENCY BALANCE — CRITICAL:
-The "recently rated" section is ONE signal among many. Do NOT over-index on the last item rated or the most recent few. If someone just rated a cooking show 9/10, that doesn't mean every recommendation should be food-related. Use the FULL taste profile — the breadth of their highly-rated items across genres, media types, and years — as the primary driver. Recent ratings are a tiebreaker, not a pivot.
+The "recently rated" section is ONE signal among many. Do NOT over-index on the last item rated or the most recent few. If someone just rated a cooking show 5/5, that doesn't mean every recommendation should be food-related. Use the FULL taste profile — the breadth of their highly-rated items across genres, media types, and years — as the primary driver. Recent ratings are a tiebreaker, not a pivot.
 
 NONFICTION IS WELCOME:
 - Movies can include documentaries
@@ -2158,7 +2158,7 @@ NONFICTION IS WELCOME:
 Match the user's fiction/nonfiction balance.
 
 GENRE DEPTH vs EXPOSURE — CRITICAL:
-One or two items in a genre does NOT mean the user is a fan of that genre. Someone who watched Spirited Away does not want niche anime. Someone who read one thriller does not want serial-killer deep cuts. Look at DENSITY: how many items in the genre, how highly rated, how recently consumed. A single 7/10 in a genre means casual exposure. Five 9/10s in a genre means genuine enthusiasm. Only recommend deep-genre picks when the profile shows genuine depth in that genre. Otherwise, stick to accessible, widely-known titles.
+One or two items in a genre does NOT mean the user is a fan of that genre. Someone who watched Spirited Away does not want niche anime. Someone who read one thriller does not want serial-killer deep cuts. Look at DENSITY: how many items in the genre, how highly rated, how recently consumed. A single 3/5 in a genre means casual exposure. Five 5/5s in a genre means genuine enthusiasm. Only recommend deep-genre picks when the profile shows genuine depth in that genre. Otherwise, stick to accessible, widely-known titles.
 
 REASON FORMAT — CRITICAL:
 Each "reason" field MUST have TWO parts:
@@ -2175,7 +2175,7 @@ CRITICAL RULES:
 Return ONLY valid JSON, no markdown:
 {{
   "top_picks": [
-    {{"title": "...", "creator": "author or director name", "media_type": "movie", "year": 2020, "reason": "What it is + why you'll like it", "predicted_rating": 8.5}},
+    {{"title": "...", "creator": "author or director name", "media_type": "movie", "year": 2020, "reason": "What it is + why you'll like it", "predicted_rating": 4.5}},
     ... 8 items total, 2 per media type
   ],
 {suggestions_schema}
@@ -2435,7 +2435,7 @@ async def best_bet(
 
     The point of "Your best bet" on the per-type library page isn't
     to be another random AI rec — it's to name WHY this one pick is
-    special. We pick an anchor (a recently rated 9+/10 item from
+    special. We pick an anchor (a recently rated 5/5 item from
     ANY media type), then ask the AI for a single cross-medium rec
     in the requested type that's specifically tied to a concrete
     element of the anchor. Returns {pick, anchor, reason}.
@@ -2463,7 +2463,7 @@ async def best_bet(
     if not settings.gemini_api_key:
         return {"pick": None, "anchor": None}
 
-    # Gather the user's recently loved items (9+/10) across ALL media
+    # Gather the user's recently loved items (5/5) across ALL media
     # types. These are the pool the AI can draw connections from — it
     # picks the strongest 1-2 to cite rather than us pre-selecting one.
     sixty_days_ago = datetime.utcnow() - timedelta(days=60)
@@ -2472,7 +2472,7 @@ async def best_bet(
         .filter(
             MediaEntry.user_id == user.id,
             MediaEntry.rating.isnot(None),
-            MediaEntry.rating >= 9,
+            MediaEntry.rating == 5,
             MediaEntry.rated_at.isnot(None),
             MediaEntry.rated_at >= sixty_days_ago,
         )
@@ -2483,14 +2483,14 @@ async def best_bet(
     if not recent_loved:
         recent_loved = (
             db.query(MediaEntry)
-            .filter(MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None), MediaEntry.rating >= 9)
+            .filter(MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None), MediaEntry.rating >= 4)
             .order_by(MediaEntry.rating.desc(), MediaEntry.created_at.desc())
             .limit(8)
             .all()
         )
 
     if not recent_loved:
-        return {"pick": None, "anchor": None, "message": "Rate a few items 9 or 10 out of 10 to unlock your best bet."}
+        return {"pick": None, "anchor": None, "message": "Rate a few items 5/5 to unlock your best bet."}
 
     # For new profiles (under 14 days old), sort by rating rather than
     # recency — recency is noise when the user is still bulk-adding.
@@ -2505,9 +2505,9 @@ async def best_bet(
     for e in recent_loved:
         g = f" [{e.genres}]" if e.genres else ""
         loved_lines.append(
-            f"  - {e.title} ({e.media_type}, {e.year or '?'}) — {e.rating}/10{g}"
+            f"  - {e.title} ({e.media_type}, {e.year or '?'}) — {e.rating}/5{g}"
         )
-    loved_block = "RECENTLY LOVED (rated 9-10 — draw your connections from these):\n" + "\n".join(loved_lines) + "\n"
+    loved_block = "RECENTLY LOVED (rated 4-5 — draw your connections from these):\n" + "\n".join(loved_lines) + "\n"
 
     known_normalized, _ = _build_known_titles(db, user.id)
 
@@ -2518,7 +2518,7 @@ async def best_bet(
         .filter(
             MediaEntry.user_id == user.id,
             MediaEntry.rating.isnot(None),
-            MediaEntry.rating >= 8,
+            MediaEntry.rating >= 4,
         )
         .order_by(MediaEntry.rating.desc(), MediaEntry.rated_at.desc().nullslast())
         .limit(12)
@@ -2531,7 +2531,7 @@ async def best_bet(
             continue
         g = f" [{e.genres}]" if e.genres else ""
         taste_lines.append(
-            f"  - {e.title} ({e.media_type}, {e.year or '?'}) — {e.rating}/10{g}"
+            f"  - {e.title} ({e.media_type}, {e.year or '?'}) — {e.rating}/5{g}"
         )
     taste_profile_block = (
         "BROADER TASTE PROFILE (calibrate register, tone, and ambition level):\n"
@@ -2544,7 +2544,7 @@ async def best_bet(
 
         type_label = {"movie": "movie", "tv": "TV show", "book": "book", "podcast": "podcast"}[media_type]
         resonance_signals = build_resonance_block(db, user.id)
-        prompt = f"""You're picking ONE {type_label} as a hero recommendation. Below are items this user recently rated 9 or 10 out of 10 — your job is to find the strongest thematic bridge from ANY of them (one or two) to a great {type_label} they haven't seen yet.
+        prompt = f"""You're picking ONE {type_label} as a hero recommendation. Below are items this user recently rated 4 or 5 out of 5 — your job is to find the strongest thematic bridge from ANY of them (one or two) to a great {type_label} they haven't seen yet.
 
 {resonance_signals}
 {loved_block}
@@ -2564,8 +2564,8 @@ RULES:
 - ALWAYS include a "creator" field with the author, director, or creator name.
 - Include "cited" — an array of 1-2 title strings from the loved list that this candidate connects to.
 - Match audience and tonal register. Use the BROADER TASTE PROFILE to calibrate.
-- Include a "predicted_rating": your honest 1-10 prediction (one decimal). Be ruthless — predict LOW (4-5) if the fit is weak. The app drops anything below 6. It is fine for ALL candidates to score below 6.
-- Spread your scores across the range. Don't give all three 8+.
+- Include a "predicted_rating": your honest 1-5 prediction (one decimal). Be ruthless — predict LOW (2-2.5) if the fit is weak. The app drops anything below 3. It is fine for ALL candidates to score below 3.
+- Spread your scores across the range. Don't give all three 4+.
 
 Return ONLY valid JSON, no markdown:
 {{
@@ -2576,7 +2576,7 @@ Return ONLY valid JSON, no markdown:
       "year": 2020,
       "cited": ["Silo"],
       "reason": "A trapped crew unravels a conspiracy aboard a deep-space ark. Because you loved Silo, the same slow-burn paranoia of living inside a lie.",
-      "predicted_rating": 8.5
+      "predicted_rating": 4.5
     }},
     {{
       "title": "...",
@@ -2584,7 +2584,7 @@ Return ONLY valid JSON, no markdown:
       "year": 2018,
       "cited": ["Into the Wild", "Severance"],
       "reason": "Short punchy premise. Because you loved Into the Wild and Severance, one concrete connection.",
-      "predicted_rating": 7.2
+      "predicted_rating": 3.5
     }},
     {{
       "title": "...",
@@ -2592,7 +2592,7 @@ Return ONLY valid JSON, no markdown:
       "year": 2022,
       "cited": ["The Florida Project"],
       "reason": "Short punchy premise. Because you loved The Florida Project, one concrete connection.",
-      "predicted_rating": 6.4
+      "predicted_rating": 3.2
     }}
   ]
 }}"""
@@ -2611,15 +2611,15 @@ Return ONLY valid JSON, no markdown:
             return {"pick": None, "anchor": None}
 
         # Normalize each candidate: coerce the rating, drop anything the
-        # user already has, drop anything below the 6 floor, then sort
-        # descending. If everything lands below 6, we return no pick
+        # user already has, drop anything below the 3 floor, then sort
+        # descending. If everything lands below 3, we return no pick
         # rather than force a bad one onto the card.
         def _coerce_pr(raw) -> float | None:
             try:
                 v = float(raw) if raw is not None else None
             except (TypeError, ValueError):
                 return None
-            if v is None or v <= 0 or v > 10:
+            if v is None or v <= 0 or v > 5:
                 return None
             return round(v, 1)
 
@@ -2631,7 +2631,7 @@ Return ONLY valid JSON, no markdown:
             if not t or _is_known(t, known_normalized):
                 continue
             pr = _coerce_pr(c.get("predicted_rating"))
-            if pr is None or pr < 6.0:
+            if pr is None or pr < 3.0:
                 continue
             cited = c.get("cited") or []
             if isinstance(cited, str):
@@ -2647,13 +2647,13 @@ Return ONLY valid JSON, no markdown:
 
         if not survivors:
             log.info(
-                "best_bet [user=%d/%s]: all candidates dropped (known or below 6.0)",
+                "best_bet [user=%d/%s]: all candidates dropped (known or below 3.0)",
                 user.id, media_type,
             )
             return {
                 "pick": None,
                 "anchor": None,
-                "message": "Nothing crossed the 6/10 bar for this category right now — try again in a few days.",
+                "message": "Nothing crossed the 3/5 bar for this category right now — try again in a few days.",
             }
 
         survivors.sort(key=lambda c: -c["predicted_rating"])
@@ -3014,7 +3014,7 @@ async def new_releases(
 
             # Pull three distinct signals about the user's taste:
             #   (a) Top-rated items — what they love
-            #   (b) Low-rated items (<=5/10) — what they actively dislike
+            #   (b) Low-rated items (<=2/5) — what they actively dislike
             #   (c) Dismissed items — what they looked at and explicitly rejected
             # Gemini sees all three so it can score harshly when a
             # candidate resembles a dislike or a dismissal.
@@ -3027,7 +3027,7 @@ async def new_releases(
             )
             low_rated = (
                 db.query(MediaEntry)
-                .filter(MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None), MediaEntry.rating <= 5)
+                .filter(MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None), MediaEntry.rating <= 2)
                 .order_by(MediaEntry.rating.asc())
                 .limit(15)
                 .all()
@@ -3040,13 +3040,13 @@ async def new_releases(
             )
 
             taste_lines = [
-                f"- {e.title} ({e.media_type}, {e.rating}/10) [{e.genres or ''}]"
+                f"- {e.title} ({e.media_type}, {e.rating}/5) [{e.genres or ''}]"
                 for e in top_rated
             ]
             taste_summary = "\n".join(taste_lines) if taste_lines else "no profile yet"
 
             dislike_lines = [
-                f"- {e.title} ({e.media_type}, {e.rating}/10) [{e.genres or ''}]"
+                f"- {e.title} ({e.media_type}, {e.rating}/5) [{e.genres or ''}]"
                 for e in low_rated
             ]
             dislikes_summary = "\n".join(dislike_lines) if dislike_lines else "none recorded"
@@ -3065,33 +3065,33 @@ async def new_releases(
 
             from app.services.gemini import generate
 
-            prompt = f"""You are predicting how much this specific user would enjoy each of the candidate items below, on a 1-10 scale, OR returning null for items you cannot confidently score.
+            prompt = f"""You are predicting how much this specific user would enjoy each of the candidate items below, on a 1-5 scale, OR returning null for items you cannot confidently score.
 
 THE USER'S TASTE SIGNALS — READ ALL THREE:
 
-LOVED (top-rated items they scored 7+):
+LOVED (top-rated items they scored 4+):
 {taste_summary}
 
-ACTIVELY DISLIKED (rated 5 or below — this is what they DON'T want):
+ACTIVELY DISLIKED (rated 2 or below — this is what they DON'T want):
 {dislikes_summary}
 
 EXPLICITLY REJECTED (dismissed from recommendations — they saw these and said no):
 {dismissed_summary}
 
 SCORING RULES:
-1. The 7 threshold: any score below 7 is HIDDEN from the user. So ~70% of what you see should score below 7, because most things in the wild aren't a fit for any specific person's taste. Only the genuine fits surface.
-2. Weight the negative signals heavily. If a candidate resembles anything in DISLIKED or REJECTED — same genre, same tone, same subject matter, same audience — score it 2-5 even if it's popular or prestigious. The user has told us directly that stuff in those categories isn't for them.
-3. When the candidate is a strong match to LOVED items — same genre, tone, and subject matter — score it 8-9. Only score 10 for a near-perfect match to one of their very top items.
+1. The 3.5 threshold: any score below 3.5 is HIDDEN from the user. So ~70% of what you see should score below 3.5, because most things in the wild aren't a fit for any specific person's taste. Only the genuine fits surface.
+2. Weight the negative signals heavily. If a candidate resembles anything in DISLIKED or REJECTED — same genre, same tone, same subject matter, same audience — score it 1-2.5 even if it's popular or prestigious. The user has told us directly that stuff in those categories isn't for them.
+3. When the candidate is a strong match to LOVED items — same genre, tone, and subject matter — score it 4-4.5. Only score 5 for a near-perfect match to one of their very top items.
 4. When you don't have enough information to score confidently (genres are missing, you don't recognize the title, the description is too thin), RETURN null for that title. It's better to admit uncertainty than to guess — guessed scores clutter the user's feed with garbage.
 5. Ignore popularity, critical acclaim, and cultural importance. A #1 bestseller the user clearly wouldn't enjoy still gets a low score or null.
-6. Do not inflate scores out of politeness. A rating of 4 that hides something the user wouldn't enjoy is better than a 7 that wastes their attention.
+6. Do not inflate scores out of politeness. A rating of 2 that hides something the user wouldn't enjoy is better than a 3.5 that wastes their attention.
 
 ITEMS TO SCORE:
 {json.dumps(items_json, indent=2)}
 
-Return ONLY a JSON object mapping each exact candidate title to either a number 1-10 (one decimal place) or null. No markdown, no preamble, no explanations.
+Return ONLY a JSON object mapping each exact candidate title to either a number 1-5 (one decimal place) or null. No markdown, no preamble, no explanations.
 
-{{"Title 1": 8.5, "Title 2": 3.0, "Title 3": null, ...}}"""
+{{"Title 1": 4.5, "Title 2": 1.5, "Title 3": null, ...}}"""
 
             text = (await generate(prompt)).strip()
             if text.startswith("```"):
@@ -3180,7 +3180,7 @@ async def top_picks(user: User = Depends(require_user), db: Session = Depends(ge
     by_type: dict[str, list] = {"movie": [], "tv": [], "book": [], "podcast": []}
     recent_items = []
     for e in entries:
-        if e.rating and e.rating >= 7:
+        if e.rating and e.rating >= 4:
             by_type.setdefault(e.media_type, []).append(e)
         # Use rated_at (active engagement) for recent mood, not created_at (bulk import time)
         if e.rated_at and e.rated_at >= thirty_days_ago and e.rating:
@@ -3194,7 +3194,7 @@ async def top_picks(user: User = Depends(require_user), db: Session = Depends(ge
     for mt, label in type_labels.items():
         items = by_type.get(mt, [])[:8]
         if items:
-            lines = [f"  - {e.title} ({e.year or '?'}) — {e.rating}/10 [{e.genres or ''}]" for e in items]
+            lines = [f"  - {e.title} ({e.year or '?'}) — {e.rating}/5 [{e.genres or ''}]" for e in items]
             taste_sections.append(f"{label} they rated highly:\n" + "\n".join(lines))
 
     taste_summary = "\n\n".join(taste_sections) if taste_sections else "No rated items yet."
@@ -3202,13 +3202,13 @@ async def top_picks(user: User = Depends(require_user), db: Session = Depends(ge
     recent_section = ""
     if recent_items:
         recent_items.sort(key=lambda e: e.rated_at, reverse=True)
-        recent_lines = [f"  - {e.title} ({e.media_type}, {e.rating}/10)" for e in recent_items[:10]]
+        recent_lines = [f"  - {e.title} ({e.media_type}, {e.rating}/5)" for e in recent_items[:10]]
         recent_section = f"\n\nRECENTLY RATED (last 30 days — their current mood, weight heavily):\n" + "\n".join(recent_lines)
 
     # Build an avoid list for the prompt — pass as many titles as we can
     # fit without blowing the prompt budget. Prioritize highly-rated items
     # first (AI is most tempted to re-recommend those), then the rest.
-    highly_rated_titles = [e.title for e in entries if e.rating and e.rating >= 7]
+    highly_rated_titles = [e.title for e in entries if e.rating and e.rating >= 4]
     other_known = [t for t in known_display if t not in set(highly_rated_titles)]
     ordered_avoid = highly_rated_titles + other_known
     # Cap at ~6000 chars to stay well under token limits
@@ -3245,7 +3245,7 @@ REASON FORMAT: Each "reason" MUST have TWO parts: (1) What it is — a 1-sentenc
 - "The atmospheric dread of *Dune* (book) translates directly to this slow-burn sci-fi film."
 - "You loved the careful character work in *The Wire* (TV) — this nonfiction book has the same patient, morally complex portrait of institutional failure."
 - "If *Serial* (podcast) hooked you on ambiguity and moral inquiry, this documentary explores similar unresolved tension."
-- "You gave *Educated* (book) a 9/10 — this film has the same aching quality of a young person finding their own voice against the weight of their family."
+- "You gave *Educated* (book) a 5/5 — this film has the same aching quality of a young person finding their own voice against the weight of their family."
 
 Rules:
 - 8 items total: 2 movies, 2 tv, 2 books, 2 podcasts. List your strongest pick first in each pair.
@@ -3380,7 +3380,7 @@ async def home_suggestions(user: User = Depends(require_user), db: Session = Dep
     by_type: dict[str, list] = {"movie": [], "tv": [], "book": [], "podcast": []}
     recent_items = []
     for e in consumed:
-        if e.rating and e.rating >= 7:
+        if e.rating and e.rating >= 4:
             by_type.setdefault(e.media_type, []).append(e)
         if e.rated_at and e.rated_at >= thirty_days_ago and e.rating:
             recent_items.append(e)
@@ -3393,7 +3393,7 @@ async def home_suggestions(user: User = Depends(require_user), db: Session = Dep
     for mt, label in label_map.items():
         items = by_type.get(mt, [])[:6]
         if items:
-            lines = [f"  - {e.title} ({e.year or '?'}) — {e.rating}/10" for e in items]
+            lines = [f"  - {e.title} ({e.year or '?'}) — {e.rating}/5" for e in items]
             taste_sections.append(f"{label}:\n" + "\n".join(lines))
 
     taste_summary = "\n\n".join(taste_sections) if taste_sections else "No rated items yet."
@@ -3401,7 +3401,7 @@ async def home_suggestions(user: User = Depends(require_user), db: Session = Dep
     recent_section = ""
     if recent_items:
         recent_items.sort(key=lambda e: e.rated_at, reverse=True)
-        recent_lines = [f"  - {e.title} ({e.media_type}, {e.rating}/10)" for e in recent_items[:8]]
+        recent_lines = [f"  - {e.title} ({e.media_type}, {e.rating}/5)" for e in recent_items[:8]]
         recent_section = f"\n\nRECENTLY RATED (last 30 days — their current mood, weight heavily):\n" + "\n".join(recent_lines)
 
     type_labels = {"movie": "movies", "tv": "TV shows", "book": "books", "podcast": "podcasts"}
@@ -3439,20 +3439,20 @@ Look at the user's profile and match their fiction/nonfiction balance.
 
 REASON FORMAT: Each "reason" MUST have TWO parts: (1) What it is — a 1-sentence premise so the user knows what they're looking at. (2) Why they'll like it — cite a specific item from their profile and name a concrete shared element. Never match on surface features.
 
-Good example: "You gave *The Wire* (TV) a 10/10 — this nonfiction book on the war on drugs delivers the same unflinching institutional critique."
+Good example: "You gave *The Wire* (TV) a 5/5 — this nonfiction book on the war on drugs delivers the same unflinching institutional critique."
 Bad example: "Both are about cities."
 
 DO NOT recommend any of these titles — the user has already consumed, queued, or dismissed them: {avoid_str}
 
 Return ONLY valid JSON, no markdown. Each category gets a list of 5 items, strongest first:
 {{
-  "movie": [{{"title": "...", "year": 2020, "reason": "...", "predicted_rating": 8.5}}, ... 5 items],
-  "tv": [{{"title": "...", "year": 2020, "reason": "...", "predicted_rating": 8.5}}, ... 5 items],
-  "book": [{{"title": "...", "year": 2020, "reason": "...", "predicted_rating": 8.5}}, ... 5 items],
+  "movie": [{{"title": "...", "year": 2020, "reason": "...", "predicted_rating": 4.5}}, ... 5 items],
+  "tv": [{{"title": "...", "year": 2020, "reason": "...", "predicted_rating": 4.5}}, ... 5 items],
+  "book": [{{"title": "...", "year": 2020, "reason": "...", "predicted_rating": 4.5}}, ... 5 items],
   "podcast": [{{"title": "...", "year": 2020, "reason": "...", "predicted_rating": 8.5}}, ... 5 items]
 }}
 
-predicted_rating is 1-10 based on how much this user would enjoy it.
+predicted_rating is 1-5 based on how much this user would enjoy it.
 Only include categories from this list: {', '.join(missing_types)}"""
 
         text = (await generate(prompt)).strip()
@@ -3576,7 +3576,7 @@ async def related_items(
         .limit(15)
         .all()
     )
-    taste_lines = [f"- {e.title} ({e.media_type}, {e.rating}/10)" for e in top_rated] if top_rated else []
+    taste_lines = [f"- {e.title} ({e.media_type}, {e.rating}/5)" for e in top_rated] if top_rated else []
     taste_summary = "\n".join(taste_lines) if taste_lines else "no profile yet"
 
     # Figure out which media types to recommend (all except current)
@@ -3961,7 +3961,7 @@ async def taste_dna_share_image(
         # Fallback: top-rated with covers
         top = (
             db.query(MediaEntry.image_url)
-            .filter(MediaEntry.user_id == target_user_id, MediaEntry.image_url.isnot(None), MediaEntry.rating >= 8)
+            .filter(MediaEntry.user_id == target_user_id, MediaEntry.image_url.isnot(None), MediaEntry.rating >= 4)
             .order_by(MediaEntry.rating.desc())
             .limit(6)
             .all()

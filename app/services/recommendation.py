@@ -16,7 +16,7 @@ def _build_profile_context(db: Session, user_id: int) -> str:
         return "The user's profile is empty — they haven't added any media yet. Ask them about their general preferences to give recommendations."
 
     # High-rated items
-    high_rated = [e for e in entries if e.rating and e.rating >= 8]
+    high_rated = [e for e in entries if e.rating and e.rating >= 4]
     high_rated.sort(key=lambda e: e.rating or 0, reverse=True)
 
     # Abandoned items — strong negative signal about what didn't work
@@ -39,15 +39,15 @@ def _build_profile_context(db: Session, user_id: int) -> str:
     lines = ["## User's Taste Profile", ""]
 
     if high_rated:
-        lines.append("### Highly Rated (8+/10):")
+        lines.append("### Highly Rated (4+/5):")
         for e in high_rated[:15]:
             genre_str = f" [{e.genres}]" if e.genres else ""
-            lines.append(f"- {e.title} ({e.media_type}, {e.year or 'unknown year'}) — rated {e.rating}/10{genre_str}")
+            lines.append(f"- {e.title} ({e.media_type}, {e.year or 'unknown year'}) — rated {e.rating}/5{genre_str}")
         lines.append("")
 
     lines.append("### Recently Added:")
     for e in recent:
-        rating_str = f" rated {e.rating}/10" if e.rating else ""
+        rating_str = f" rated {e.rating}/5" if e.rating else ""
         lines.append(f"- {e.title} ({e.media_type}) — {e.status}{rating_str}")
     lines.append("")
 

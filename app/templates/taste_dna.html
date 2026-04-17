@@ -638,14 +638,14 @@ function renderShelf() {
             ? `<img src="${item.image_url}" alt="" class="w-full h-full ${fit}" loading="lazy">`
             : `<div class="w-full h-full bg-sage/10 flex items-center justify-center"><span class="text-sage text-4xl font-bold">${escapeHtml((item.title||'?')[0])}</span></div>`;
         const link = item.external_id ? `/media/${item.media_type}/${item.external_id}?source=${item.source}` : '#';
-        const ratingColor = !item.rating ? '' : item.rating >= 8 ? 'text-emerald-400' : item.rating >= 6 ? 'text-yellow-500' : 'text-amber-400';
+        const ratingColor = !item.rating ? '' : item.rating >= 4 ? 'text-emerald-400' : item.rating >= 3 ? 'text-yellow-500' : 'text-amber-400';
         return `
             <a href="${link}" class="flex-shrink-0 group relative" style="scroll-snap-align: start; width: 170px;" data-shelf-id="${item.id}">
                 <div class="rounded-2xl overflow-hidden shadow-lg transition-all group-hover:shadow-2xl group-hover:-translate-y-2" style="height: 255px;">
                     ${image}
                     <div class="absolute inset-x-0 bottom-0 p-3" style="background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%);">
                         <p class="text-white text-sm font-bold leading-tight line-clamp-2">${escapeHtml(item.title)}</p>
-                        ${item.rating ? `<p class="text-xs font-semibold ${ratingColor} mt-0.5">${item.rating}/10</p>` : ''}
+                        ${item.rating ? `<p class="text-xs font-semibold ${ratingColor} mt-0.5">${item.rating}/5</p>` : ''}
                     </div>
                 </div>
             </a>`;
@@ -720,7 +720,7 @@ function removeFromShelf(id) {
                 results.innerHTML = filtered.map(e => {
                     const img = e.image_url ? `<img src="${e.image_url}" alt="" class="w-8 h-11 object-cover rounded">` : `<div class="w-8 h-11 bg-sage/10 rounded flex items-center justify-center"><span class="text-sage text-xs">${escapeHtml((e.title||'?')[0])}</span></div>`;
                     return `<button onclick="addToShelf(${e.id})" class="w-full flex items-center gap-3 px-3 py-2 hover:bg-sage/5 text-left transition-base">
-                        ${img}<div class="flex-1 min-w-0"><p class="text-sm font-medium truncate">${escapeHtml(e.title)}</p><p class="text-[10px] text-txt-muted">${e.media_type} ${e.rating ? '· ' + e.rating + '/10' : ''}</p></div>
+                        ${img}<div class="flex-1 min-w-0"><p class="text-sm font-medium truncate">${escapeHtml(e.title)}</p><p class="text-[10px] text-txt-muted">${e.media_type} ${e.rating ? '· ' + e.rating + '/5' : ''}</p></div>
                     </button>`;
                 }).join('');
                 results.classList.remove('hidden');

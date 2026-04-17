@@ -63,10 +63,10 @@ async def _predict_single_item(user_id: int, entry_id: int):
             return
 
         rated = sorted(consumed, key=lambda e: e.rating or 0, reverse=True)
-        taste_lines = [f"- {e.title} ({e.media_type}) — {e.rating}/10 [{e.genres or 'no genres'}]" for e in rated[:20]]
+        taste_lines = [f"- {e.title} ({e.media_type}) — {e.rating}/5 [{e.genres or 'no genres'}]" for e in rated[:20]]
 
         from app.services.gemini import generate
-        prompt = f"""You are a media taste predictor. Based on this user's rated items, predict how much they would enjoy this specific item on a scale of 1-10.
+        prompt = f"""You are a media taste predictor. Based on this user's rated items, predict how much they would enjoy this specific item on a scale of 1-5.
 
 User's rated items:
 {chr(10).join(taste_lines)}
@@ -74,7 +74,7 @@ User's rated items:
 Predict rating for:
 - {entry.title} by {entry.creator or 'unknown'} ({entry.media_type}) [{entry.genres or 'no genres'}]
 
-Return ONLY a JSON object with "predicted_rating" (1-10, one decimal). No markdown. Example: {{"predicted_rating": 7.5}}"""
+Return ONLY a JSON object with "predicted_rating" (1-5, one decimal). No markdown. Example: {{"predicted_rating": 3.5}}"""
 
         text = (await generate(prompt)).strip()
         if text.startswith("```"):
@@ -84,7 +84,7 @@ Return ONLY a JSON object with "predicted_rating" (1-10, one decimal). No markdo
         pr = parsed.get("predicted_rating")
         if pr is not None:
             pr_f = float(pr)
-            if 1 <= pr_f <= 10:
+            if 1 <= pr_f <= 5:
                 entry.predicted_rating = round(pr_f, 1)
                 db.commit()
                 log.info("Predicted rating for entry %d: %.1f", entry_id, pr_f)
@@ -205,8 +205,8 @@ def profile_shape(user: User = Depends(require_user), db: Session = Depends(get_
     if not rows:
         return {"rating_histogram": {}, "type_distribution": {}, "top_genres": [], "total": 0}
 
-    # Rating histogram (1-10 bins)
-    rating_hist: dict[int, int] = {i: 0 for i in range(1, 11)}
+    # Rating histogram (1-5 bins)
+    rating_hist: dict[int, int] = {i: 0 for i in range(1, 6)}
     for media_type, rating, genres in rows:
         if rating is not None:
             bin_val = max(1, min(10, int(round(rating))))
@@ -368,7 +368,7 @@ async def predict_ratings(user: User = Depends(require_user), db: Session = Depe
         try:
             from app.services.gemini import generate
 
-            prompt = f"""You are a media taste predictor. Based on this user's rated items, predict how much they would enjoy each unrated item on a scale of 1-10.
+            prompt = f"""You are a media taste predictor. Based on this user's rated items, predict how much they would enjoy each unrated item on a scale of 1-5.
 
 User's rated items (their actual ratings):
 {chr(10).join(taste_lines)}
@@ -376,9 +376,9 @@ User's rated items (their actual ratings):
 Predict ratings for these items:
 {chr(10).join(batch)}
 
-Return ONLY valid JSON — a list of objects with "id" (the number after "id:") and "predicted_rating" (1-10, can use decimals like 7.5). No markdown, no explanation.
+Return ONLY valid JSON — a list of objects with "id" (the number after "id:") and "predicted_rating" (1-5, can use decimals like 3.5). No markdown, no explanation.
 
-Be honest — not everything will be a high rating. Use the full 1-10 range."""
+Be honest — not everything will be a high rating. Use the full 1-5 range."""
 
             text = (await generate(prompt)).strip()
             if text.startswith("```"):
@@ -392,7 +392,7 @@ Be honest — not everything will be a high rating. Use the full 1-10 range."""
                 if entry_id in want_map and pr is not None:
                     try:
                         pr_f = float(pr)
-                        if 1 <= pr_f <= 10:
+                        if 1 <= pr_f <= 5:
                             want_map[entry_id].predicted_rating = round(pr_f, 1)
                             total_predicted += 1
                     except (ValueError, TypeError):
@@ -536,7 +536,7 @@ async def import_goodreads(file: UploadFile = File(...), user: User = Depends(re
         else:
             status = "consumed"
 
-        rating = gr_rating * 2 if gr_rating > 0 else None
+        rating = gr_rating if gr_rating > 0 else None
         rows.append({
             "title": title, "author": author, "year": year,
             "status": status, "rating": rating,

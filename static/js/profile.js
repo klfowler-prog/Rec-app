@@ -57,7 +57,7 @@ async function loadProfile() {
 function renderStats(stats) {
     const statItems = [
         { label: 'Total', value: stats.total_entries, color: 'text-sage' },
-        { label: 'Avg Rating', value: stats.avg_rating ? `${stats.avg_rating}/10` : '—', color: 'text-coral' },
+        { label: 'Avg Rating', value: stats.avg_rating ? `${stats.avg_rating}/5` : '—', color: 'text-coral' },
         { label: 'Top Genre', value: stats.top_genres[0] || '—', color: 'text-sage' },
         { label: 'Types', value: Object.keys(stats.by_type).length, color: 'text-coral' },
     ];
@@ -81,10 +81,10 @@ function profileEntry(entry) {
         ? `<img src="${entry.image_url}" alt="" class="w-12 h-16 object-cover rounded">`
         : `<div class="w-12 h-16 bg-sage/10 rounded flex items-center justify-center"><span class="text-sage text-sm">${escapeHtml(entry.title[0])}</span></div>`;
 
-    const ratingDots = [1,2,3,4,5,6,7,8,9,10].map(n => {
+    const ratingDots = [1,2,3,4,5].map(n => {
         const active = entry.rating && n <= entry.rating;
         const color = active ? ratingColor(n) : 'bg-border-light dark:bg-border-dark';
-        return `<button onclick="inlineRate(${entry.id}, ${n}, this)" class="w-5 h-5 rounded-full ${color} hover:bg-sage transition-base text-[8px] font-bold ${active ? 'text-white' : 'text-transparent hover:text-white'}" title="${n}/10">${n}</button>`;
+        return `<button onclick="inlineRate(${entry.id}, ${n}, this)" class="w-6 h-6 rounded-full ${color} hover:bg-sage transition-base text-[9px] font-bold ${active ? 'text-white' : 'text-transparent hover:text-white'}" title="${n}/5">${n}</button>`;
     }).join('');
 
     // Use shared status switcher from card_actions.js
@@ -107,8 +107,8 @@ function profileEntry(entry) {
                 ${statusSwitcher}
                 <div class="flex items-center gap-0.5" id="rating-row-${entry.id}">
                     ${ratingDots}
-                    ${entry.rating ? `<span class="text-xs font-semibold ml-1.5 ${entry.rating <= 3 ? 'text-coral' : entry.rating <= 5 ? 'text-amber-500' : entry.rating <= 7 ? 'text-yellow-600' : 'text-emerald-500'}">${entry.rating}/10</span>` : `<span class="text-[10px] text-txt-muted ml-1.5">rate</span>`}
-                    ${!entry.rating && entry.predicted_rating ? `<span class="text-[10px] ml-1.5 px-1.5 py-0.5 rounded-full ${entry.predicted_rating >= 8 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' : entry.predicted_rating >= 6 ? 'bg-yellow-50 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400' : entry.predicted_rating >= 4 ? 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-red-50 text-red-500 dark:bg-red-900/30 dark:text-red-400'}" title="AI predicted rating">~${entry.predicted_rating}</span>` : ''}
+                    ${entry.rating ? `<span class="text-xs font-semibold ml-1.5 ${entry.rating <= 1 ? 'text-coral' : entry.rating <= 2 ? 'text-amber-500' : entry.rating <= 3 ? 'text-yellow-600' : 'text-emerald-500'}">${entry.rating}/5</span>` : `<span class="text-[10px] text-txt-muted ml-1.5">rate</span>`}
+                    ${!entry.rating && entry.predicted_rating ? `<span class="text-[10px] ml-1.5 px-1.5 py-0.5 rounded-full ${entry.predicted_rating >= 4 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' : entry.predicted_rating >= 3 ? 'bg-yellow-50 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400' : entry.predicted_rating >= 2 ? 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-red-50 text-red-500 dark:bg-red-900/30 dark:text-red-400'}" title="AI predicted rating">~${entry.predicted_rating}</span>` : ''}
                 </div>
             </div>
             <div class="flex gap-1 flex-shrink-0">
@@ -154,11 +154,10 @@ editForm.addEventListener('submit', async (e) => {
 });
 
 function ratingColor(n) {
-    // Coral (bad) -> Amber (mid) -> Green (good)
-    if (n <= 3) return 'bg-coral';
-    if (n <= 5) return 'bg-amber-400';
-    if (n <= 7) return 'bg-yellow-500';
-    if (n <= 9) return 'bg-emerald-400';
+    if (n <= 1) return 'bg-coral';
+    if (n <= 2) return 'bg-amber-400';
+    if (n <= 3) return 'bg-yellow-500';
+    if (n <= 4) return 'bg-emerald-400';
     return 'bg-emerald-500';
 }
 
@@ -169,12 +168,12 @@ async function inlineRate(entryId, rating, btn) {
     dots.forEach((dot, i) => {
         const n = i + 1;
         const active = n <= rating;
-        dot.className = `w-5 h-5 rounded-full ${active ? ratingColor(n) : 'bg-border-light dark:bg-border-dark'} hover:bg-sage transition-base text-[8px] font-bold ${active ? 'text-white' : 'text-transparent hover:text-white'}`;
+        dot.className = `w-6 h-6 rounded-full ${active ? ratingColor(n) : 'bg-border-light dark:bg-border-dark'} hover:bg-sage transition-base text-[9px] font-bold ${active ? 'text-white' : 'text-transparent hover:text-white'}`;
     });
     // Update label
     const label = row.querySelector('span:last-child');
-    const labelColor = rating <= 3 ? 'text-coral' : rating <= 5 ? 'text-amber-500' : rating <= 7 ? 'text-yellow-600' : 'text-emerald-500';
-    if (label) { label.className = `text-xs font-semibold ml-1.5 ${labelColor}`; label.textContent = `${rating}/10`; }
+    const labelColor = rating <= 1 ? 'text-coral' : rating <= 2 ? 'text-amber-500' : rating <= 3 ? 'text-yellow-600' : 'text-emerald-500';
+    if (label) { label.className = `text-xs font-semibold ml-1.5 ${labelColor}`; label.textContent = `${rating}/5`; }
 
     await fetch(`/api/profile/${entryId}`, {
         method: 'PUT',
@@ -274,7 +273,7 @@ async function loadTopTen() {
                 ? `<div class="poster-frame"><img src="${item.image_url}" alt="" class="${fit}"></div>`
                 : `<div class="poster-frame"><div class="poster-fallback bg-sage/10"><span class="text-sage text-2xl">${escapeHtml(item.title[0] || '?')}</span></div></div>`;
             const badge = typeColors[item.media_type] || typeColors.movie;
-            const rc = item.rating <= 3 ? 'text-coral' : item.rating <= 5 ? 'text-amber-500' : item.rating <= 7 ? 'text-yellow-600' : 'text-emerald-500';
+            const rc = item.rating <= 1 ? 'text-coral' : item.rating <= 2 ? 'text-amber-500' : item.rating <= 3 ? 'text-yellow-600' : 'text-emerald-500';
             return `
                 <a href="/media/${item.media_type}/${item.external_id}?source=${item.source}" class="group">
                     <div class="bg-surface-light dark:bg-surface-dark rounded-lg border border-border-light dark:border-border-dark overflow-hidden transition-base card-hover relative">
@@ -284,7 +283,7 @@ async function loadTopTen() {
                             <p class="text-xs font-medium truncate">${escapeHtml(item.title)}</p>
                             <div class="flex items-center justify-between mt-1">
                                 <span class="px-1.5 py-0.5 ${badge} text-[10px] font-medium rounded capitalize">${item.media_type}</span>
-                                <span class="text-xs font-semibold ${rc} cursor-pointer hover:underline" onclick="event.preventDefault(); event.stopPropagation(); toggleInlineRate(this, ${item.id}, ${item.rating})">${item.rating}/10</span>
+                                <span class="text-xs font-semibold ${rc} cursor-pointer hover:underline" onclick="event.preventDefault(); event.stopPropagation(); toggleInlineRate(this, ${item.id}, ${item.rating})">${item.rating}/5</span>
                             </div>
                         </div>
                     </div>
@@ -306,12 +305,12 @@ async function loadTasteShape() {
         const maxCount = Math.max(1, ...Object.values(hist));
         const histEl = document.getElementById('rating-histogram');
         histEl.innerHTML = '';
-        for (let i = 1; i <= 10; i++) {
+        for (let i = 1; i <= 5; i++) {
             const count = hist[i] || 0;
             const height = (count / maxCount) * 100;
-            const color = i <= 3 ? 'bg-coral' : i <= 5 ? 'bg-amber-400' : i <= 7 ? 'bg-yellow-500' : 'bg-emerald-500';
+            const color = i <= 1 ? 'bg-coral' : i <= 2 ? 'bg-amber-400' : i <= 3 ? 'bg-yellow-500' : 'bg-emerald-500';
             histEl.innerHTML += `
-                <div class="flex-1 ${color} rounded-t opacity-80" style="height: ${Math.max(height, 3)}%" title="${i}/10: ${count} item${count === 1 ? '' : 's'}"></div>
+                <div class="flex-1 ${color} rounded-t opacity-80" style="height: ${Math.max(height, 3)}%" title="${i}/5: ${count} item${count === 1 ? '' : 's'}"></div>
             `;
         }
 
@@ -341,7 +340,7 @@ async function loadTasteShape() {
         const genreEl = document.getElementById('top-genres-avg');
         genreEl.innerHTML = genres.slice(0, 6).map(g => {
             const avgRating = g.avg_rating;
-            const rc = !avgRating ? 'text-txt-muted' : avgRating <= 3 ? 'text-coral' : avgRating <= 5 ? 'text-amber-500' : avgRating <= 7 ? 'text-yellow-600' : 'text-emerald-500';
+            const rc = !avgRating ? 'text-txt-muted' : avgRating <= 1 ? 'text-coral' : avgRating <= 2 ? 'text-amber-500' : avgRating <= 3 ? 'text-yellow-600' : 'text-emerald-500';
             return `
                 <div class="flex items-center justify-between text-xs">
                     <span class="truncate">${escapeHtml(g.genre)}</span>

@@ -121,8 +121,8 @@ async function rateItem(btn, entryId, rating) {
         return;
     }
     const container = btn.parentElement;
-    const ratingColor = rating <= 3 ? 'text-coral' : rating <= 5 ? 'text-amber-500' : rating <= 7 ? 'text-yellow-600' : 'text-emerald-500';
-    container.innerHTML = `<span class="text-xs font-semibold ${ratingColor}">${rating}/10 ✓</span>`;
+    const ratingColor = rating <= 1 ? 'text-coral' : rating <= 2 ? 'text-amber-500' : rating <= 3 ? 'text-yellow-600' : 'text-emerald-500';
+    container.innerHTML = `<span class="text-xs font-semibold ${ratingColor}">${rating}/5 ✓</span>`;
     const card = btn.closest('[data-rec-card]') || btn.closest('.swim-lane-item') || btn.closest('.rounded-lg');
     if (card) {
         card.style.transition = 'opacity 0.5s, filter 0.5s';

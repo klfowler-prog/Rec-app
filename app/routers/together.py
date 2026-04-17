@@ -49,7 +49,7 @@ async def compare(
     for title_lower, my_e in my_rated.items():
         if title_lower in their_rated:
             their_e = their_rated[title_lower]
-            if (my_e.rating or 0) >= 7 and (their_e.rating or 0) >= 7:
+            if (my_e.rating or 0) >= 4 and (their_e.rating or 0) >= 4:
                 shared_loved.append({
                     "title": my_e.title,
                     "media_type": my_e.media_type,
@@ -97,7 +97,7 @@ async def compare(
     def build_summary(entries, name):
         by_type: dict[str, list] = {"movie": [], "tv": [], "book": [], "podcast": []}
         for e in entries:
-            if e.rating and e.rating >= 7:
+            if e.rating and e.rating >= 4:
                 by_type.setdefault(e.media_type, []).append(e)
         for mt in by_type:
             by_type[mt].sort(key=lambda x: x.rating or 0, reverse=True)
@@ -107,7 +107,7 @@ async def compare(
         for mt, label in label_map.items():
             items = by_type.get(mt, [])[:8]
             if items:
-                type_lines = [f"  - {e.title} — {e.rating}/10" for e in items]
+                type_lines = [f"  - {e.title} — {e.rating}/5" for e in items]
                 lines.append(f"{label}:\n" + "\n".join(type_lines))
         return "\n\n".join(lines)
 
@@ -131,7 +131,7 @@ async def compare(
 
 {their_summary}
 
-TASK: Recommend 5 cross-medium items (a mix of movies, TV, books, podcasts) that BOTH people would rate ≥7. For each, predict how each person would rate it.
+TASK: Recommend 5 cross-medium items (a mix of movies, TV, books, podcasts) that BOTH people would rate ≥4. For each, predict how each person would rate it on a 1-5 scale.
 
 CRITICAL:
 - Do NOT recommend anything either of them has already rated: {avoid_str}
@@ -140,9 +140,9 @@ CRITICAL:
 
 Return ONLY valid JSON, no markdown:
 {{
-  "watch_together_pick": {{"title": "...", "media_type": "movie|tv|book|podcast", "year": 2020, "predicted_rating_me": 8.5, "predicted_rating_them": 8.0, "reason": "cross-medium reason citing both profiles"}},
+  "watch_together_pick": {{"title": "...", "media_type": "movie|tv|book|podcast", "year": 2020, "predicted_rating_me": 4.5, "predicted_rating_them": 4.0, "reason": "cross-medium reason citing both profiles"}},
   "candidates": [
-    {{"title": "...", "media_type": "...", "year": 2020, "predicted_rating_me": 8.0, "predicted_rating_them": 7.5, "reason": "..."}},
+    {{"title": "...", "media_type": "...", "year": 2020, "predicted_rating_me": 4.0, "predicted_rating_them": 3.5, "reason": "..."}},
     ... 4 more items
   ]
 }}"""

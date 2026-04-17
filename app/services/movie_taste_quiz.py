@@ -40,10 +40,10 @@ RESPONSE_OPTIONS: list[dict] = [
     {"value": None, "emoji": "🚫",   "label": "Haven't seen it","description": "Skip"},
 ]
 
-# Map quiz response values to a 1-10 rating we can persist in the
+# Map quiz response values to a 1-5 rating we can persist in the
 # user's profile so the existing recommendation pipeline sees the
 # signal too.
-RATING_MAP: dict[int, int] = {2: 9, 1: 7, 0: 5, -1: 3}
+RATING_MAP: dict[int, int] = {2: 5, 1: 4, 0: 3, -1: 1}
 
 
 # 25 films in presentation order. `weights` are the axis deltas

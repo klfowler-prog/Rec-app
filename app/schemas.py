@@ -29,14 +29,14 @@ class MediaEntryCreate(BaseModel):
     genres: str | None = None
     description: str | None = None
     status: str = "consumed"
-    rating: float | None = Field(None, ge=1, le=10)
+    rating: float | None = Field(None, ge=1, le=5)
     notes: str | None = None
     tags: str | None = None
 
 
 class MediaEntryUpdate(BaseModel):
     status: str | None = None
-    rating: float | None = Field(None, ge=1, le=10)
+    rating: float | None = Field(None, ge=1, le=5)
     notes: str | None = None
     tags: str | None = None
 

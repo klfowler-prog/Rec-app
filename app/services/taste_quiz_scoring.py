@@ -6,7 +6,7 @@ Each media type has its own data module declaring:
   - AXIS_KEYS: list of the axis keys in AXES, in order
   - PROFILES: list of {id, name, vector, description} dicts
   - RESPONSE_OPTIONS: list of {value, emoji, label, description} dicts
-  - RATING_MAP: dict mapping quiz response values to 1-10 ratings
+  - RATING_MAP: dict mapping quiz response values to 1-5 ratings
   - MIN_ANSWERED: int, minimum non-null responses to surface a profile
 
 Then calls score_responses() below with its own data. The scorer is

@@ -40,7 +40,7 @@ RESPONSE_OPTIONS: list[dict] = [
     {"value": None, "emoji": "🚫",   "label": "Haven't seen it", "description": "Skip"},
 ]
 
-RATING_MAP: dict[int, int] = {2: 9, 1: 7, 0: 5, -1: 3}
+RATING_MAP: dict[int, int] = {2: 5, 1: 4, 0: 3, -1: 1}
 
 # 24 shows in presentation order. `years` is a string like "2011-2019"
 # or "2022-" for still-airing — TMDB's first_air_date only gives us

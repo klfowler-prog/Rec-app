@@ -47,7 +47,7 @@ RESPONSE_OPTIONS: list[dict] = [
     {"value": None, "emoji": "🚫",   "label": "Haven't read it", "description": "Skip"},
 ]
 
-RATING_MAP: dict[int, int] = {2: 9, 1: 7, 0: 5, -1: 3}
+RATING_MAP: dict[int, int] = {2: 5, 1: 4, 0: 3, -1: 1}
 
 
 # FICTION MODULE — 25 titles in accessible → challenging order.

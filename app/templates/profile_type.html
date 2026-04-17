@@ -169,7 +169,7 @@ function newReleaseCard(item) {
         ? `<div class="poster-frame"><img src="${item.image_url}" alt="" class="${fit}" loading="lazy"></div>`
         : `<div class="poster-frame"><div class="poster-fallback bg-sage/10"><span class="text-sage text-xl">${escapeHtml((item.title || '?')[0])}</span></div></div>`;
     const pr = item.predicted_rating;
-    const prBadge = pr ? `<div class="absolute top-2 right-2 px-1.5 py-0.5 ${pr >= 8 ? 'bg-emerald-500' : pr >= 6 ? 'bg-yellow-500' : pr >= 4 ? 'bg-amber-400' : 'bg-coral'} rounded-full"><span class="text-[10px] font-bold text-white">${pr}</span></div>` : '';
+    const prBadge = pr ? `<div class="absolute top-2 right-2 px-1.5 py-0.5 ${pr >= 4 ? 'bg-emerald-500' : pr >= 3 ? 'bg-yellow-500' : pr >= 2 ? 'bg-amber-400' : 'bg-coral'} rounded-full"><span class="text-[10px] font-bold text-white">${pr}</span></div>` : '';
 
     const cardItem = {...item, media_type: item.media_type || MEDIA_TYPE};
 
@@ -194,7 +194,7 @@ function simpleEntryCard(entry) {
         ? `<div class="poster-frame"><img src="${entry.image_url}" alt="" class="${fit}" loading="lazy"></div>`
         : `<div class="poster-frame"><div class="poster-fallback bg-sage/10"><span class="text-sage text-xl">${escapeHtml((entry.title || '?')[0])}</span></div></div>`;
     const rating = entry.rating
-        ? `<span class="text-[10px] font-semibold text-sage cursor-pointer hover:underline" onclick="event.preventDefault(); event.stopPropagation(); toggleInlineRate(this, ${entry.id}, ${entry.rating})">${entry.rating}/10</span>`
+        ? `<span class="text-[10px] font-semibold text-sage cursor-pointer hover:underline" onclick="event.preventDefault(); event.stopPropagation(); toggleInlineRate(this, ${entry.id}, ${entry.rating})">${entry.rating}/5</span>`
         : (entry.predicted_rating ? `<span class="text-[10px] text-txt-muted">~${entry.predicted_rating}</span>` : '');
     return `
         <a href="/media/${entry.media_type}/${entry.external_id}?source=${entry.source}" class="group">
