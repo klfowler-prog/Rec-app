@@ -122,7 +122,8 @@ async def compare(
     # Also include dismissed items from both users
     for d in db.query(DismissedItem.title).filter(DismissedItem.user_id.in_([user.id, other.id])).all():
         avoid.add(d.title.lower())
-    avoid_str = ", ".join(list(avoid)[:60]) if avoid else "none"
+    # Send ALL avoided titles — truncating caused dismissed items to slip through
+    avoid_str = "\n".join(f"- {t}" for t in sorted(avoid)) if avoid else "none"
 
     try:
         prompt = f"""You are a cross-medium taste expert. Find things that BOTH of these people would love — based on their individual profiles.
@@ -134,7 +135,9 @@ async def compare(
 TASK: Recommend 5 cross-medium items (a mix of movies, TV, books, podcasts) that BOTH people would rate ≥4. For each, predict how each person would rate it on a 1-5 scale.
 
 CRITICAL:
-- Do NOT recommend anything either of them has already rated: {avoid_str}
+- NEVER recommend anything on this list — these are titles both users already have or have explicitly rejected:
+{avoid_str}
+- Do NOT recommend niche anime, fan-service shows, or obscure titles unless BOTH profiles show strong anime/manga interest
 - The reason should cite specific items from BOTH profiles
 - One of the 5 should be marked as "watch_together_pick": true — the BEST single thing to consume together
 
@@ -203,6 +206,13 @@ Return ONLY valid JSON, no markdown:
     else:
         watch_together = None
         candidates = [c for c in all_enriched if c is not None]
+
+    # Post-filter: drop any title the AI recommended despite being in the avoid set
+    def _is_avoided(title):
+        return title and title.lower() in avoid
+    if watch_together and _is_avoided(watch_together.get("title")):
+        watch_together = None
+    candidates = [c for c in candidates if not _is_avoided(c.get("title"))]
 
     # Sort by the lower of the two predicted ratings (higher = safer for both)
     candidates.sort(key=lambda x: min(x.get("predicted_rating_me") or 0, x.get("predicted_rating_them") or 0), reverse=True)
