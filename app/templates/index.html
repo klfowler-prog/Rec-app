@@ -367,24 +367,80 @@
     </a>
 
     <!-- ============================================================
-         Compact nav — My Taste, Add, Library in one row
+         Taste DNA + Your media stats
          ============================================================ -->
-    <div class="grid grid-cols-3 gap-3">
-        <a href="/taste" class="block p-4 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark hover:border-coral/40 transition-all group text-center">
-            <svg class="w-5 h-5 text-coral mx-auto mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-            <p class="text-xs font-semibold group-hover:text-coral transition-base">My Taste</p>
-            <p class="text-[10px] text-txt-muted mt-0.5">{% if quizzes_done < 3 %}{{ quizzes_done }}/3 quizzes{% else %}{{ rated_count }} rated{% endif %}</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <!-- Taste DNA teaser -->
+        <a href="/taste" class="block p-5 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark hover:border-coral/40 transition-all group">
+            <div class="flex items-start gap-3">
+                <div class="w-9 h-9 rounded-lg bg-coral/10 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-4.5 h-4.5 text-coral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-bold group-hover:text-coral transition-base">See your Taste DNA</p>
+                    <p class="text-xs text-txt-muted mt-0.5 leading-relaxed">
+                        {% if quizzes_done < 3 %}{{ quizzes_done }}/3 quizzes done — finish them to unlock your full profile.
+                        {% elif top_genre %}Your top genre is {{ top_genre }}.{% if latest_fave %} Last 5/5: {{ latest_fave }}.{% endif %}
+                        {% else %}{{ rated_count }} items rated. See what your taste says about you.
+                        {% endif %}
+                    </p>
+                </div>
+                <svg class="w-4 h-4 text-txt-muted flex-shrink-0 mt-1 group-hover:translate-x-0.5 group-hover:text-coral transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </div>
         </a>
-        <a href="/add" class="block p-4 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark hover:border-sage/40 transition-all group text-center">
-            <svg class="w-5 h-5 text-sage mx-auto mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-            <p class="text-xs font-semibold group-hover:text-sage transition-base">Add Items</p>
-            <p class="text-[10px] text-txt-muted mt-0.5">{{ total }} in library</p>
-        </a>
-        <a href="/profile" class="block p-4 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark hover:border-navy/40 dark:hover:border-white/20 transition-all group text-center">
-            <svg class="w-5 h-5 text-navy dark:text-txt-light mx-auto mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
-            <p class="text-xs font-semibold group-hover:text-sage transition-base">Library</p>
-            <p class="text-[10px] text-txt-muted mt-0.5">{% if type_counts.get('movie', 0) > 0 %}{{ type_counts.movie }}m{% endif %}{% if type_counts.get('tv', 0) > 0 %} {{ type_counts.tv }}tv{% endif %}{% if type_counts.get('book', 0) > 0 %} {{ type_counts.book }}b{% endif %}</p>
-        </a>
+
+        <!-- Media stats + add more -->
+        <div class="p-5 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark">
+            <div class="flex items-center gap-4 mb-3">
+                <div class="flex gap-3 flex-1 min-w-0">
+                    {% if type_counts.get('movie', 0) > 0 %}
+                    <div class="text-center">
+                        <p class="text-lg font-bold text-navy dark:text-txt-light">{{ type_counts.movie }}</p>
+                        <p class="text-[9px] text-txt-muted uppercase tracking-wide">Movies</p>
+                    </div>
+                    {% endif %}
+                    {% if type_counts.get('tv', 0) > 0 %}
+                    <div class="text-center">
+                        <p class="text-lg font-bold text-navy dark:text-txt-light">{{ type_counts.tv }}</p>
+                        <p class="text-[9px] text-txt-muted uppercase tracking-wide">Shows</p>
+                    </div>
+                    {% endif %}
+                    {% if type_counts.get('book', 0) > 0 %}
+                    <div class="text-center">
+                        <p class="text-lg font-bold text-navy dark:text-txt-light">{{ type_counts.book }}</p>
+                        <p class="text-[9px] text-txt-muted uppercase tracking-wide">Books</p>
+                    </div>
+                    {% endif %}
+                    {% if type_counts.get('podcast', 0) > 0 %}
+                    <div class="text-center">
+                        <p class="text-lg font-bold text-navy dark:text-txt-light">{{ type_counts.podcast }}</p>
+                        <p class="text-[9px] text-txt-muted uppercase tracking-wide">Pods</p>
+                    </div>
+                    {% endif %}
+                    {% if avg_rating %}
+                    <div class="text-center border-l border-border-light dark:border-border-dark pl-3">
+                        <p class="text-lg font-bold text-sage">{{ avg_rating }}</p>
+                        <p class="text-[9px] text-txt-muted uppercase tracking-wide">Avg</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            <p class="text-[10px] text-txt-muted mb-2.5">
+                {% if rated_this_month > 0 %}{{ rated_this_month }} rated this month.{% endif %}
+                {% if queue_count > 0 %}{{ queue_count }} in your queue.{% endif %}
+                {% set types_present = type_counts.keys()|list %}
+                {% if 'book' not in types_present %}No books yet — add some to round out your taste.{% elif 'podcast' not in types_present %}Try adding some podcasts.{% endif %}
+            </p>
+            <div class="flex gap-2">
+                <a href="/add" class="flex items-center gap-1.5 px-3 py-1.5 bg-sage/10 hover:bg-sage hover:text-white text-sage rounded-lg text-xs font-semibold transition-base">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                    Add items
+                </a>
+                <a href="/profile" class="flex items-center gap-1.5 px-3 py-1.5 text-txt-muted hover:text-txt text-xs font-medium transition-base">
+                    View library &rarr;
+                </a>
+            </div>
+        </div>
     </div>
 
     <!-- ============================================================

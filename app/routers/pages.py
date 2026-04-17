@@ -248,6 +248,44 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
     quiz_results = load_quiz_results(db, user.id)
     quizzes_done = sum(1 for t in ("movies", "tv", "books") if quiz_results and quiz_results.get(t, {}).get("profiles"))
 
+    # Interesting stats for the profile section
+    avg_rating = db.query(sqlfunc.avg(MediaEntry.rating)).filter(
+        MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None)
+    ).scalar()
+    avg_rating = round(float(avg_rating), 1) if avg_rating else None
+
+    # Top genre from the user's rated items
+    genre_entries = (
+        db.query(MediaEntry.genres)
+        .filter(MediaEntry.user_id == user.id, MediaEntry.genres.isnot(None), MediaEntry.genres != "")
+        .all()
+    )
+    genre_counts: dict[str, int] = {}
+    for (genres_str,) in genre_entries:
+        for g in (genres_str or "").split(","):
+            g = g.strip()
+            if g:
+                genre_counts[g] = genre_counts.get(g, 0) + 1
+    top_genre = max(genre_counts, key=genre_counts.get) if genre_counts else None
+
+    # Items rated this month
+    from datetime import datetime, timedelta
+    month_ago = datetime.utcnow() - timedelta(days=30)
+    rated_this_month = db.query(MediaEntry).filter(
+        MediaEntry.user_id == user.id,
+        MediaEntry.rated_at.isnot(None),
+        MediaEntry.rated_at >= month_ago,
+    ).count()
+
+    # Highest-rated item (most recent 5/5)
+    fave = (
+        db.query(MediaEntry.title, MediaEntry.media_type)
+        .filter(MediaEntry.user_id == user.id, MediaEntry.rating == 5)
+        .order_by(MediaEntry.rated_at.desc().nullslast())
+        .first()
+    )
+    latest_fave = fave.title if fave else None
+
     # Grab a few poster URLs for card backgrounds
     poster_items = (
         db.query(MediaEntry.image_url, MediaEntry.media_type)
@@ -394,6 +432,10 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
             "nav_posters": nav_posters,
             "together_partner_count": together_partner_count,
             "together_highlights": together_highlights,
+            "avg_rating": avg_rating,
+            "top_genre": top_genre,
+            "rated_this_month": rated_this_month,
+            "latest_fave": latest_fave,
             **greeting_ctx,
         },
     )
