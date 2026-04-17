@@ -400,33 +400,67 @@
          pre-written sign-up message on the clipboard so the user
          can paste it into any chat/email.
          ============================================================ -->
-    <div class="relative overflow-hidden rounded-2xl min-h-[8rem] transition-all hover:shadow-xl group" style="background: linear-gradient(135deg, #6B5B8A 0%, #524470 55%, #3D3456 100%);">
+    <div class="relative overflow-hidden rounded-2xl transition-all hover:shadow-xl" style="background: linear-gradient(135deg, #6B5B8A 0%, #524470 55%, #3D3456 100%);">
         <div class="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -translate-y-12 translate-x-16 pointer-events-none"></div>
         <div class="absolute bottom-0 left-1/3 w-24 h-24 bg-coral/15 rounded-full translate-y-10 pointer-events-none"></div>
-        <div class="relative z-10 p-5 md:p-6 flex flex-col md:flex-row md:items-center gap-4">
-            <div class="w-12 h-12 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center flex-shrink-0">
-                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+        <div class="relative z-10 p-5">
+            {% if together_highlights %}
+            <!-- Social feed from partners -->
+            <div class="flex items-center justify-between mb-3">
+                <p class="text-[10px] text-white/60 uppercase tracking-[0.18em] font-bold">From your people</p>
+                <a href="/together" class="text-[10px] text-white/60 hover:text-white transition-base">Together mode &rarr;</a>
             </div>
-            <div class="flex-1 min-w-0 text-white">
-                <p class="text-[10px] text-white/60 uppercase tracking-[0.18em] font-bold mb-1">Together mode</p>
-                {% if together_partner_count == 0 %}
-                <p class="text-base md:text-lg font-bold">Invite your people to unlock Together mode</p>
-                <p class="text-sm text-white/75 leading-relaxed mt-0.5">Together finds movies, shows, and books everyone will love — but it needs your friends and family on NextUp first. Share the link and I'll add them for access.</p>
-                {% else %}
-                <p class="text-base md:text-lg font-bold">Find something to enjoy together</p>
-                <p class="text-sm text-white/75 leading-relaxed mt-0.5">You're paired with <span class="font-semibold text-white">{{ together_partner_count }}</span> {% if together_partner_count == 1 %}person{% else %}people{% endif %} on NextUp. Compare your taste to land on picks you'll both love — or invite more family to join.</p>
-                {% endif %}
+            <div class="space-y-2.5 mb-3">
+                {% for h in together_highlights %}
+                <div class="flex items-center gap-3">
+                    {% if h.partner_picture %}
+                    <img src="{{ h.partner_picture }}" alt="" class="w-7 h-7 rounded-full flex-shrink-0 border border-white/20">
+                    {% else %}
+                    <div class="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center flex-shrink-0 text-white text-xs font-bold">{{ h.partner_name[0] }}</div>
+                    {% endif %}
+                    <p class="text-sm text-white/90 leading-snug flex-1">{{ h.action }}{% if h.has_overlap %} <span class="text-coral text-[10px] font-bold align-middle">match</span>{% endif %}</p>
+                </div>
+                {% endfor %}
             </div>
-            <div class="flex flex-col sm:flex-row md:flex-col lg:flex-row items-stretch md:items-center gap-2 flex-shrink-0">
-                <a href="/together" class="flex items-center justify-center gap-2 px-4 py-2 bg-white text-[#524470] rounded-xl text-sm font-semibold hover:bg-cream hover:scale-[1.03] active:scale-95 transition-base shadow-sm whitespace-nowrap">
-                    {% if together_partner_count == 0 %}Open Together{% else %}Compare tastes{% endif %}
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+            <div class="flex gap-2">
+                <a href="/together" class="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-white text-[#524470] rounded-lg text-xs font-semibold hover:bg-cream transition-base">
+                    Compare tastes
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
                 </a>
-                <button type="button" onclick="copyTogetherInvite(this)" class="flex items-center justify-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-sm font-semibold transition-base whitespace-nowrap border border-white/20">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+                <button type="button" onclick="copyTogetherInvite(this)" class="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-semibold transition-base border border-white/20">
+                    <span data-copy-label>Invite more</span>
+                </button>
+            </div>
+            {% elif together_partner_count == 0 %}
+            <!-- No partners yet -->
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                </div>
+                <div class="flex-1 text-white">
+                    <p class="text-sm font-bold">Invite your people</p>
+                    <p class="text-xs text-white/70">Together mode finds picks everyone will love.</p>
+                </div>
+                <button type="button" onclick="copyTogetherInvite(this)" class="flex items-center gap-1.5 px-3 py-1.5 bg-white text-[#524470] rounded-lg text-xs font-semibold hover:bg-cream transition-base whitespace-nowrap">
                     <span data-copy-label>Copy invite</span>
                 </button>
             </div>
+            {% else %}
+            <!-- Partners exist but no highlights — generic CTA -->
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                </div>
+                <div class="flex-1 text-white">
+                    <p class="text-sm font-bold">Together mode</p>
+                    <p class="text-xs text-white/70">{{ together_partner_count }} {% if together_partner_count == 1 %}person{% else %}people{% endif %} on NextUp with you.</p>
+                </div>
+                <a href="/together" class="flex items-center gap-1.5 px-3 py-1.5 bg-white text-[#524470] rounded-lg text-xs font-semibold hover:bg-cream transition-base whitespace-nowrap">
+                    Compare tastes
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+                </a>
+            </div>
+            {% endif %}
         </div>
     </div>
 
