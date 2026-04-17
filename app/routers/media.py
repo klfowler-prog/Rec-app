@@ -3140,7 +3140,7 @@ Return ONLY a JSON object mapping each exact candidate title to either a number 
             "predicted_rating": predicted_map.get(item.title.lower()),
         }
 
-    MIN_SCORE = 5.5
+    MIN_SCORE = 3.5
     MAX_PER_SECTION = 8
     serialized_sections = []
     for label, items in filtered_sections:
