@@ -108,8 +108,8 @@
                     </button>
                 </div>
             </div>
-            <!-- Big poster shelf -->
-            <div id="dna-shelf" class="flex gap-5 overflow-x-auto pb-3 -mx-4 px-4" style="scroll-snap-type: x mandatory;"></div>
+            <!-- Signature shelf -->
+            <div id="dna-shelf" class="flex gap-3 overflow-x-auto pb-3 -mx-4 px-4" style="scroll-snap-type: x mandatory;"></div>
             <!-- Edit mode -->
             <div id="shelf-edit-mode" class="hidden mt-4 p-4 bg-surface-light dark:bg-surface-dark border border-sage/20 rounded-xl">
                 <div class="relative mb-3">
@@ -633,20 +633,18 @@ async function loadSignatureShelf() {
 function renderShelf() {
     const shelf = document.getElementById('dna-shelf');
     shelf.innerHTML = shelfItems.map(item => {
-        const fit = item.media_type === 'podcast' ? 'object-contain p-4 bg-surface-dark' : 'object-cover';
+        const fit = item.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
         const image = item.image_url
-            ? `<img src="${item.image_url}" alt="" class="w-full h-full ${fit}" loading="lazy">`
-            : `<div class="w-full h-full bg-sage/10 flex items-center justify-center"><span class="text-sage text-4xl font-bold">${escapeHtml((item.title||'?')[0])}</span></div>`;
+            ? `<div class="poster-frame"><img src="${item.image_url}" alt="" class="${fit}" loading="lazy"></div>`
+            : `<div class="poster-frame"><div class="poster-fallback bg-sage/10"><span class="text-sage text-3xl font-bold">${escapeHtml((item.title||'?')[0])}</span></div></div>`;
         const link = item.external_id ? `/media/${item.media_type}/${item.external_id}?source=${item.source}` : '#';
-        const ratingColor = !item.rating ? '' : item.rating >= 4 ? 'text-sage-light' : item.rating >= 3 ? 'text-gold' : 'text-coral-light';
+        const ratingColor = !item.rating ? '' : typeof ratingTextColor === 'function' ? ratingTextColor(item.rating) : 'text-sage';
         return `
-            <a href="${link}" class="flex-shrink-0 group relative" style="scroll-snap-align: start; width: 170px;" data-shelf-id="${item.id}">
-                <div class="rounded-2xl overflow-hidden shadow-lg transition-all group-hover:shadow-2xl group-hover:-translate-y-2" style="height: 255px;">
-                    ${image}
-                    <div class="absolute inset-x-0 bottom-0 p-3" style="background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%);">
-                        <p class="text-white text-sm font-bold leading-tight line-clamp-2">${escapeHtml(item.title)}</p>
-                        ${item.rating ? `<p class="text-xs font-semibold ${ratingColor} mt-0.5">${item.rating}/5</p>` : ''}
-                    </div>
+            <a href="${link}" class="flex-shrink-0 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm card-hover transition-base block" style="scroll-snap-align: start; width: 140px;" data-shelf-id="${item.id}">
+                ${image}
+                <div class="p-2">
+                    <p class="text-[11px] font-semibold leading-tight line-clamp-2">${escapeHtml(item.title)}</p>
+                    ${item.rating ? `<p class="text-[10px] font-semibold ${ratingColor} mt-0.5">${item.rating}/5</p>` : ''}
                 </div>
             </a>`;
     }).join('');

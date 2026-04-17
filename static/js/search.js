@@ -112,17 +112,17 @@ function mediaCard(item) {
     }
 
     return `
-        <div class="bg-surface-light dark:bg-surface-dark rounded-lg border border-border-light dark:border-border-dark overflow-hidden transition-base card-hover" data-rec-card style="${cardStyle}">
+        <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm transition-base card-hover" data-rec-card style="${cardStyle}">
             <a href="${detailLink}" class="block">${image}</a>
-            <div class="p-3">
+            <div class="p-2">
                 <a href="${detailLink}" class="block hover:text-sage transition-base">
-                    <p class="text-sm font-medium truncate mb-1">${escapeHtml(safeTitle)}</p>
+                    <p class="text-[11px] font-semibold leading-tight line-clamp-2 mb-1">${escapeHtml(safeTitle)}</p>
                 </a>
                 <div class="flex items-center gap-1.5 mb-1">
                     <span class="px-1.5 py-0.5 ${badgeClass} text-[10px] font-medium rounded capitalize">${item.media_type}</span>
                     ${year}
                 </div>
-                ${item.creator ? `<p class="text-xs text-txt-muted mb-2 truncate">${escapeHtml(item.creator)}</p>` : '<div class="mb-2"></div>'}
+                ${item.creator ? `<p class="text-[10px] text-txt-muted mb-2 truncate">${escapeHtml(item.creator)}</p>` : '<div class="mb-1"></div>'}
                 <div class="quick-add-area">${actionArea}</div>
             </div>
         </div>

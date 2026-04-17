@@ -138,12 +138,12 @@
         return `
             <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm" data-rec-card data-provider-ids="${providerIds}">
                 <a href="${link}">${image}</a>
-                <div class="p-4">
-                    <div class="flex items-center gap-2 mb-1.5">
-                        <span class="px-2 py-0.5 ${badge} text-[10px] font-semibold rounded-full capitalize">${pick.media_type || mediaType}</span>
-                        ${pick.year ? `<span class="text-xs text-txt-muted">${pick.year}</span>` : ''}
+                <div class="p-2.5">
+                    <div class="flex items-center gap-1.5 mb-1">
+                        <span class="px-1.5 py-0.5 ${badge} text-[10px] font-semibold rounded-full capitalize">${pick.media_type || mediaType}</span>
+                        ${pick.year ? `<span class="text-[10px] text-txt-muted">${pick.year}</span>` : ''}
                     </div>
-                    <a href="${link}" class="text-sm font-semibold hover:text-sage transition-base block">${escapeHtml(pick.title)}</a>
+                    <a href="${link}" class="text-[11px] font-semibold leading-tight hover:text-sage transition-base block line-clamp-2">${escapeHtml(pick.title)}</a>
                     ${typeof renderProviderBadges === 'function' && pick.watch_providers ? renderProviderBadges(pick.watch_providers) : ''}
                     ${pick.reason ? `<p class="text-xs text-txt-muted leading-relaxed mt-1">${escapeHtml(pick.reason)}</p>` : ''}
                     ${anchorLine}
@@ -232,12 +232,12 @@
         return `
             <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm" data-rec-card data-provider-ids="${themeProviderIds}">
                 <a href="${link}">${image}</a>
-                <div class="p-3">
-                    <div class="flex items-center gap-2 mb-1">
-                        <span class="px-2 py-0.5 ${badge} text-[10px] font-semibold rounded-full capitalize">${mt}</span>
-                        ${item.year ? `<span class="text-[11px] text-txt-muted">${item.year}</span>` : ''}
+                <div class="p-2">
+                    <div class="flex items-center gap-1.5 mb-1">
+                        <span class="px-1.5 py-0.5 ${badge} text-[10px] font-semibold rounded-full capitalize">${mt}</span>
+                        ${item.year ? `<span class="text-[10px] text-txt-muted">${item.year}</span>` : ''}
                     </div>
-                    <a href="${link}" class="text-xs font-semibold hover:text-sage transition-base block truncate">${escapeHtml(item.title)}</a>
+                    <a href="${link}" class="text-[11px] font-semibold leading-tight hover:text-sage transition-base block line-clamp-2">${escapeHtml(item.title)}</a>
                     ${typeof renderProviderBadges === 'function' && item.watch_providers ? renderProviderBadges(item.watch_providers) : ''}
                     ${item.reason ? `<p class="text-[11px] text-txt-muted leading-snug mt-1">${escapeHtml(item.reason)}</p>` : ''}
                     <div class="mt-2 quick-add-area">${actions}</div>
