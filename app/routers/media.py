@@ -2027,10 +2027,18 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
     taste_summary = "\n\n".join(taste_sections) if taste_sections else "No rated items yet."
 
     recent_section = ""
-    if recent_items:
+    total_rated = len(consumed)
+    if recent_items and total_rated >= 50:
+        # Mature profile: recent ratings reflect genuine current mood
         recent_items.sort(key=lambda e: e.rated_at, reverse=True)
         recent_lines = [f"  - {e.title} ({e.media_type}, {e.rating}/10)" for e in recent_items[:10]]
-        recent_section = "\n\nRECENTLY RATED (last 30 days — one directional signal, NOT the whole picture):\n" + "\n".join(recent_lines)
+        recent_section = "\n\nRECENT MOOD (last 30 days — what they're gravitating toward right now):\n" + "\n".join(recent_lines)
+    elif recent_items and total_rated >= 25:
+        # Building profile: recent ratings are a light signal, not a strong mood indicator
+        recent_items.sort(key=lambda e: e.rated_at, reverse=True)
+        recent_lines = [f"  - {e.title} ({e.media_type}, {e.rating}/10)" for e in recent_items[:5]]
+        recent_section = "\n\nRECENTLY ADDED (this is NOT a mood signal — the user is still building their profile, so these reflect data entry order, not current preference. Weight the FULL profile above equally):\n" + "\n".join(recent_lines)
+    # For profiles under 25 items: omit recent section entirely — everything IS recent
 
     # Avoid list — pack as many titles as fit in the budget.
     avoid_titles: list[str] = []
@@ -2453,10 +2461,15 @@ async def best_bet(
     if not recent_loved:
         return {"pick": None, "anchor": None, "message": "Rate a few items 9 or 10 out of 10 to unlock your best bet."}
 
-    # Pick the single most recent loved item that isn't in the
-    # requested media_type — a cross-medium anchor is more
-    # interesting than "you loved this book, here's another book".
-    # Fall back to same-type if no cross-medium anchor exists.
+    # For thin profiles (<50 items), pick the highest-rated anchor
+    # rather than the most recent — recency is noise when the user
+    # is still building their library. For mature profiles, recency
+    # is a genuine mood signal.
+    total_rated = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None)).count()
+    if total_rated < 50:
+        recent_loved.sort(key=lambda e: -(e.rating or 0))
+
+    # Pick a cross-medium anchor when possible
     anchor = next((e for e in recent_loved if e.media_type != media_type), None) or recent_loved[0]
 
     known_normalized, _ = _build_known_titles(db, user.id)
