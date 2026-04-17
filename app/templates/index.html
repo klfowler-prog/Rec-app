@@ -958,7 +958,7 @@ async function loadBoxOffice() {
             const as = item.audience_score;
             const asPct = as ? Math.round(as * 10) : null;
             const asColor = asPct >= 70 ? 'text-emerald-500' : asPct >= 50 ? 'text-yellow-500' : 'text-coral';
-            const asBadge = (asPct && item.audience_count >= 10) ? `<span class="${asColor} text-[9px] font-bold">${asPct}%</span>` : '';
+            const asBadge = (asPct && item.audience_count >= 10) ? `<span class="${asColor} text-[9px] font-bold">${asPct}% audience</span>` : '';
             const image = item.image_url
                 ? `<img src="${item.image_url}" alt="" class="w-full h-full object-cover">`
                 : `<div class="w-full h-full bg-sage/10 flex items-center justify-center"><span class="text-sage text-2xl font-bold">${escapeHtml((item.title||'?')[0])}</span></div>`;
