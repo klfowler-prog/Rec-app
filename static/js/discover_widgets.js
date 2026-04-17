@@ -88,9 +88,9 @@
                 const mt = MEDIA_TYPES[i];
                 const data = results[i];
                 if (data && data.pick) {
-                    cards.push(renderBestBetCard(mt, data.pick, data.anchor));
+                    cards.push(renderBestBetCard(mt, data.pick, data.cited || (data.anchor ? [data.anchor.title] : [])));
                 } else if (fallbackByType[mt]) {
-                    cards.push(renderBestBetCard(mt, fallbackByType[mt], null));
+                    cards.push(renderBestBetCard(mt, fallbackByType[mt], []));
                 }
             }
             if (cards.length === 0) {
@@ -106,7 +106,7 @@
         }
     }
 
-    function renderBestBetCard(mediaType, pick, anchor) {
+    function renderBestBetCard(mediaType, pick, cited) {
         const badge = TYPE_BADGE[mediaType] || TYPE_BADGE.movie;
         const accent = TYPE_ACCENT[mediaType] || TYPE_ACCENT.movie;
         const label = TYPE_LABEL[mediaType] || mediaType;
@@ -130,8 +130,11 @@
             description: pick.description || null,
         };
         const actions = typeof buildActionBar === 'function' ? buildActionBar(itemForCard, 'sm') : '';
-        const anchorLine = anchor && anchor.title
-            ? `<p class="text-[11px] text-txt-muted uppercase tracking-wide mt-2">${label} · because you loved ${escapeHtml(anchor.title)}</p>`
+        const citedNames = Array.isArray(cited) && cited.length > 0
+            ? cited.map(t => escapeHtml(t)).join(' & ')
+            : null;
+        const anchorLine = citedNames
+            ? `<p class="text-[11px] text-txt-muted uppercase tracking-wide mt-2">${label} · because you loved ${citedNames}</p>`
             : `<p class="text-[11px] text-txt-muted uppercase tracking-wide mt-2">${label}</p>`;
         const providerIds = (pick.watch_providers || []).map(p => p.provider_id).filter(Boolean).join(',');
         return `

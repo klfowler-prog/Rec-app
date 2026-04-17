@@ -2463,10 +2463,9 @@ async def best_bet(
     if not settings.gemini_api_key:
         return {"pick": None, "anchor": None}
 
-    # Find the user's most recently rated 9+/10 items across any
-    # media type. Prefer ones rated in the last 60 days so the
-    # anchor reflects their current mood. Fall back to all-time top
-    # rated if nothing recent is available.
+    # Gather the user's recently loved items (9+/10) across ALL media
+    # types. These are the pool the AI can draw connections from — it
+    # picks the strongest 1-2 to cite rather than us pre-selecting one.
     sixty_days_ago = datetime.utcnow() - timedelta(days=60)
     recent_loved = (
         db.query(MediaEntry)
@@ -2478,7 +2477,7 @@ async def best_bet(
             MediaEntry.rated_at >= sixty_days_ago,
         )
         .order_by(MediaEntry.rated_at.desc())
-        .limit(5)
+        .limit(8)
         .all()
     )
     if not recent_loved:
@@ -2486,16 +2485,15 @@ async def best_bet(
             db.query(MediaEntry)
             .filter(MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None), MediaEntry.rating >= 9)
             .order_by(MediaEntry.rating.desc(), MediaEntry.created_at.desc())
-            .limit(5)
+            .limit(8)
             .all()
         )
 
     if not recent_loved:
         return {"pick": None, "anchor": None, "message": "Rate a few items 9 or 10 out of 10 to unlock your best bet."}
 
-    # For new profiles (under 14 days old), pick the highest-rated
-    # anchor rather than the most recent — recency is noise when
-    # the user is still building their library.
+    # For new profiles (under 14 days old), sort by rating rather than
+    # recency — recency is noise when the user is still bulk-adding.
     _oldest = db.query(MediaEntry.created_at).filter(
         MediaEntry.user_id == user.id
     ).order_by(MediaEntry.created_at.asc()).first()
@@ -2503,59 +2501,40 @@ async def best_bet(
     if _profile_age < 14:
         recent_loved.sort(key=lambda e: -(e.rating or 0))
 
-    # Pick a cross-medium anchor, rotating so each media_type gets a
-    # different one when multiple high-rated items exist.
-    _anchor_offset = {"movie": 0, "tv": 1, "book": 2, "podcast": 3}
-    cross_type = [e for e in recent_loved if e.media_type != media_type]
-    if cross_type:
-        idx = _anchor_offset.get(media_type, 0) % len(cross_type)
-        anchor = cross_type[idx]
-    else:
-        anchor = recent_loved[0]
+    loved_lines: list[str] = []
+    for e in recent_loved:
+        g = f" [{e.genres}]" if e.genres else ""
+        loved_lines.append(
+            f"  - {e.title} ({e.media_type}, {e.year or '?'}) — {e.rating}/10{g}"
+        )
+    loved_block = "RECENTLY LOVED (rated 9-10 — draw your connections from these):\n" + "\n".join(loved_lines) + "\n"
 
     known_normalized, _ = _build_known_titles(db, user.id)
 
-    # Give the AI the user's broader taste register, not just the one
-    # anchor. Without this context the model grasps at surface features
-    # (e.g. picks a probate legal guide for "The Florida Project" based
-    # on the shared word "Florida") because it has nothing to calibrate
-    # against. Top 8 rated items from other media types plus up to 4
-    # from the same media type as the request is a lightweight way to
-    # show "here's their actual register across all the things they've
-    # engaged with".
-    top_rated_other = (
+    # Broader taste profile for register calibration. Top rated items
+    # the user has engaged with across all media types.
+    top_rated = (
         db.query(MediaEntry)
         .filter(
             MediaEntry.user_id == user.id,
             MediaEntry.rating.isnot(None),
             MediaEntry.rating >= 8,
-            MediaEntry.media_type != media_type,
         )
         .order_by(MediaEntry.rating.desc(), MediaEntry.rated_at.desc().nullslast())
-        .limit(8)
+        .limit(12)
         .all()
     )
-    top_rated_same = (
-        db.query(MediaEntry)
-        .filter(
-            MediaEntry.user_id == user.id,
-            MediaEntry.rating.isnot(None),
-            MediaEntry.rating >= 8,
-            MediaEntry.media_type == media_type,
-        )
-        .order_by(MediaEntry.rating.desc(), MediaEntry.rated_at.desc().nullslast())
-        .limit(4)
-        .all()
-    )
+    seen_titles = {e.title for e in recent_loved}
     taste_lines: list[str] = []
-    if top_rated_other or top_rated_same:
-        for e in top_rated_other + top_rated_same:
-            g = f" [{e.genres}]" if e.genres else ""
-            taste_lines.append(
-                f"  - {e.title} ({e.media_type}, {e.year or '?'}) — {e.rating}/10{g}"
-            )
+    for e in top_rated:
+        if e.title in seen_titles:
+            continue
+        g = f" [{e.genres}]" if e.genres else ""
+        taste_lines.append(
+            f"  - {e.title} ({e.media_type}, {e.year or '?'}) — {e.rating}/10{g}"
+        )
     taste_profile_block = (
-        "USER'S TASTE PROFILE (what they actually like — use this to calibrate register, tone, and level of ambition):\n"
+        "BROADER TASTE PROFILE (calibrate register, tone, and ambition level):\n"
         + "\n".join(taste_lines)
         + "\n"
     ) if taste_lines else ""
@@ -2565,36 +2544,27 @@ async def best_bet(
 
         type_label = {"movie": "movie", "tv": "TV show", "book": "book", "podcast": "podcast"}[media_type]
         resonance_signals = build_resonance_block(db, user.id)
-        prompt = f"""You're picking ONE {type_label} as a hero recommendation for a user based specifically on something they recently rated 9 or 10 out of 10.
+        prompt = f"""You're picking ONE {type_label} as a hero recommendation. Below are items this user recently rated 9 or 10 out of 10 — your job is to find the strongest thematic bridge from ANY of them (one or two) to a great {type_label} they haven't seen yet.
 
 {resonance_signals}
-ANCHOR ITEM (the thing they just loved):
-- Title: {anchor.title}
-- Media type: {anchor.media_type}
-- Year: {anchor.year or 'unknown'}
-- Genres: {anchor.genres or 'unknown'}
-- Rating: {anchor.rating}/10
-
+{loved_block}
 {taste_profile_block}
-TASK: Generate 3 candidate {type_label}s, then I'll pick the strongest. Each candidate must pick up a CONCRETE, specific element of the anchor item — a theme, a tonal register, a narrative approach, a specific idea it's wrestling with, or a character dynamic. The connection must be named explicitly and tied to something real about the anchor, AND it must sit inside the user's overall taste register as visible in the profile above.
+TASK: Generate 3 candidate {type_label}s. For each, find the deepest connection to ONE or TWO items from the RECENTLY LOVED list above. You choose which loved item(s) to cite — pick whichever create the most interesting, non-obvious bridge to your candidate. Different candidates SHOULD cite different loved items when possible.
 
 CRITICAL — NO SURFACE MATCHES:
-A shared word in the title is NOT a connection. A shared setting alone is NOT a connection. A shared genre label is NOT a connection. A shared demographic is NOT a connection. "Bad Moms" (comedy movie) does NOT connect to a parenting self-help book — that is a keyword match on "moms," not a taste match. If you cannot articulate the connection without repeating a surface word, you haven't found one.
+A shared word in the title is NOT a connection. A shared setting alone is NOT a connection. A shared genre label is NOT a connection. A shared demographic is NOT a connection. If you cannot articulate the connection without repeating a surface word, you haven't found one.
 
 NEVER recommend practical/self-help/how-to books unless the user's profile explicitly shows they love that category. Stick to entertainment — fiction, narrative nonfiction, stories.
-
-BAD EXAMPLE (do not do this): anchor is "The Florida Project" (a Sean Baker movie about poverty, childhood, and motel communities on the margins of Orlando). A surface-match pick would be "Probate and Settle an Estate in Florida" — a legal how-to guide that happens to have "Florida" in the title. That is NOT a match. It shares one word and nothing else.
-
-GOOD EXAMPLE for the same anchor: "Random Family" by Adrian Nicole LeBlanc (narrative nonfiction about poverty, teenage motherhood, and family precarity in the Bronx) — it matches on concrete themes (marginalized families, structural precarity, intimate daily texture), on tone (empathetic, unflinching, deeply observed), and on register (serious literary nonfiction, not genre or reference).
 
 RULES:
 - Each candidate must be a real, findable {type_label} — no invented titles.
 - DO NOT pick anything the user already has in their library: {', '.join(list(known_normalized)[:30]) if known_normalized else 'none'}
-- Each "reason" must have EXACTLY TWO short sentences (total under 40 words): (1) What it is — one punchy sentence, the premise/hook. (2) Why — "Because you loved {anchor.title}, ..." citing ONE specific concrete connection. No run-on clauses, no stacking multiple connections.
-- ALWAYS include a "creator" field with the author, director, or creator name — this is critical for search accuracy.
-- Match audience and tonal register — don't suggest cozy/YA/how-to material for a prestige/literary profile, or vice versa. Use the TASTE PROFILE above to calibrate.
-- Include a "predicted_rating" for each candidate: your honest 1-10 prediction (one decimal) of how THIS SPECIFIC USER would rate it, based on the anchor AND the full taste profile above. Be ruthless — if a candidate fits the anchor thematically but sits outside the user's register, predict LOW (4-5), don't soft-pedal. The app drops anything below 6, so lying doesn't help you.
-- It is completely fine for ALL 3 candidates to score below 6. In that case the app will show "no best bet this week" rather than force a bad match. Do not inflate scores to keep the section populated.
+- Each "reason" must have EXACTLY TWO short sentences (total under 40 words): (1) What it is — one punchy premise sentence. (2) Why — "Because you loved [Title], ..." or "Because you loved [Title] and [Title], ..." citing a specific concrete connection. No run-on clauses.
+- Different candidates should cite DIFFERENT items from the loved list when possible — don't anchor everything to the same item.
+- ALWAYS include a "creator" field with the author, director, or creator name.
+- Include "cited" — an array of 1-2 title strings from the loved list that this candidate connects to.
+- Match audience and tonal register. Use the BROADER TASTE PROFILE to calibrate.
+- Include a "predicted_rating": your honest 1-10 prediction (one decimal). Be ruthless — predict LOW (4-5) if the fit is weak. The app drops anything below 6. It is fine for ALL candidates to score below 6.
 - Spread your scores across the range. Don't give all three 8+.
 
 Return ONLY valid JSON, no markdown:
@@ -2604,21 +2574,24 @@ Return ONLY valid JSON, no markdown:
       "title": "...",
       "creator": "author/director/creator name",
       "year": 2020,
-      "reason": "A trapped crew unravels a conspiracy aboard a deep-space ark. Because you loved {anchor.title}, the same slow-burn paranoia of living inside a lie.",
+      "cited": ["Silo"],
+      "reason": "A trapped crew unravels a conspiracy aboard a deep-space ark. Because you loved Silo, the same slow-burn paranoia of living inside a lie.",
       "predicted_rating": 8.5
     }},
     {{
       "title": "...",
       "creator": "...",
       "year": 2018,
-      "reason": "Short punchy premise sentence. Because you loved {anchor.title}, one concrete connection.",
+      "cited": ["Into the Wild", "Severance"],
+      "reason": "Short punchy premise. Because you loved Into the Wild and Severance, one concrete connection.",
       "predicted_rating": 7.2
     }},
     {{
       "title": "...",
       "creator": "...",
       "year": 2022,
-      "reason": "Short punchy premise sentence. Because you loved {anchor.title}, one concrete connection.",
+      "cited": ["The Florida Project"],
+      "reason": "Short punchy premise. Because you loved The Florida Project, one concrete connection.",
       "predicted_rating": 6.4
     }}
   ]
@@ -2660,11 +2633,16 @@ Return ONLY valid JSON, no markdown:
             pr = _coerce_pr(c.get("predicted_rating"))
             if pr is None or pr < 6.0:
                 continue
+            cited = c.get("cited") or []
+            if isinstance(cited, str):
+                cited = [cited]
             survivors.append({
                 "title": t,
                 "year": c.get("year"),
                 "reason": c.get("reason", ""),
                 "predicted_rating": pr,
+                "creator": c.get("creator") or "",
+                "cited": cited,
             })
 
         if not survivors:
@@ -2678,11 +2656,11 @@ Return ONLY valid JSON, no markdown:
                 "message": "Nothing crossed the 6/10 bar for this category right now — try again in a few days.",
             }
 
-        # Sort by predicted_rating desc; AI ordering is the tiebreaker.
         survivors.sort(key=lambda c: -c["predicted_rating"])
         chosen = survivors[0]
         title = chosen["title"]
         pr = chosen["predicted_rating"]
+        cited_titles = chosen.get("cited") or []
 
         # Enrich via search — try with creator first, fall back to title-only
         creator = chosen.get("creator") or ""
@@ -2741,15 +2719,13 @@ Return ONLY valid JSON, no markdown:
         result = {
             "pick": enriched_pick,
             "anchor": {
-                "title": anchor.title,
-                "media_type": anchor.media_type,
-                "rating": anchor.rating,
-                "image_url": anchor.image_url,
-            },
+                "title": cited_titles[0] if cited_titles else None,
+            } if cited_titles else None,
+            "cited": cited_titles,
         }
         log.info(
-            "best_bet [user=%d/%s]: anchor=%s -> picked %s (pred=%s) from %d surviving candidates",
-            user.id, media_type, anchor.title, enriched_pick["title"], pr, len(survivors),
+            "best_bet [user=%d/%s]: cited=%s -> picked %s (pred=%s) from %d surviving candidates",
+            user.id, media_type, cited_titles, enriched_pick["title"], pr, len(survivors),
         )
         cache.set(cache_key, result, ttl_seconds=604800)  # 7 days
         return result
