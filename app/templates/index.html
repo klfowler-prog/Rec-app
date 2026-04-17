@@ -99,69 +99,38 @@
     {% else %}
 
     <!-- ============================================================
-         Hero: greeting + AI insight + resonance chips
+         Hero: greeting + day-aware featured content, one unit
          ============================================================ -->
     <div class="home-hero">
-        <div class="flex items-start justify-between">
+        <div class="flex items-start justify-between mb-4">
             <div>
                 <h1 class="text-2xl md:text-3xl font-bold mb-1">{{ greeting }}</h1>
-                <p id="right-now-commentary" class="text-sm md:text-base text-white/75 leading-relaxed max-w-2xl">{{ suggestion }}</p>
+                <p class="text-sm md:text-base text-white/75 leading-relaxed max-w-2xl">{{ suggestion }}</p>
             </div>
             <button onclick="refreshAll(this)" title="Get fresh picks" class="flex-shrink-0 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/60 hover:text-white transition-base">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h4.586M20 20v-5h-4.586M4.929 9A8 8 0 0119.07 9M19.071 15A8 8 0 014.93 15"/></svg>
             </button>
         </div>
-    </div>
-
-    {% if featured_mode == 'theaters' %}
-    <!-- In theaters now — scored against your taste -->
-    <div>
-        <div class="flex items-center justify-between mb-3">
-            <div>
-                <p class="text-[11px] text-coral uppercase tracking-[0.18em] font-bold mb-0.5">In theaters now</p>
-                <p class="text-sm text-txt-muted">Scored against your taste.</p>
-            </div>
-        </div>
-        <div id="box-office-cards" class="flex gap-3 overflow-x-auto pb-2" style="scroll-snap-type: x mandatory;">
+        {% if featured_mode == 'theaters' %}
+        <div id="box-office-cards" class="flex gap-3 overflow-x-auto pb-1" style="scroll-snap-type: x mandatory;">
             <div class="text-center py-4 w-full">
-                <div class="inline-block w-5 h-5 border-2 border-coral/30 border-t-coral rounded-full animate-spin"></div>
-                <p class="text-xs text-txt-muted mt-2">Checking what's playing...</p>
+                <div class="inline-block w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
             </div>
         </div>
-    </div>
-    {% elif featured_mode == 'wind_down' %}
-    <!-- Sunday wind-down — cozy picks for tonight -->
-    <div>
-        <div class="flex items-center justify-between mb-3">
-            <div>
-                <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold mb-0.5">Tonight's pick</p>
-                <p class="text-sm text-txt-muted">Something good to settle in with.</p>
-            </div>
-        </div>
-        <div id="wind-down-cards" class="flex gap-3 overflow-x-auto pb-2" style="scroll-snap-type: x mandatory;">
+        {% elif featured_mode == 'wind_down' %}
+        <div id="wind-down-cards" class="flex gap-3 overflow-x-auto pb-1" style="scroll-snap-type: x mandatory;">
             <div class="text-center py-4 w-full">
-                <div class="inline-block w-5 h-5 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
-                <p class="text-xs text-txt-muted mt-2">Finding something cozy...</p>
+                <div class="inline-block w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
             </div>
         </div>
-    </div>
-    {% else %}
-    <!-- Weekday — quick pick for tonight -->
-    <div>
-        <div class="flex items-center justify-between mb-3">
-            <div>
-                <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold mb-0.5">For tonight</p>
-                <p class="text-sm text-txt-muted">A quick pick based on your taste.</p>
-            </div>
-        </div>
-        <div id="weekday-pick-cards" class="flex gap-3 overflow-x-auto pb-2" style="scroll-snap-type: x mandatory;">
+        {% else %}
+        <div id="weekday-pick-cards" class="flex gap-3 overflow-x-auto pb-1" style="scroll-snap-type: x mandatory;">
             <div class="text-center py-4 w-full">
-                <div class="inline-block w-5 h-5 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
-                <p class="text-xs text-txt-muted mt-2">Picking something for you...</p>
+                <div class="inline-block w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
             </div>
         </div>
+        {% endif %}
     </div>
-    {% endif %}
 
     <!-- Signal strength meter -->
     <div id="signal-meter" class="hidden">
@@ -280,7 +249,10 @@
          Your best bet — one big visual pick, loaded async
          ============================================================ -->
     <div id="best-bet-section" class="hidden">
-        <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold mb-3">We think you'll love this</p>
+        <div class="flex items-center justify-between mb-3">
+            <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold">We think you'll love this</p>
+            <a href="/discover" class="text-xs text-sage hover:underline">More on Discover &rarr;</a>
+        </div>
         <div id="best-bet-card" class="best-bet-hero"></div>
     </div>
 
@@ -368,9 +340,9 @@
     {% endif %}
 
     <!-- ============================================================
-         Discover teaser — woven between content sections
+         Discover teaser — stays prominent, pushes to Discover
          ============================================================ -->
-    <a href="/discover" class="block relative overflow-hidden rounded-2xl min-h-[8rem] transition-all hover:scale-[1.01] hover:shadow-xl group">
+    <a href="/discover" class="block relative overflow-hidden rounded-2xl transition-all hover:scale-[1.01] hover:shadow-xl group">
         <div class="absolute inset-0 flex">
             {% for poster_url in nav_posters[:4] %}
             <div class="flex-1 bg-cover bg-center" style="background-image: url('{{ poster_url }}')"></div>
@@ -382,50 +354,36 @@
             {% endif %}
         </div>
         <div class="absolute inset-0 bg-gradient-to-r from-black/80 via-black/60 to-black/40"></div>
-        <div class="relative z-10 p-5 md:p-6 flex items-center gap-4">
-            <div class="w-12 h-12 rounded-xl bg-sage/30 backdrop-blur flex items-center justify-center flex-shrink-0">
-                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16zM11 8v6M8 11h6"/></svg>
+        <div class="relative z-10 p-5 flex items-center gap-4">
+            <div class="w-10 h-10 rounded-xl bg-sage/30 backdrop-blur flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16zM11 8v6M8 11h6"/></svg>
             </div>
-            <div class="text-white">
-                <p class="text-base font-bold group-hover:text-sage-light transition-base">Discover something new</p>
-                <p class="text-sm text-white/70">{% if queue_count == 0 %}Your queue is empty — let's fix that.{% else %}Best bets, mood picks, and AI-powered recs waiting for you.{% endif %}</p>
+            <div class="text-white flex-1">
+                <p class="text-sm font-bold group-hover:text-sage-light transition-base">Discover something new</p>
+                <p class="text-xs text-white/70">{% if queue_count == 0 %}Your queue is empty — let's fix that.{% else %}Best bets, mood picks, and AI recs.{% endif %}</p>
             </div>
-            <svg class="w-5 h-5 text-white/50 ml-auto flex-shrink-0 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            <svg class="w-4 h-4 text-white/50 flex-shrink-0 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </div>
     </a>
 
     <!-- ============================================================
-         My Taste + Add — side by side teasers
+         Compact nav — My Taste, Add, Library in one row
          ============================================================ -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <a href="/taste" class="block relative overflow-hidden rounded-2xl transition-all hover:scale-[1.01] hover:shadow-xl group" style="background: linear-gradient(135deg, #E8734A 0%, #C55A34 100%);">
-            <div class="absolute top-0 right-0 w-28 h-28 bg-white/10 rounded-full -translate-y-10 translate-x-10"></div>
-            <div class="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full translate-y-6 -translate-x-6"></div>
-            <div class="relative z-10 p-5">
-                <svg class="w-6 h-6 text-white/80 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-                <p class="text-base font-bold text-white group-hover:text-cream transition-base">My Taste</p>
-                <p class="text-sm text-white/70 mt-0.5">
-                    {% if quizzes_done == 0 %}Take your first quiz to unlock your taste profile.
-                    {% elif quizzes_done < 3 %}{{ quizzes_done }}/3 quizzes done — finish the rest to sharpen your profile.
-                    {% else %}{{ rated_count }} items rated. See what your taste says about you.
-                    {% endif %}
-                </p>
-            </div>
+    <div class="grid grid-cols-3 gap-3">
+        <a href="/taste" class="block p-4 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark hover:border-coral/40 transition-all group text-center">
+            <svg class="w-5 h-5 text-coral mx-auto mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+            <p class="text-xs font-semibold group-hover:text-coral transition-base">My Taste</p>
+            <p class="text-[10px] text-txt-muted mt-0.5">{% if quizzes_done < 3 %}{{ quizzes_done }}/3 quizzes{% else %}{{ rated_count }} rated{% endif %}</p>
         </a>
-        <a href="/add" class="block relative overflow-hidden rounded-2xl transition-all hover:scale-[1.01] hover:shadow-xl group" style="background: linear-gradient(135deg, #2B3A4E 0%, #1E2A3A 100%);">
-            <div class="absolute top-0 right-0 w-28 h-28 bg-white/10 rounded-full -translate-y-10 translate-x-10"></div>
-            <div class="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full translate-y-6 -translate-x-6"></div>
-            <div class="relative z-10 p-5">
-                <svg class="w-6 h-6 text-white/80 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-                <p class="text-base font-bold text-white group-hover:text-sage-light transition-base">Add to your library</p>
-                <p class="text-sm text-white/70 mt-0.5">
-                    {% set types_present = type_counts.keys()|list %}
-                    {% if 'book' not in types_present and 'podcast' not in types_present %}No books or podcasts yet — bulk add or import to round out your profile.
-                    {% elif total < 20 %}{{ total }} items so far. The more you add, the better your recs get.
-                    {% else %}Bulk add, import from Goodreads or Plex, or search for something specific.
-                    {% endif %}
-                </p>
-            </div>
+        <a href="/add" class="block p-4 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark hover:border-sage/40 transition-all group text-center">
+            <svg class="w-5 h-5 text-sage mx-auto mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            <p class="text-xs font-semibold group-hover:text-sage transition-base">Add Items</p>
+            <p class="text-[10px] text-txt-muted mt-0.5">{{ total }} in library</p>
+        </a>
+        <a href="/profile" class="block p-4 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark hover:border-navy/40 dark:hover:border-white/20 transition-all group text-center">
+            <svg class="w-5 h-5 text-navy dark:text-txt-light mx-auto mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+            <p class="text-xs font-semibold group-hover:text-sage transition-base">Library</p>
+            <p class="text-[10px] text-txt-muted mt-0.5">{% if type_counts.get('movie', 0) > 0 %}{{ type_counts.movie }}m{% endif %}{% if type_counts.get('tv', 0) > 0 %} {{ type_counts.tv }}tv{% endif %}{% if type_counts.get('book', 0) > 0 %} {{ type_counts.book }}b{% endif %}</p>
         </a>
     </div>
 
@@ -472,26 +430,6 @@
         </div>
     </div>
 
-    <!-- My Library teaser -->
-    <a href="/profile" class="block relative overflow-hidden rounded-2xl min-h-[5rem] transition-all hover:scale-[1.01] hover:shadow-lg group bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark">
-        <div class="p-5 flex items-center gap-4">
-            <div class="flex -space-x-2 flex-shrink-0">
-                {% for poster_url in nav_posters[:3] %}
-                <div class="w-10 h-14 rounded-lg overflow-hidden border-2 border-surface-light dark:border-surface-dark shadow-sm">
-                    <img src="{{ poster_url }}" alt="" class="w-full h-full object-cover">
-                </div>
-                {% endfor %}
-                {% if nav_posters|length == 0 %}
-                <div class="w-10 h-14 rounded-lg bg-sage/10 border-2 border-surface-light dark:border-surface-dark flex items-center justify-center"><span class="text-sage text-xs font-bold">?</span></div>
-                {% endif %}
-            </div>
-            <div class="flex-1 min-w-0">
-                <p class="text-sm font-bold group-hover:text-sage transition-base">My Library</p>
-                <p class="text-xs text-txt-muted">{{ total }} items{% if rated_count > 0 %}, {{ rated_count }} rated{% endif %}{% if type_counts.get('movie', 0) > 0 %} · {{ type_counts.movie }} movies{% endif %}{% if type_counts.get('tv', 0) > 0 %} · {{ type_counts.tv }} shows{% endif %}{% if type_counts.get('book', 0) > 0 %} · {{ type_counts.book }} books{% endif %}</p>
-            </div>
-            <svg class="w-5 h-5 text-txt-muted flex-shrink-0 group-hover:translate-x-1 group-hover:text-sage transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-        </div>
-    </a>
 
     {% endif %}
 </div>
@@ -591,16 +529,12 @@ async function copyTogetherInvite(btn) {
     setTimeout(() => { if (label) label.textContent = originalLabel; }, 2200);
 }
 
-// Right Now — just update the AI commentary in the hero
+// Right Now — mark resonating hearts on progress cards (no longer overwrites hero text)
 async function loadRightNow() {
-    const el = document.getElementById('right-now-commentary');
-    if (!el) return;
     try {
         const resp = await fetch('/api/media/home/right-now');
         if (!resp.ok) return;
         const data = await resp.json();
-        if (data.commentary) el.textContent = data.commentary;
-        // Mark resonating hearts on the progress cards
         for (const item of (data.items || [])) {
             if (item.is_resonating) {
                 const card = document.querySelector(`.progress-card[data-entry-id="${item.id}"] .resonance-heart`);
@@ -937,8 +871,11 @@ async function loadSignalStrength() {
         label.textContent = `${data.label} — ${data.rated_count} items rated`;
         nudge.textContent = data.nudge;
 
-        // Hide CTAs at full signal
-        if (data.level >= 5) {
+        // At full signal, hide the whole meter — job done
+        if (data.level >= 5) return;
+
+        // Hide CTAs at near-full signal
+        if (data.level >= 4) {
             document.getElementById('signal-ctas').classList.add('hidden');
         }
 
@@ -979,7 +916,7 @@ async function loadBoxOffice() {
         const sections = data.sections || [];
         const inTheaters = sections.find(s => s.label && s.label.toLowerCase().includes('theater'));
         const items = inTheaters ? inTheaters.items.slice(0, 6) : (sections[0]?.items || []).slice(0, 6);
-        if (!items.length) { container.innerHTML = '<p class="text-xs text-txt-muted py-2">Nothing playing right now.</p>'; return; }
+        if (!items.length) { container.innerHTML = '<p class="text-xs text-white/50 py-2">Nothing playing right now.</p>'; return; }
         container.innerHTML = items.map(item => {
             const pr = item.predicted_rating;
             const prColor = pr >= 4 ? 'bg-emerald-500' : pr >= 3 ? 'bg-yellow-500' : 'bg-amber-400';
@@ -990,16 +927,16 @@ async function loadBoxOffice() {
             const asBadge = (asPct && item.audience_count >= 10) ? `<span class="${asColor} text-[9px] font-bold">${asPct}% audience</span>` : '';
             const image = item.image_url
                 ? `<img src="${item.image_url}" alt="" class="w-full h-full object-cover">`
-                : `<div class="w-full h-full bg-sage/10 flex items-center justify-center"><span class="text-sage text-2xl font-bold">${escapeHtml((item.title||'?')[0])}</span></div>`;
+                : `<div class="w-full h-full bg-white/10 flex items-center justify-center"><span class="text-white/60 text-2xl font-bold">${escapeHtml((item.title||'?')[0])}</span></div>`;
             const link = item.external_id ? `/media/movie/${item.external_id}?source=${item.source}` : '#';
             return `
                 <a href="${link}" class="flex-shrink-0 group" style="width: 130px; scroll-snap-align: start;">
                     <div class="rounded-xl overflow-hidden shadow-md relative transition-all group-hover:shadow-lg group-hover:-translate-y-1" style="height: 195px;">
                         ${image}${prBadge}
                     </div>
-                    <p class="text-[11px] font-semibold mt-1.5 truncate">${escapeHtml(item.title)}</p>
+                    <p class="text-[11px] font-semibold mt-1.5 truncate text-white">${escapeHtml(item.title)}</p>
                     <div class="flex items-center gap-1.5">
-                        ${item.year ? `<span class="text-[9px] text-txt-muted">${item.year}</span>` : ''}
+                        ${item.year ? `<span class="text-[9px] text-white/50">${item.year}</span>` : ''}
                         ${asBadge}
                     </div>
                 </a>`;
@@ -1023,12 +960,12 @@ async function loadWindDown() {
         let picks = items.filter(i => cozyTypes.includes(i.media_type));
         if (picks.length < 2) picks = items;
         picks = picks.slice(0, 4);
-        if (!picks.length) { container.innerHTML = '<p class="text-xs text-txt-muted py-2">Nothing to suggest right now.</p>'; return; }
+        if (!picks.length) { container.innerHTML = '<p class="text-xs text-white/50 py-2">Nothing to suggest right now.</p>'; return; }
         container.innerHTML = picks.map(item => {
             const fit = item.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
             const image = item.image_url
                 ? `<img src="${item.image_url}" alt="" class="${fit}" style="width:100%;height:100%;object-fit:cover;">`
-                : `<div class="w-full h-full bg-sage/10 flex items-center justify-center"><span class="text-sage text-2xl font-bold">${escapeHtml((item.title||'?')[0])}</span></div>`;
+                : `<div class="w-full h-full bg-white/10 flex items-center justify-center"><span class="text-white/60 text-2xl font-bold">${escapeHtml((item.title||'?')[0])}</span></div>`;
             const link = item.external_id ? `/media/${item.media_type}/${item.external_id}?source=${item.source}` : '#';
             const typeLabel = {movie:'Movie',tv:'TV',book:'Book',podcast:'Podcast'}[item.media_type] || '';
             return `
@@ -1036,8 +973,8 @@ async function loadWindDown() {
                     <div class="rounded-xl overflow-hidden shadow-md relative transition-all group-hover:shadow-lg group-hover:-translate-y-1" style="height: 195px;">
                         ${image}
                     </div>
-                    <p class="text-[11px] font-semibold mt-1.5 truncate">${escapeHtml(item.title)}</p>
-                    <span class="text-[9px] text-txt-muted">${typeLabel}</span>
+                    <p class="text-[11px] font-semibold mt-1.5 truncate text-white">${escapeHtml(item.title)}</p>
+                    <span class="text-[9px] text-white/50">${typeLabel}</span>
                 </a>`;
         }).join('');
     } catch {
@@ -1054,12 +991,12 @@ async function loadWeekdayPick() {
         if (!resp.ok) { container.innerHTML = ''; return; }
         const items = await resp.json();
         const picks = items.slice(0, 4);
-        if (!picks.length) { container.innerHTML = '<p class="text-xs text-txt-muted py-2">Nothing to suggest right now.</p>'; return; }
+        if (!picks.length) { container.innerHTML = '<p class="text-xs text-white/50 py-2">Nothing to suggest right now.</p>'; return; }
         container.innerHTML = picks.map(item => {
             const fit = item.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
             const image = item.image_url
                 ? `<img src="${item.image_url}" alt="" class="${fit}" style="width:100%;height:100%;object-fit:cover;">`
-                : `<div class="w-full h-full bg-sage/10 flex items-center justify-center"><span class="text-sage text-2xl font-bold">${escapeHtml((item.title||'?')[0])}</span></div>`;
+                : `<div class="w-full h-full bg-white/10 flex items-center justify-center"><span class="text-white/60 text-2xl font-bold">${escapeHtml((item.title||'?')[0])}</span></div>`;
             const link = item.external_id ? `/media/${item.media_type}/${item.external_id}?source=${item.source}` : '#';
             const typeLabel = {movie:'Movie',tv:'TV',book:'Book',podcast:'Podcast'}[item.media_type] || '';
             return `
@@ -1067,8 +1004,8 @@ async function loadWeekdayPick() {
                     <div class="rounded-xl overflow-hidden shadow-md relative transition-all group-hover:shadow-lg group-hover:-translate-y-1" style="height: 195px;">
                         ${image}
                     </div>
-                    <p class="text-[11px] font-semibold mt-1.5 truncate">${escapeHtml(item.title)}</p>
-                    <span class="text-[9px] text-txt-muted">${typeLabel}</span>
+                    <p class="text-[11px] font-semibold mt-1.5 truncate text-white">${escapeHtml(item.title)}</p>
+                    <span class="text-[9px] text-white/50">${typeLabel}</span>
                 </a>`;
         }).join('');
     } catch {
