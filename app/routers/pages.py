@@ -302,17 +302,20 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
             )
             for entry in recent_rated:
                 title_lower = entry.title.lower()
-                # Priority: 0 = both rated it, 1 = it's in user's queue, 2 = general
+                verb = {"movie": "watched", "tv": "watched", "book": "read", "podcast": "listened to"}.get(entry.media_type, "checked out")
+                # Priority: 0 = both have it, 1 = it's in user's queue, 2 = general
                 if title_lower in my_titles:
                     priority = 0
-                    action = f"{first_name} rated {entry.title} {entry.rating}/5 — you've seen this too"
+                    overlap_note = f"you've {verb} this too"
+                    action = f"{first_name} rated {entry.title} {entry.rating}/5 — {overlap_note}"
                 elif title_lower in my_queue_titles:
                     priority = 1
                     action = f"{first_name} rated {entry.title} {entry.rating}/5 — it's in your queue"
                 else:
                     priority = 2
                     action = f"{first_name} rated {entry.title} {entry.rating}/5"
-                raw_highlights.append((priority, {
+                recency = (entry.rated_at or entry.updated_at).timestamp() if (entry.rated_at or entry.updated_at) else 0
+                raw_highlights.append((priority, recency, {
                     "action": action,
                     "partner_name": first_name,
                     "partner_picture": partner.picture,
@@ -336,7 +339,8 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
             for entry in partner_queue:
                 title_lower = entry.title.lower()
                 if title_lower in my_queue_titles:
-                    raw_highlights.append((0, {
+                    recency = entry.created_at.timestamp() if entry.created_at else 0
+                    raw_highlights.append((0, recency, {
                         "action": f"You and {first_name} both want to check out {entry.title}",
                         "partner_name": first_name,
                         "partner_picture": partner.picture,
@@ -346,13 +350,12 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
                         "has_overlap": True,
                     }))
 
-        # Sort by priority (overlap first), then by rating (5/5 first)
-        # so we don't show 3 highlights from the same person.
-        raw_highlights.sort(key=lambda x: (x[0], -(x[1].get("rating") or 0)))
+        # Sort by priority (overlap first), then most recent activity
+        raw_highlights.sort(key=lambda x: (x[0], -x[1]))
         seen_titles: set[str] = set()
         seen_partners: set[str] = set()
-        # First pass: one highlight per partner (overlap preferred)
-        for _, h in raw_highlights:
+        # First pass: one highlight per partner (overlap preferred, most recent wins)
+        for _, _, h in raw_highlights:
             if h["partner_name"] in seen_partners:
                 continue
             if h["title"].lower() in seen_titles:
@@ -364,7 +367,7 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
                 break
         # Second pass: if we don't have 3 yet, allow repeat partners
         if len(together_highlights) < 3:
-            for _, h in raw_highlights:
+            for _, _, h in raw_highlights:
                 if h["title"].lower() in seen_titles:
                     continue
                 together_highlights.append(h)
