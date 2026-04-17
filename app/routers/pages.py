@@ -254,20 +254,6 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
     ).scalar()
     avg_rating = round(float(avg_rating), 1) if avg_rating else None
 
-    # Top genre from the user's rated items
-    genre_entries = (
-        db.query(MediaEntry.genres)
-        .filter(MediaEntry.user_id == user.id, MediaEntry.genres.isnot(None), MediaEntry.genres != "")
-        .all()
-    )
-    genre_counts: dict[str, int] = {}
-    for (genres_str,) in genre_entries:
-        for g in (genres_str or "").split(","):
-            g = g.strip()
-            if g:
-                genre_counts[g] = genre_counts.get(g, 0) + 1
-    top_genre = max(genre_counts, key=genre_counts.get) if genre_counts else None
-
     # Items rated this month
     month_ago = datetime.utcnow() - timedelta(days=30)
     rated_this_month = db.query(MediaEntry).filter(
@@ -276,14 +262,47 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
         MediaEntry.rated_at >= month_ago,
     ).count()
 
-    # Highest-rated item (most recent 5/5)
-    fave = (
-        db.query(MediaEntry.title, MediaEntry.media_type)
-        .filter(MediaEntry.user_id == user.id, MediaEntry.rating == 5)
-        .order_by(MediaEntry.rated_at.desc().nullslast())
-        .first()
-    )
-    latest_fave = fave.title if fave else None
+    # Taste DNA teaser — pull the top quiz profile name for an intriguing hook
+    taste_teaser = ""
+    if quiz_results and quizzes_done > 0:
+        # Collect all profiles across categories, pick the highest match
+        all_profiles: list[tuple[str, str, float]] = []
+        category_labels = {"movies": "movie", "tv": "TV", "books": "book"}
+        for cat, label in category_labels.items():
+            profiles = (quiz_results.get(cat) or {}).get("profiles", [])
+            for p in profiles[:1]:  # top profile per category
+                name = p.get("name", "")
+                sim = p.get("similarity", 0)
+                if name:
+                    all_profiles.append((name, label, sim))
+
+        if all_profiles:
+            # Pick the strongest match
+            best = max(all_profiles, key=lambda x: x[2])
+            pct = round(best[2] * 100)
+            taste_teaser = f'Your {best[1]} taste: {pct}% "{best[0]}"'
+
+    # Per-type average for a fun comparison
+    type_avgs: dict[str, float] = {}
+    for mt in ("movie", "tv", "book", "podcast"):
+        a = db.query(sqlfunc.avg(MediaEntry.rating)).filter(
+            MediaEntry.user_id == user.id, MediaEntry.media_type == mt,
+            MediaEntry.rating.isnot(None),
+        ).scalar()
+        if a:
+            type_avgs[mt] = round(float(a), 2)
+    # Find what they rate highest vs lowest
+    taste_comparison = ""
+    if len(type_avgs) >= 2:
+        highest = max(type_avgs, key=type_avgs.get)
+        lowest = min(type_avgs, key=type_avgs.get)
+        labels = {"movie": "movies", "tv": "TV shows", "book": "books", "podcast": "podcasts"}
+        if type_avgs[highest] - type_avgs[lowest] >= 0.2:
+            taste_comparison = f"You rate {labels[highest]} higher than {labels[lowest]}."
+
+    fives_count = db.query(MediaEntry).filter(
+        MediaEntry.user_id == user.id, MediaEntry.rating == 5
+    ).count()
 
     # Grab a few poster URLs for card backgrounds
     poster_items = (
@@ -432,9 +451,10 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
             "together_partner_count": together_partner_count,
             "together_highlights": together_highlights,
             "avg_rating": avg_rating,
-            "top_genre": top_genre,
+            "taste_teaser": taste_teaser,
+            "taste_comparison": taste_comparison,
             "rated_this_month": rated_this_month,
-            "latest_fave": latest_fave,
+            "fives_count": fives_count,
             **greeting_ctx,
         },
     )

@@ -380,8 +380,8 @@
                     <p class="text-sm font-bold group-hover:text-coral transition-base">See your Taste DNA</p>
                     <p class="text-xs text-txt-muted mt-0.5 leading-relaxed">
                         {% if quizzes_done < 3 %}{{ quizzes_done }}/3 quizzes done — finish them to unlock your full profile.
-                        {% elif top_genre %}Your top genre is {{ top_genre }}.{% if latest_fave %} Last 5/5: {{ latest_fave }}.{% endif %}
-                        {% else %}{{ rated_count }} items rated. See what your taste says about you.
+                        {% elif taste_teaser %}{{ taste_teaser }}{% if taste_comparison %} {{ taste_comparison }}{% endif %}
+                        {% else %}{{ rated_count }} items rated — see what patterns emerge.
                         {% endif %}
                     </p>
                 </div>
@@ -426,10 +426,11 @@
                 </div>
             </div>
             <p class="text-[10px] text-txt-muted mb-2.5">
-                {% if rated_this_month > 0 %}{{ rated_this_month }} rated this month.{% endif %}
-                {% if queue_count > 0 %}{{ queue_count }} in your queue.{% endif %}
+                {% if fives_count > 0 %}{{ fives_count }} perfect scores given.{% endif %}
+                {% if rated_this_month > 0 %} {{ rated_this_month }} rated this month.{% endif %}
+                {% if queue_count > 0 %} {{ queue_count }} waiting in your queue.{% endif %}
                 {% set types_present = type_counts.keys()|list %}
-                {% if 'book' not in types_present %}No books yet — add some to round out your taste.{% elif 'podcast' not in types_present %}Try adding some podcasts.{% endif %}
+                {% if 'book' not in types_present %} No books yet — add some to round out your taste.{% elif 'podcast' not in types_present %} Try adding some podcasts.{% endif %}
             </p>
             <div class="flex gap-2">
                 <a href="/add" class="flex items-center gap-1.5 px-3 py-1.5 bg-sage/10 hover:bg-sage hover:text-white text-sage rounded-lg text-xs font-semibold transition-base">
