@@ -214,6 +214,28 @@
         </div>
         {% endif %}
 
+        <!-- Streaming services -->
+        <div class="pt-4 border-t border-border-light dark:border-border-dark mb-6">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-semibold">Your streaming services</h3>
+                <p class="text-[10px] text-txt-muted">Used to filter recommendations</p>
+            </div>
+            <div class="flex flex-wrap gap-2" id="streaming-services-grid">
+                {% set services = [
+                    (8, 'Netflix'), (15, 'Hulu'), (1899, 'Max'), (337, 'Disney+'),
+                    (9, 'Prime Video'), (350, 'Apple TV+'), (386, 'Peacock'), (531, 'Paramount+')
+                ] %}
+                {% for sid, sname in services %}
+                <button onclick="toggleService(this, {{ sid }})"
+                    class="px-3 py-1.5 rounded-lg text-xs font-medium border transition-base
+                    {% if sid in user_services %}bg-sage/15 border-sage/30 text-sage{% else %}bg-surface-light dark:bg-surface-dark border-border-light dark:border-border-dark text-txt-muted hover:border-sage/30{% endif %}"
+                    data-service-id="{{ sid }}">
+                    {{ sname }}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+
         <!-- Keep sharpening — reminds the user that the DNA above is
              a first pass and gets sharper as they add more media.
              Shown to everyone, always, because this is where the app
@@ -767,6 +789,34 @@ async function saveShelf() {
 function shareShelf() {
     // For now, open the existing Taste DNA share which includes signature items
     openShareCard();
+}
+
+// Streaming services toggle
+async function toggleService(btn, serviceId) {
+    const grid = document.getElementById('streaming-services-grid');
+    const currentServices = [...grid.querySelectorAll('[data-service-id]')]
+        .filter(b => b.classList.contains('text-sage'))
+        .map(b => parseInt(b.dataset.serviceId));
+
+    const idx = currentServices.indexOf(serviceId);
+    if (idx >= 0) {
+        currentServices.splice(idx, 1);
+        btn.classList.remove('bg-sage/15', 'border-sage/30', 'text-sage');
+        btn.classList.add('bg-surface-light', 'dark:bg-surface-dark', 'border-border-light', 'dark:border-border-dark', 'text-txt-muted');
+    } else {
+        currentServices.push(serviceId);
+        btn.classList.remove('bg-surface-light', 'dark:bg-surface-dark', 'border-border-light', 'dark:border-border-dark', 'text-txt-muted');
+        btn.classList.add('bg-sage/15', 'border-sage/30', 'text-sage');
+    }
+
+    // Save to backend
+    try {
+        await fetch('/api/media/onboarding/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ streaming_services: currentServices }),
+        });
+    } catch {}
 }
 
 loadDna();

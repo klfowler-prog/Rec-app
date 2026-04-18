@@ -65,7 +65,16 @@
     <!-- Step 1: Three things you love -->
     <div class="step {% if not unrated_items %}active{% endif %} step-transition" id="step-1">
         <h2 class="text-2xl font-bold mb-2">Three things you love</h2>
-        <p class="text-txt-muted mb-6">Pick three favorites — a movie, a show, a book, a podcast, anything. These help us understand your taste instantly.</p>
+        <p class="text-txt-muted mb-4">Pick three favorites — a movie, a show, a book, a podcast, anything. These help us understand your taste instantly.</p>
+
+        <!-- Type filter for search -->
+        <div class="flex gap-2 mb-4" id="fav-type-filter">
+            <button onclick="setFavType('')" class="px-3 py-1 text-xs font-medium rounded-full bg-sage/10 text-sage transition-base" data-fav-type="">All</button>
+            <button onclick="setFavType('movie')" class="px-3 py-1 text-xs font-medium rounded-full text-txt-muted hover:bg-blue-50 transition-base" data-fav-type="movie">Movies</button>
+            <button onclick="setFavType('tv')" class="px-3 py-1 text-xs font-medium rounded-full text-txt-muted hover:bg-purple-50 transition-base" data-fav-type="tv">TV</button>
+            <button onclick="setFavType('book')" class="px-3 py-1 text-xs font-medium rounded-full text-txt-muted hover:bg-amber-50 transition-base" data-fav-type="book">Books</button>
+            <button onclick="setFavType('podcast')" class="px-3 py-1 text-xs font-medium rounded-full text-txt-muted hover:bg-green-50 transition-base" data-fav-type="podcast">Podcasts</button>
+        </div>
 
         <div class="space-y-4">
             {% for i in range(3) %}
@@ -298,8 +307,24 @@ function cleanQuery(q) {
     return q.replace(/[''""]/g, '').replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+let favTypeFilter = '';
+function setFavType(type) {
+    favTypeFilter = type;
+    document.querySelectorAll('[data-fav-type]').forEach(btn => {
+        const active = btn.getAttribute('data-fav-type') === type;
+        btn.classList.remove('bg-sage/10', 'text-sage', 'text-txt-muted');
+        btn.classList.add(active ? 'bg-sage/10' : 'text-txt-muted');
+        if (active) btn.classList.add('text-sage');
+    });
+    // Re-search the active input if there's text
+    const activeInput = document.querySelector('.fav-input:focus');
+    if (activeInput && activeInput.value.trim().length >= 2) searchFavorite(activeInput);
+}
+
 async function doSearch(q) {
-    const resp = await fetch(`/api/media/search?q=${encodeURIComponent(q)}`);
+    const params = new URLSearchParams({ q });
+    if (favTypeFilter) params.set('media_type', favTypeFilter);
+    const resp = await fetch(`/api/media/search?${params}`);
     return await resp.json();
 }
 
