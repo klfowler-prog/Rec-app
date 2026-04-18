@@ -31,6 +31,11 @@ with engine.connect() as conn:
         if "last_login" not in user_columns:
             conn.execute(text("ALTER TABLE users ADD COLUMN last_login TIMESTAMP"))
             conn.commit()
+    if "dismissed_items" in inspector.get_table_names():
+        di_columns = [c["name"] for c in inspector.get_columns("dismissed_items")]
+        if "snoozed_until" not in di_columns:
+            conn.execute(text("ALTER TABLE dismissed_items ADD COLUMN snoozed_until TIMESTAMP"))
+            conn.commit()
 
     # One-time migration: convert 10-point ratings to 5-point scale.
     # Detects unconverted data by checking if any rating OR predicted_rating > 5.

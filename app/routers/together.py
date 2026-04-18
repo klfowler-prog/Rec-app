@@ -205,7 +205,23 @@ Return ONLY valid JSON, no markdown:
         if not item:
             return None
         try:
-            matches = await unified_search(item.get("title", ""), item.get("media_type"))
+            title = item.get("title", "")
+            creator = item.get("creator", "")
+            mt = item.get("media_type")
+            # Search with title + creator for precision, fall back to title only
+            query = f"{title} {creator}" if creator else title
+            matches = await unified_search(query, mt)
+            if not matches and creator:
+                matches = await unified_search(title, mt)
+            # Reject matches where the title is wildly different
+            if matches:
+                best_title = matches[0].title.lower()
+                orig_title = title.lower()
+                if orig_title not in best_title and best_title not in orig_title:
+                    orig_words = set(orig_title.split())
+                    best_words = set(best_title.split())
+                    if len(orig_words & best_words) < len(orig_words) * 0.5:
+                        matches = []
             if matches:
                 best = matches[0]
                 return {
