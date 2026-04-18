@@ -340,8 +340,8 @@ function sharedCard(item, myName, themName) {
             <div class="p-2">
                 <p class="text-[11px] font-semibold leading-tight line-clamp-2">${escapeHtml(item.title)}</p>
                 <div class="flex justify-between text-[9px] mt-0.5">
-                    <span class="text-sage">${item.my_rating}/5</span>
-                    <span class="text-sage">${item.their_rating}/5</span>
+                    <span class="text-sage">${escapeHtml(myName.split(' ')[0])}: ${item.my_rating}</span>
+                    <span class="text-sage">${escapeHtml(themName.split(' ')[0])}: ${item.their_rating}</span>
                 </div>
             </div>
         </a>`;
