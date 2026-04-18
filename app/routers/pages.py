@@ -761,6 +761,7 @@ async def onboarding_page(request: Request, user: User = Depends(require_user), 
             "saved_scenes": saved.get("scenes", []),
             "saved_services": saved.get("streaming_services", []),
             "unrated_items": unrated_items,
+            "rated_count": _rc,
         },
     )
 
