@@ -12,8 +12,12 @@ BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 MODEL = "gemini-3.1-flash-lite-preview"
 
 
-async def generate(prompt: str, system_instruction: str = "") -> str:
-    """Generate content from Gemini. Returns the text response."""
+async def generate(prompt: str, system_instruction: str = "", temperature: float | None = None) -> str:
+    """Generate content from Gemini. Returns the text response.
+
+    Use temperature=0 for scoring/prediction tasks where consistency
+    matters. Leave as None for creative tasks (recommendations, essays).
+    """
     if not settings.gemini_api_key:
         log.error("GEMINI_API_KEY is not set")
         return ""
@@ -24,6 +28,8 @@ async def generate(prompt: str, system_instruction: str = "") -> str:
     }
     if system_instruction:
         body["systemInstruction"] = {"parts": [{"text": system_instruction}]}
+    if temperature is not None:
+        body["generationConfig"] = {"temperature": temperature}
 
     async with httpx.AsyncClient(timeout=60) as client:
         resp = await client.post(

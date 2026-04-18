@@ -3340,7 +3340,7 @@ Return ONLY a JSON object mapping each exact candidate title to either a number 
 
 {{"Title 1": 4.5, "Title 2": 1.5, "Title 3": null, ...}}"""
 
-            text = (await generate(prompt)).strip()
+            text = (await generate(prompt, temperature=0)).strip()
             if text.startswith("```"):
                 text = text.split("\n", 1)[1] if "\n" in text else text[3:]
                 text = text.rsplit("```", 1)[0]
@@ -4557,7 +4557,7 @@ Return ONLY a JSON object:
 {{"predicted_rating": 3.2, "reason": "Your mixed feelings about similar memoirs suggest this would be pleasant but not a standout."}}
 """
     try:
-        text = (await generate(prompt)).strip()
+        text = (await generate(prompt, temperature=0)).strip()
         if text.startswith("```"):
             text = text.split("\n", 1)[1] if "\n" in text else text[3:]
             text = text.rsplit("```", 1)[0]

@@ -87,7 +87,7 @@ RULES:
 
 Return ONLY a JSON object: {{"predicted_rating": 3.5}}"""
 
-        text = (await generate(prompt)).strip()
+        text = (await generate(prompt, temperature=0)).strip()
         if text.startswith("```"):
             text = text.split("\n", 1)[1] if "\n" in text else text[3:]
             text = text.rsplit("```", 1)[0]
@@ -397,7 +397,7 @@ RULES:
 
 Return ONLY valid JSON — a list of objects with "id" (the number after "id:") and "predicted_rating" (1-5, one decimal). No markdown, no explanation."""
 
-            text = (await generate(prompt)).strip()
+            text = (await generate(prompt, temperature=0)).strip()
             if text.startswith("```"):
                 text = text.split("\n", 1)[1] if "\n" in text else text[3:]
                 text = text.rsplit("```", 1)[0]
