@@ -125,6 +125,7 @@ async function loadDetail() {
         if (currentMedia.image_url) {
             img.src = currentMedia.image_url;
             img.alt = currentMedia.title;
+            img.className = currentMedia.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
             img.classList.remove('hidden');
             placeholder.classList.add('hidden');
         } else {

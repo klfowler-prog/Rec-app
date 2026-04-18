@@ -10,10 +10,12 @@
 <div id="detail-content" class="hidden">
     <div class="flex flex-col md:flex-row gap-6 md:gap-8">
         <!-- Poster / Cover -->
-        <div class="w-48 md:w-64 flex-shrink-0 mx-auto md:mx-0">
-            <img id="detail-image" src="" alt="" class="w-full rounded-lg shadow-md">
-            <div id="detail-placeholder" class="hidden w-full bg-sage/10 rounded-lg flex items-center justify-center">
-                <span class="text-sage text-4xl" id="detail-initial"></span>
+        <div class="w-48 md:w-56 flex-shrink-0 mx-auto md:mx-0">
+            <div class="poster-frame rounded-lg shadow-md overflow-hidden">
+                <img id="detail-image" src="" alt="" class="poster-cover">
+                <div id="detail-placeholder" class="hidden poster-fallback bg-sage/10">
+                    <span class="text-sage text-4xl" id="detail-initial"></span>
+                </div>
             </div>
         </div>
 
