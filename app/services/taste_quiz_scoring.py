@@ -394,7 +394,21 @@ def filter_quiz_items_by_onboarding(
         # Scene step is a no-op when the user picked nothing.
         filtered = list(gen_pass)
     else:
-        filtered = [it for it in gen_pass if scene_overlap(it) > 0]
+        # Dealbreaker scenes: strong genre identifiers that should exclude
+        # items when the user didn't pick them, even if other scenes match.
+        # e.g., an anime tagged [anime, action_thriller] should NOT show
+        # for a user who picked action_thriller but NOT anime.
+        _dealbreakers = {"anime", "k_content", "horror", "gaming_culture"}
+        unwanted_dealbreakers = _dealbreakers - user_scenes
+
+        def passes_scene(item):
+            item_scenes = set(item.get("scenes") or [])
+            # If item has a dealbreaker scene the user didn't pick, exclude it
+            if item_scenes & unwanted_dealbreakers:
+                return False
+            return scene_overlap(item) > 0
+
+        filtered = [it for it in gen_pass if passes_scene(it)]
 
     # Back-fill pass 1: add every item that passed the generation
     # filter but didn't match any scene. Not "up to the minimum" —
