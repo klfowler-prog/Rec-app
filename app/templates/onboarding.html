@@ -872,21 +872,43 @@ async function generateTasteSnapshot() {
 
 function buildQuizOptions() {
     const container = document.getElementById('quiz-options');
-    // Always show all quizzes — favorites determine mini-quiz content,
-    // but the full quizzes should be available to everyone
-    const quizzes = [
-        {href: '/quick-start/movies', label: 'Movies', color: 'gradient-blue', count: '~3 min'},
-        {href: '/quick-start/tv', label: 'TV Shows', color: 'gradient-purple', count: '~3 min'},
-        {href: '/quick-start/books/fiction', label: 'Fiction Books', color: 'gradient-amber', count: '~3 min'},
-        {href: '/quick-start/books/nonfiction', label: 'Nonfiction Books', color: 'gradient-amber', count: '~3 min'},
+    // Show quizzes based on what the user engages with:
+    // - If they picked a favorite in that slot, show it
+    // - If they didn't pick any favorites at all, show everything
+    // - Users can dismiss quizzes they don't want
+    const pickedTypes = new Set(favorites.filter(Boolean).map(f => f.media_type));
+    const showAll = pickedTypes.size === 0;
+
+    const allQuizzes = [
+        {href: '/quick-start/movies', label: 'Movies', color: 'gradient-blue', count: '~3 min', types: ['movie']},
+        {href: '/quick-start/tv', label: 'TV Shows', color: 'gradient-purple', count: '~3 min', types: ['tv']},
+        {href: '/quick-start/books/fiction', label: 'Fiction Books', color: 'gradient-amber', count: '~3 min', types: ['book']},
+        {href: '/quick-start/books/nonfiction', label: 'Nonfiction Books', color: 'gradient-amber', count: '~3 min', types: ['book']},
     ];
-    container.innerHTML = quizzes.map(q => `
-        <a href="${q.href}" class="flex items-center gap-2 px-3 py-2.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg text-sm hover:border-sage transition-base">
-            <span class="w-2 h-2 rounded ${q.color} flex-shrink-0"></span>
-            <span class="font-medium">${q.label}</span>
-            <span class="text-[10px] text-txt-muted ml-auto">${q.count}</span>
-        </a>
+
+    const quizzes = allQuizzes.filter(q => showAll || q.types.some(t => pickedTypes.has(t)));
+
+    // If no quizzes match (unlikely), show all
+    if (quizzes.length === 0) quizzes.push(...allQuizzes);
+    container.innerHTML = quizzes.map((q, i) => `
+        <div class="flex items-center gap-2" id="quiz-option-${i}">
+            <a href="${q.href}" class="flex-1 flex items-center gap-2 px-3 py-2.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg text-sm hover:border-sage transition-base">
+                <span class="w-2 h-2 rounded ${q.color} flex-shrink-0"></span>
+                <span class="font-medium">${q.label}</span>
+                <span class="text-[10px] text-txt-muted ml-auto">${q.count}</span>
+            </a>
+            <button onclick="dismissQuiz(${i})" class="text-[10px] text-txt-muted hover:text-coral transition-base px-1" title="Not for me">✕</button>
+        </div>
     `).join('');
+}
+
+function dismissQuiz(idx) {
+    const el = document.getElementById(`quiz-option-${idx}`);
+    if (el) {
+        el.style.transition = 'opacity 0.3s';
+        el.style.opacity = '0';
+        setTimeout(() => el.remove(), 300);
+    }
 }
 </script>
 {% endblock %}
