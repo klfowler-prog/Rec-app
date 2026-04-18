@@ -699,6 +699,15 @@ async def invite_page(request: Request, invite_code: str, db: Session = Depends(
             rel.status = "accepted"
             rel.accepted_at = datetime.utcnow()
             db.commit()
+        # Check if they need onboarding first
+        _rc = db.query(MediaEntry).filter(
+            MediaEntry.user_id == user_id, MediaEntry.rating.isnot(None)
+        ).count()
+        from app.services.taste_quiz_scoring import load_quiz_results as _lqr3
+        _qr3 = _lqr3(db, user_id)
+        _hq3 = any((_qr3 or {}).get(t, {}).get("profiles") for t in ("movies", "tv", "books"))
+        if _rc < 5 and not _hq3:
+            return RedirectResponse("/onboarding")
         return RedirectResponse("/together")
 
     # Not logged in — redirect to welcome, then back here after login

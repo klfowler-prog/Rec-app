@@ -205,7 +205,7 @@ class UserRelationship(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     sender_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    receiver_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    receiver_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     relationship_type: Mapped[str] = mapped_column(String, nullable=False, default="friend")  # partner, family, friend
     status: Mapped[str] = mapped_column(String, nullable=False, default="pending")  # pending, accepted, declined
     # Sharing levels per user (full, ratings_only, together_only)

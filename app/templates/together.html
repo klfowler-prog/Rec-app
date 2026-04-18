@@ -77,20 +77,15 @@
             </div>
             <div class="space-y-4">
                 <div>
-                    <label class="text-xs text-txt-muted mb-1 block">Their email (optional — leave blank for an open invite link)</label>
-                    <input type="email" id="invite-email" placeholder="their@email.com"
-                        class="w-full px-3 py-2 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sage/40">
-                </div>
-                <div>
-                    <label class="text-xs text-txt-muted mb-1 block">Relationship</label>
+                    <p class="text-xs text-txt-muted mb-2">What's your relationship?</p>
                     <div class="flex gap-2">
-                        <button onclick="setRelType(this,'partner')" class="rel-type-btn px-3 py-1.5 rounded-full text-xs font-medium border border-sage bg-sage/10 text-sage" data-rel="partner">Partner</button>
-                        <button onclick="setRelType(this,'family')" class="rel-type-btn px-3 py-1.5 rounded-full text-xs font-medium border border-border-light dark:border-border-dark text-txt-muted" data-rel="family">Family</button>
-                        <button onclick="setRelType(this,'friend')" class="rel-type-btn px-3 py-1.5 rounded-full text-xs font-medium border border-border-light dark:border-border-dark text-txt-muted" data-rel="friend">Friend</button>
+                        <button onclick="setRelType(this,'partner')" class="rel-type-btn px-4 py-2 rounded-xl text-sm font-medium border border-sage bg-sage/10 text-sage" data-rel="partner">Partner</button>
+                        <button onclick="setRelType(this,'family')" class="rel-type-btn px-4 py-2 rounded-xl text-sm font-medium border border-border-light dark:border-border-dark text-txt-muted" data-rel="family">Family</button>
+                        <button onclick="setRelType(this,'friend')" class="rel-type-btn px-4 py-2 rounded-xl text-sm font-medium border border-border-light dark:border-border-dark text-txt-muted" data-rel="friend">Friend</button>
                     </div>
                 </div>
                 <button onclick="sendInvite()" class="w-full px-4 py-2.5 bg-sage text-white rounded-xl text-sm font-semibold hover:bg-sage-dark transition-base">
-                    Create invite
+                    Get invite link
                 </button>
                 <div id="invite-result" class="hidden"></div>
             </div>
@@ -419,13 +414,12 @@ function setRelType(btn, type) {
 }
 
 async function sendInvite() {
-    const email = document.getElementById('invite-email').value.trim();
     const result = document.getElementById('invite-result');
     try {
         const resp = await fetch('/api/relationships/invite', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ receiver_email: email, relationship_type: selectedRelType }),
+            body: JSON.stringify({ relationship_type: selectedRelType }),
         });
         const data = await resp.json();
         if (resp.ok) {
