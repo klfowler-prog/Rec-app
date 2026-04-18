@@ -2137,6 +2137,17 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
         recent_lines = [f"  - {e.title} ({e.media_type}, {e.rating}/5)" for e in recent_items[:5]]
         recent_section = "\n\nRECENTLY ADDED (this profile is less than 2 weeks old — the user is still building their library. These items reflect data entry order, NOT current mood or preference. Weight the FULL taste profile above equally across all items. Do not over-index on the last few things added):\n" + "\n".join(recent_lines)
 
+    # Age range context for the AI
+    from app.services.taste_quiz_scoring import load_age_range
+    bundle_age = load_age_range(db, user.id)
+    age_context = ""
+    if bundle_age == "under_18":
+        age_context = "\nAGE: Under 18. Only PG/PG-13 content. No R-rated, no explicit themes. Focus on 2010-present across all media types."
+    elif bundle_age == "35_50":
+        age_context = "\nAGE: 35-50. Include titles from the 90s-2020s across movies, TV, books, and podcasts."
+    elif bundle_age == "over_50":
+        age_context = "\nAGE: Over 50. Include classics alongside newer content. Respect their depth of experience."
+
     # Avoid list — pack as many titles as fit in the budget.
     avoid_titles: list[str] = []
     char_budget = 6000
@@ -2206,7 +2217,7 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
 USER'S TASTE PROFILE (across all media types):
 {taste_summary}
 {recent_section}
-{streaming_context}
+{streaming_context}{age_context}
 
 THIN PROFILE GUIDANCE:
 If the user has fewer than 15 rated items, you have limited signal. In this case:
@@ -4131,9 +4142,13 @@ async def generate_mini_quiz(
     from app.services.taste_quiz_scoring import load_age_range
     age_range = load_age_range(db, user.id)
     if age_range == "under_18":
-        age_instruction = "IMPORTANT: This user is under 18. Only suggest PG/PG-13 content. No R-rated movies, no adult themes, no explicit content. Focus on titles from 2010-present that a teenager would know."
-    elif age_range == "over_40":
-        age_instruction = "This user is over 40. Include classic titles from the 80s-2000s they'd know well. Don't assume they've seen recent streaming originals — mix in established favorites."
+        age_instruction = "IMPORTANT: This user is under 18. Only suggest PG/PG-13 content. No R-rated movies, no adult themes, no explicit content. Focus on titles from 2010-present that a teenager would know — across movies, TV, books, and podcasts."
+    elif age_range == "18_35":
+        age_instruction = "This user is 18-35. They likely know a mix of 2000s-present content across all media types. Include both mainstream hits and well-known indie/cult favorites."
+    elif age_range == "35_50":
+        age_instruction = "This user is 35-50. They have deep knowledge of 90s-2010s content and likely appreciate both popular and critically acclaimed titles across movies, TV, books, and podcasts. Include titles from across the last 30 years."
+    elif age_range == "over_50":
+        age_instruction = "This user is over 50. Include well-known titles from the 70s-2000s they'd know well, alongside newer content. Don't assume they only watch old stuff — but don't assume they've seen every recent streaming original either. Respect the depth of their experience across movies, TV, books, and podcasts."
     else:
         age_instruction = ""
 

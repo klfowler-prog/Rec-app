@@ -237,7 +237,7 @@ def save_onboarding(db, user_id: int, answers: dict) -> dict:
 
     VALID_SERVICES = {8, 9, 15, 21, 38, 103, 283, 337, 350, 380, 385, 386, 531, 1899}
     VALID_REGIONS = {"us", "uk", "au", "ca", "eu", "asia", "latam", "other"}
-    VALID_AGE_RANGES = {"under_18", "18_40", "over_40"}
+    VALID_AGE_RANGES = {"under_18", "18_35", "35_50", "over_50"}
 
     cleaned: dict = {
         "media_types": [t for t in (answers.get("media_types") or []) if t in ONBOARDING_MEDIA_TYPES],

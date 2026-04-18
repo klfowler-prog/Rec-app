@@ -92,6 +92,16 @@ def _build_profile_context(db: Session, user_id: int) -> str:
         lines.append("### DO NOT RECOMMEND — already in their library:")
         lines.append(", ".join(avoid_titles))
 
+    # Age range — adjusts content appropriateness and era awareness
+    from app.services.taste_quiz_scoring import load_age_range
+    age = load_age_range(db, user_id)
+    if age == "under_18":
+        lines.append("\n### Age: Under 18\nOnly recommend PG/PG-13 content. No R-rated, no explicit themes. Focus on 2010-present across all media types.")
+    elif age == "35_50":
+        lines.append("\n### Age: 35-50\nInclude titles from the 90s-2020s. Respect their depth across movies, TV, books, and podcasts.")
+    elif age == "over_50":
+        lines.append("\n### Age: Over 50\nInclude classics from the 70s-2000s alongside newer content. Don't assume they only engage with old media — but respect their experience.")
+
     # Streaming services
     from app.services.taste_quiz_scoring import load_streaming_services
     from app.services.tmdb import TIER1_PROVIDERS
