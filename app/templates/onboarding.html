@@ -59,7 +59,20 @@
             {% endfor %}
         </div>
 
-        <div class="flex justify-between items-center mt-8">
+        <!-- Search to add + rate more items -->
+        <div class="mt-6 p-4 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl">
+            <p class="text-xs text-txt-muted mb-2">Don't see something you've watched? Search and rate it:</p>
+            <div class="relative">
+                <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-txt-muted flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    <input type="text" id="step0-search" placeholder="Search for a movie, show, book, or podcast..." autocomplete="off"
+                        class="flex-1 bg-transparent text-sm focus:outline-none placeholder:text-txt-muted py-1.5">
+                </div>
+                <div id="step0-search-results" class="hidden absolute left-0 right-0 top-full mt-1 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl shadow-lg z-30 max-h-48 overflow-y-auto"></div>
+            </div>
+        </div>
+
+        <div class="flex justify-between items-center mt-6">
             <button onclick="goToStep(1)" class="text-sm text-txt-muted hover:text-txt">Skip — I'll rate later</button>
             <button onclick="goToStep(1)" class="px-6 py-2.5 bg-sage text-white rounded-xl text-sm font-semibold hover:bg-sage-dark transition-base">
                 Continue →
@@ -298,6 +311,93 @@ function goToStep(n) {
     // Build quiz options and taste snapshot on step 5
     if (n === 5) { buildQuizOptions(); generateTasteSnapshot(); }
     window.scrollTo(0, 0);
+}
+
+// Step 0 search — find and add+rate items inline
+(function initStep0Search() {
+    const input = document.getElementById('step0-search');
+    const results = document.getElementById('step0-search-results');
+    if (!input || !results) return;
+    let timer = null;
+
+    input.addEventListener('input', () => {
+        clearTimeout(timer);
+        const q = input.value.trim();
+        if (q.length < 2) { results.classList.add('hidden'); return; }
+        timer = setTimeout(async () => {
+            try {
+                const resp = await fetch(`/api/media/search?q=${encodeURIComponent(q)}`);
+                const items = await resp.json();
+                if (!items.length) { results.innerHTML = '<p class="p-3 text-xs text-txt-muted">No results.</p>'; results.classList.remove('hidden'); return; }
+                results.innerHTML = items.slice(0, 5).map(item => {
+                    const img = item.image_url
+                        ? `<img src="${item.image_url}" alt="" class="w-8 h-11 object-cover rounded flex-shrink-0">`
+                        : `<div class="w-8 h-11 bg-sage/10 rounded flex items-center justify-center flex-shrink-0"><span class="text-sage text-xs font-bold">${escapeHtml((item.title||'?')[0])}</span></div>`;
+                    const d = JSON.stringify({
+                        external_id: item.external_id || '', source: item.source || '', title: item.title,
+                        media_type: item.media_type, image_url: item.image_url || null, year: item.year || null,
+                        creator: item.creator || null,
+                        genres: item.genres ? (Array.isArray(item.genres) ? item.genres.join(', ') : item.genres) : null,
+                        description: item.description || null, status: 'consumed',
+                    }).replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+                    return `
+                        <div class="flex items-center gap-3 px-3 py-2.5 hover:bg-sage/5 transition-base cursor-pointer" onclick="step0AddAndRate(this, '${d}')">
+                            ${img}
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium truncate">${escapeHtml(item.title)}</p>
+                                <p class="text-[10px] text-txt-muted">${item.media_type}${item.year ? ' · ' + item.year : ''}</p>
+                            </div>
+                        </div>`;
+                }).join('');
+                results.classList.remove('hidden');
+            } catch {}
+        }, 300);
+    });
+
+    document.addEventListener('click', e => {
+        if (!e.target.closest('#step0-search') && !e.target.closest('#step0-search-results'))
+            results.classList.add('hidden');
+    });
+})();
+
+async function step0AddAndRate(row, dataStr) {
+    const data = JSON.parse(dataStr.replace(/&quot;/g, '"').replace(/&#39;/g, "'"));
+    row.innerHTML = '<span class="text-xs text-sage px-3">Adding...</span>';
+    try {
+        const resp = await fetch('/api/profile/', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data),
+        });
+        if (resp.ok || resp.status === 409) {
+            const entry = resp.ok ? await resp.json() : null;
+            const entryId = entry ? entry.id : null;
+            if (entryId) {
+                row.innerHTML = `
+                    <div class="flex items-center gap-3 px-3 py-1">
+                        <p class="text-sm font-medium flex-1">${escapeHtml(data.title)}</p>
+                        <div class="flex-shrink-0" id="step0-rate-${entryId}"></div>
+                    </div>`;
+                if (typeof showRatingDots === 'function') {
+                    const slot = document.getElementById(`step0-rate-${entryId}`);
+                    showRatingDots(slot, entryId);
+                    slot.addEventListener('click', () => {
+                        if (!step0Rated.has(entryId)) {
+                            step0Rated.add(entryId);
+                            step0RatedCount++;
+                            const bar = document.getElementById('rate-progress-bar');
+                            const label = document.getElementById('rate-progress-label');
+                            if (bar) bar.style.width = Math.min(100, (step0RatedCount / 5) * 100) + '%';
+                            if (label) label.textContent = step0RatedCount + '/5';
+                        }
+                    });
+                }
+            } else {
+                row.innerHTML = '<span class="text-xs text-sage px-3">Added!</span>';
+            }
+        }
+    } catch { row.innerHTML = '<span class="text-xs text-coral px-3">Failed</span>'; }
+    document.getElementById('step0-search').value = '';
+    document.getElementById('step0-search-results').classList.add('hidden');
 }
 
 // Wire up rating dots on step 0 + track progress toward 5 ratings
