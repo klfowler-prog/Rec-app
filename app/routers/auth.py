@@ -121,6 +121,11 @@ async def auth_callback(request: Request, code: str = "", state: str = "", db: S
     request.session["user_name"] = user.name
     request.session["user_picture"] = user.picture
 
+    # If they came in via an invite link, redirect to accept it
+    pending_invite = request.session.pop("pending_invite", None)
+    if pending_invite:
+        return RedirectResponse(f"/invite/{pending_invite}")
+
     # Brand new users go straight to onboarding — no chance to skip
     if is_brand_new:
         return RedirectResponse("/onboarding")

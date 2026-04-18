@@ -678,6 +678,34 @@ async def recommend_page(request: Request, user: User = Depends(require_user)):
     return RedirectResponse(url=target, status_code=303)
 
 
+@router.get("/invite/{invite_code}")
+async def invite_page(request: Request, invite_code: str, db: Session = Depends(get_db)):
+    """Accept an invite link. If logged in, accept immediately.
+    If not, redirect to welcome → login → then accept."""
+    from app.models import UserRelationship
+
+    rel = db.query(UserRelationship).filter(
+        UserRelationship.invite_code == invite_code,
+        UserRelationship.status == "pending",
+    ).first()
+    if not rel:
+        return RedirectResponse("/")
+
+    user_id = request.session.get("user_id")
+    if user_id:
+        # Logged in — accept directly
+        if rel.sender_id != user_id:
+            rel.receiver_id = user_id
+            rel.status = "accepted"
+            rel.accepted_at = datetime.utcnow()
+            db.commit()
+        return RedirectResponse("/together")
+
+    # Not logged in — redirect to welcome, then back here after login
+    request.session["pending_invite"] = invite_code
+    return RedirectResponse("/welcome")
+
+
 @router.get("/bulk-add")
 async def bulk_add_page(request: Request, user: User = Depends(require_user)):
     return templates.TemplateResponse("bulk_add.html", {"request": request, "user": user})

@@ -87,7 +87,7 @@ async def add_cache_headers(request, call_next):
         response.headers["Cache-Control"] = "public, max-age=86400"  # 1 day
     return response
 
-from app.routers import admin, auth, collections, device_auth, media, pages, profile, recommend, together
+from app.routers import admin, auth, collections, device_auth, media, pages, profile, recommend, relationships, together
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(admin.router, prefix="/admin", tags=["admin"])
@@ -97,6 +97,7 @@ app.include_router(profile.router, prefix="/api/profile", tags=["profile"])
 app.include_router(recommend.router, prefix="/api/recommend", tags=["recommend"])
 app.include_router(collections.router, prefix="/api/collections", tags=["collections"])
 app.include_router(together.router, prefix="/api/together", tags=["together"])
+app.include_router(relationships.router, prefix="/api/relationships", tags=["relationships"])
 
 # Device auth (pairing flow + token refresh)
 app.include_router(device_auth.router, prefix="/api/v1/auth", tags=["device-auth"])

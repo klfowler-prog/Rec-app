@@ -195,3 +195,46 @@ class RecEvent(Base):
         Index("idx_rec_events_user_surface", "user_id", "surface"),
         Index("idx_rec_events_user_outcome", "user_id", "outcome"),
     )
+
+
+class UserRelationship(Base):
+    """A directional relationship between two users. Sender invites
+    receiver; receiver accepts/declines. Once accepted, both users
+    can access Together mode features for this pairing."""
+    __tablename__ = "user_relationships"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    sender_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    receiver_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    relationship_type: Mapped[str] = mapped_column(String, nullable=False, default="friend")  # partner, family, friend
+    status: Mapped[str] = mapped_column(String, nullable=False, default="pending")  # pending, accepted, declined
+    # Sharing levels per user (full, ratings_only, together_only)
+    sender_sharing: Mapped[str] = mapped_column(String, nullable=False, default="full")
+    receiver_sharing: Mapped[str] = mapped_column(String, nullable=False, default="full")
+    invite_code: Mapped[str | None] = mapped_column(String, unique=True, nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("sender_id", "receiver_id", name="uq_relationship_pair"),
+        Index("idx_relationship_receiver", "receiver_id", "status"),
+    )
+
+
+class WatchedWith(Base):
+    """Records who consumed a media entry together. Many-to-many
+    between a MediaEntry and Users. Created when the user answers
+    'Did you watch/read this with someone?' after finishing."""
+    __tablename__ = "watched_with"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    entry_id: Mapped[int] = mapped_column(Integer, ForeignKey("media_entries.id"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    partner_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("entry_id", "partner_id", name="uq_watched_with_entry_partner"),
+        Index("idx_watched_with_user", "user_id"),
+        Index("idx_watched_with_partner", "partner_id"),
+    )
