@@ -8,22 +8,30 @@
         <p class="text-txt-muted">Find movies, TV shows, books, and podcasts.</p>
     </div>
 
-    <!-- Search bar -->
-    <div class="flex gap-3">
-        <div class="flex-1 relative">
-            <svg class="w-5 h-5 text-txt-muted absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-            <input type="text" id="search-input" placeholder="Search for anything..."
-                class="w-full pl-11 pr-4 py-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sage/40 focus:border-sage transition-base"
-                autofocus>
-        </div>
-        <select id="type-filter" class="px-4 py-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sage/40 text-txt dark:text-txt-light">
-            <option value="">All types</option>
-            <option value="movie">Movies</option>
-            <option value="tv">TV Shows</option>
-            <option value="book">Books</option>
-            <option value="podcast">Podcasts</option>
-        </select>
+    <!-- Type filter pills -->
+    <div class="flex gap-2" id="search-type-pills">
+        <button onclick="setSearchType('')" class="px-3 py-1.5 text-xs font-medium rounded-full bg-sage/10 text-sage transition-base" data-search-type="">All</button>
+        <button onclick="setSearchType('movie')" class="px-3 py-1.5 text-xs font-medium rounded-full text-txt-muted hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-base" data-search-type="movie">Movies</button>
+        <button onclick="setSearchType('tv')" class="px-3 py-1.5 text-xs font-medium rounded-full text-txt-muted hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-base" data-search-type="tv">TV Shows</button>
+        <button onclick="setSearchType('book')" class="px-3 py-1.5 text-xs font-medium rounded-full text-txt-muted hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-base" data-search-type="book">Books</button>
+        <button onclick="setSearchType('podcast')" class="px-3 py-1.5 text-xs font-medium rounded-full text-txt-muted hover:bg-green-50 dark:hover:bg-green-900/20 transition-base" data-search-type="podcast">Podcasts</button>
     </div>
+
+    <!-- Search bar -->
+    <div class="relative">
+        <svg class="w-5 h-5 text-txt-muted absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        <input type="text" id="search-input" placeholder="Search for anything..."
+            class="w-full pl-11 pr-4 py-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sage/40 focus:border-sage transition-base"
+            autofocus>
+    </div>
+    <!-- Hidden select kept for JS compatibility -->
+    <select id="type-filter" class="hidden">
+        <option value="">All</option>
+        <option value="movie">Movies</option>
+        <option value="tv">TV Shows</option>
+        <option value="book">Books</option>
+        <option value="podcast">Podcasts</option>
+    </select>
 
     <!-- Results -->
     <div id="search-results" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
@@ -53,4 +61,20 @@
 {% block scripts %}
 <script src="/static/js/card_actions.js"></script>
 <script src="/static/js/search.js"></script>
+<script>
+function setSearchType(type) {
+    document.getElementById('type-filter').value = type;
+    document.querySelectorAll('[data-search-type]').forEach(btn => {
+        const active = btn.getAttribute('data-search-type') === type;
+        btn.classList.remove('bg-sage/10', 'text-sage', 'text-txt-muted');
+        btn.classList.add(active ? 'bg-sage/10' : 'text-txt-muted');
+        if (active) btn.classList.add('text-sage');
+    });
+    // Trigger search if there's text
+    const input = document.getElementById('search-input');
+    if (input.value.trim()) {
+        document.getElementById('type-filter').dispatchEvent(new Event('change'));
+    }
+}
+</script>
 {% endblock %}

@@ -189,14 +189,23 @@
          Quick add — capture a title fast, like jotting down a note
          ============================================================ -->
     <div>
-        <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold mb-2">Keep track of what you want to explore</p>
+        <div class="flex items-center justify-between mb-2">
+            <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold">Keep track of what you want to explore</p>
+            <div class="flex gap-1.5" id="quick-add-pills">
+                <button onclick="setQuickAddType('')" class="px-2.5 py-1 text-[10px] font-medium rounded-full bg-sage/10 text-sage transition-base" data-qa-type="">All</button>
+                <button onclick="setQuickAddType('movie')" class="px-2.5 py-1 text-[10px] font-medium rounded-full text-txt-muted hover:bg-blue-50 transition-base" data-qa-type="movie">Movies</button>
+                <button onclick="setQuickAddType('tv')" class="px-2.5 py-1 text-[10px] font-medium rounded-full text-txt-muted hover:bg-purple-50 transition-base" data-qa-type="tv">TV</button>
+                <button onclick="setQuickAddType('book')" class="px-2.5 py-1 text-[10px] font-medium rounded-full text-txt-muted hover:bg-amber-50 transition-base" data-qa-type="book">Books</button>
+                <button onclick="setQuickAddType('podcast')" class="px-2.5 py-1 text-[10px] font-medium rounded-full text-txt-muted hover:bg-green-50 transition-base" data-qa-type="podcast">Pods</button>
+            </div>
+        </div>
     </div>
     <div class="relative">
         <div class="flex items-center gap-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl p-2 shadow-sm">
             <svg class="w-5 h-5 text-txt-muted ml-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-            <input id="quick-add-input" type="text" placeholder="Heard about something good? Add it to your list..." autocomplete="off"
+            <input id="quick-add-input" type="text" placeholder="Search for a title..." autocomplete="off"
                 class="flex-1 px-2 py-2 bg-transparent text-sm focus:outline-none placeholder:text-txt-muted">
-            <select id="quick-add-type" class="px-2 py-1.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-[11px] text-txt-muted flex-shrink-0">
+            <select id="quick-add-type" class="hidden">
                 <option value="">Any</option>
                 <option value="movie">Movie</option>
                 <option value="tv">TV</option>
@@ -836,6 +845,22 @@ async function finishAndRate(entryId, rating, doneVerb) {
             }
         }
     } catch {}
+}
+
+// Quick-add type filter pills
+function setQuickAddType(type) {
+    document.getElementById('quick-add-type').value = type;
+    document.querySelectorAll('[data-qa-type]').forEach(btn => {
+        const active = btn.getAttribute('data-qa-type') === type;
+        btn.classList.remove('bg-sage/10', 'text-sage', 'text-txt-muted');
+        btn.classList.add(active ? 'bg-sage/10' : 'text-txt-muted');
+        if (active) btn.classList.add('text-sage');
+    });
+    // Re-search if there's text
+    const input = document.getElementById('quick-add-input');
+    if (input && input.value.trim().length >= 2) {
+        input.dispatchEvent(new Event('input'));
+    }
 }
 
 // Quick-add bar — search as you type, one tap to save
