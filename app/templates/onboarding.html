@@ -871,15 +871,15 @@ async function generateTasteSnapshot() {
 }
 
 function buildQuizOptions() {
-    const types = new Set(favorites.filter(Boolean).map(f => f.media_type));
     const container = document.getElementById('quiz-options');
-    const quizzes = [];
-    if (types.has('movie') || types.size === 0) quizzes.push({href: '/quick-start/movies', label: 'Movies', color: 'gradient-blue', count: '~5 min'});
-    if (types.has('tv') || types.size === 0) quizzes.push({href: '/quick-start/tv', label: 'TV Shows', color: 'gradient-purple', count: '~5 min'});
-    if (types.has('book') || types.size === 0) {
-        quizzes.push({href: '/quick-start/books/fiction', label: 'Fiction Books', color: 'gradient-amber', count: '~5 min'});
-        quizzes.push({href: '/quick-start/books/nonfiction', label: 'Nonfiction Books', color: 'gradient-amber', count: '~5 min'});
-    }
+    // Always show all quizzes — favorites determine mini-quiz content,
+    // but the full quizzes should be available to everyone
+    const quizzes = [
+        {href: '/quick-start/movies', label: 'Movies', color: 'gradient-blue', count: '~3 min'},
+        {href: '/quick-start/tv', label: 'TV Shows', color: 'gradient-purple', count: '~3 min'},
+        {href: '/quick-start/books/fiction', label: 'Fiction Books', color: 'gradient-amber', count: '~3 min'},
+        {href: '/quick-start/books/nonfiction', label: 'Nonfiction Books', color: 'gradient-amber', count: '~3 min'},
+    ];
     container.innerHTML = quizzes.map(q => `
         <a href="${q.href}" class="flex items-center gap-2 px-3 py-2.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg text-sm hover:border-sage transition-base">
             <span class="w-2 h-2 rounded ${q.color} flex-shrink-0"></span>
