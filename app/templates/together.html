@@ -220,7 +220,8 @@ async function selectPartner(partnerId, btn) {
                             </div>
                             <div class="flex-1">
                                 <p class="text-lg font-bold mb-1">${compatLabel}</p>
-                                <p class="text-xs text-white/60">Based on ${compat.shared_count} things you've both rated</p>
+                                <p class="text-xs text-white/60 mb-1">Based on ${compat.shared_count} things you've both rated</p>
+                        ${compat.summary ? `<p class="text-sm text-white/80 leading-relaxed mt-2">${escapeHtml(compat.summary)}</p>` : ''}
                                 ${compat.by_type ? `<div class="flex gap-3 mt-2 text-[10px] text-white/50">
                                     ${Object.entries(compat.by_type).map(([type, pct]) => `<span class="capitalize">${type}: ${Math.round(pct)}%</span>`).join('')}
                                 </div>` : ''}
@@ -323,6 +324,7 @@ function candidateCard(c, myName, themName) {
                     <span class="${rc(c.predicted_rating_them)}">${escapeHtml(themName.split(' ')[0])}: ${c.predicted_rating_them || '—'}</span>
                 </div>
                 ${c.reason ? `<p class="text-[10px] text-txt-muted leading-snug mt-1 line-clamp-2">${escapeHtml(c.reason)}</p>` : ''}
+                ${typeof buildActionBar === 'function' ? `<div class="quick-add-area mt-2">${buildActionBar(c, 'sm')}</div>` : ''}
             </div>
         </div>`;
 }

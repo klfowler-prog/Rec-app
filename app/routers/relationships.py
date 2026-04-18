@@ -240,7 +240,7 @@ def update_sharing(
 
 
 @router.get("/compatibility/{partner_id}")
-def compatibility(
+async def compatibility(
     partner_id: int,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
@@ -298,11 +298,56 @@ def compatibility(
     # Sort battles by biggest disagreement
     battles.sort(key=lambda b: b["diff"], reverse=True)
 
+    # AI summary of the pair's taste relationship
+    summary = ""
+    from app.config import settings
+    if settings.gemini_api_key and len(shared_titles) >= 5:
+        import asyncio
+        from app import cache
+
+        partner = db.query(User).filter(User.id == partner_id).first()
+        cache_key = f"together_dna:{min(user.id, partner_id)}:{max(user.id, partner_id)}"
+        cached_summary = cache.get(cache_key)
+        if cached_summary:
+            summary = cached_summary
+        else:
+            my_name = user.name.split()[0]
+            their_name = partner.name.split()[0] if partner else "them"
+
+            # Build shared taste lines
+            both_loved = [t for t in shared_titles if my_rated[t].rating >= 4 and their_rated[t].rating >= 4]
+            both_loved_lines = [f"- {my_rated[t].title} ({my_rated[t].media_type}): {my_name} {my_rated[t].rating}/5, {their_name} {their_rated[t].rating}/5" for t in list(both_loved)[:8]]
+            battle_lines = [f"- {b['title']}: {my_name} {b['my_rating']}/5, {their_name} {b['their_rating']}/5" for b in battles[:5]]
+
+            from app.services.gemini import generate  # noqa: E402
+
+            prompt = f"""Write 2-3 warm, conversational sentences about what {my_name} and {their_name} have in common as media consumers — and where they differ. This is their "Together DNA."
+
+They are {round(overall)}% compatible based on {len(shared_titles)} shared items.
+
+THINGS THEY BOTH LOVE:
+{chr(10).join(both_loved_lines) if both_loved_lines else 'Not enough shared favorites yet'}
+
+BIGGEST DISAGREEMENTS:
+{chr(10).join(battle_lines) if battle_lines else 'No major disagreements'}
+
+Write like a friend summarizing their relationship's taste, not like a professor. Be specific — reference actual titles. Keep it to 2-3 sentences.
+Example: "You and Josh both light up for dark, twisty thrillers — Gone Girl and Severance are right in your shared sweet spot. Where you split: Josh loves slow-burn prestige drama, but you'd rather something with a faster pulse."
+"""
+            try:
+                text = (await generate(prompt)).strip().strip('"').strip()
+                if text and len(text) < 500:
+                    summary = text
+                    cache.set(cache_key, summary, ttl_seconds=604800)
+            except Exception:
+                pass
+
     return {
         "overall": round(overall, 1),
         "shared_count": len(shared_titles),
         "by_type": {mt: round(pct, 1) for mt, pct in type_pcts.items()},
         "battles": battles[:5],
+        "summary": summary,
     }
 
 
