@@ -239,6 +239,73 @@ def update_sharing(
     return {"status": "updated", "sharing_level": sharing_level}
 
 
+@router.get("/compatibility/{partner_id}")
+def compatibility(
+    partner_id: int,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Calculate taste compatibility between two users from their
+    shared rated items. Returns overall %, per-type %, and the
+    biggest disagreements (taste battles)."""
+    # Get both users' rated items
+    my_entries = db.query(MediaEntry).filter(
+        MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None)
+    ).all()
+    their_entries = db.query(MediaEntry).filter(
+        MediaEntry.user_id == partner_id, MediaEntry.rating.isnot(None)
+    ).all()
+
+    my_rated = {e.title.lower(): e for e in my_entries}
+    their_rated = {e.title.lower(): e for e in their_entries}
+
+    # Find shared items (both rated)
+    shared_titles = set(my_rated.keys()) & set(their_rated.keys())
+    if len(shared_titles) < 3:
+        return {"overall": None, "shared_count": len(shared_titles),
+                "message": "Need at least 3 shared rated items for a compatibility score"}
+
+    # Calculate compatibility: 100% = identical ratings, 0% = max disagreement
+    # Each shared item contributes: 1 - abs(my_rating - their_rating) / 4
+    # (max possible difference is 4 on a 1-5 scale)
+    scores = []
+    by_type: dict[str, list[float]] = {}
+    battles: list[dict] = []
+
+    for title in shared_titles:
+        my_e = my_rated[title]
+        their_e = their_rated[title]
+        diff = abs((my_e.rating or 3) - (their_e.rating or 3))
+        agreement = 1 - (diff / 4)
+        scores.append(agreement)
+
+        mt = my_e.media_type
+        by_type.setdefault(mt, []).append(agreement)
+
+        # Track disagreements for taste battles
+        if diff >= 2:
+            battles.append({
+                "title": my_e.title,
+                "media_type": mt,
+                "my_rating": my_e.rating,
+                "their_rating": their_e.rating,
+                "diff": diff,
+            })
+
+    overall = (sum(scores) / len(scores)) * 100
+    type_pcts = {mt: (sum(s) / len(s)) * 100 for mt, s in by_type.items()}
+
+    # Sort battles by biggest disagreement
+    battles.sort(key=lambda b: b["diff"], reverse=True)
+
+    return {
+        "overall": round(overall, 1),
+        "shared_count": len(shared_titles),
+        "by_type": {mt: round(pct, 1) for mt, pct in type_pcts.items()},
+        "battles": battles[:5],
+    }
+
+
 @router.get("/social-proof/{external_id}")
 def social_proof(
     external_id: str,
