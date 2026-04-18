@@ -680,6 +680,20 @@ async def taste_quiz_movies_items(
     onboarding = load_onboarding(db, user.id)
     items = filter_quiz_items_by_onboarding(enriched, onboarding)
 
+    # Filter by age range — younger users get newer, age-appropriate content
+    from app.services.taste_quiz_scoring import load_age_range
+    age = load_age_range(db, user.id)
+    if age == "under_18":
+        _adult_movies = {"get out", "parasite", "mad max: fury road", "no country for old men",
+                         "there will be blood", "john wick", "superbad", "tropic thunder",
+                         "hereditary", "midsommar", "the conjuring", "the babadook",
+                         "gone girl", "shutter island", "the girl on the train",
+                         "bridesmaids", "it", "train to busan", "zodiac", "prisoners",
+                         "hacksaw ridge", "marriage story", "decision to leave"}
+        items = [i for i in items
+                 if i.get("title", "").lower() not in _adult_movies
+                 and (i.get("year") or 0) >= 2005]
+
     return {
         "items": items,
         "options": RESPONSE_OPTIONS,
@@ -714,6 +728,19 @@ async def taste_quiz_tv_items(
 
     onboarding = load_onboarding(db, user.id)
     items = filter_quiz_items_by_onboarding(enriched, onboarding)
+
+    from app.services.taste_quiz_scoring import load_age_range
+    age = load_age_range(db, user.id)
+    if age == "under_18":
+        # TV items may not have year in source data but enriched items get it from TMDB
+        # Also block known TV-MA shows by title
+        _adult_tv = {"game of thrones", "breaking bad", "euphoria", "the wire", "the sopranos",
+                      "dexter", "true blood", "ozark", "narcos", "peaky blinders", "westworld",
+                      "hannibal", "american horror story", "the walking dead", "sons of anarchy",
+                      "boardwalk empire", "house of cards", "shameless", "nip/tuck", "sex and the city"}
+        items = [i for i in items
+                 if i.get("title", "").lower() not in _adult_tv
+                 and ((i.get("year") or 2020) >= 2005)]
 
     result = {
         "items": items,
