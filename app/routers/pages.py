@@ -731,7 +731,7 @@ async def onboarding_page(request: Request, user: User = Depends(require_user), 
     ).count()
     _qr = load_quiz_results(db, user.id)
     _hq = any((_qr or {}).get(t, {}).get("profiles") for t in ("movies", "tv", "books"))
-    if _rc >= 5 or _hq:
+    if (_rc >= 5 or _hq) and not request.query_params.get("preview"):
         return RedirectResponse("/")
 
 
