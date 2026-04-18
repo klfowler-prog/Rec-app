@@ -100,6 +100,7 @@ class DismissedItem(Base):
     title: Mapped[str] = mapped_column(String, nullable=False)
     media_type: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    snoozed_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)  # null = permanent, date = comes back after
 
     __table_args__ = (
         UniqueConstraint("user_id", "title", "media_type", name="uq_user_dismissed_title_type"),

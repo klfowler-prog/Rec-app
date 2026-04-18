@@ -442,6 +442,31 @@ def dismiss_item(item: DismissedItemCreate, user: User = Depends(require_user), 
     return db_item
 
 
+@router.post("/snooze")
+def snooze_item(item: DismissedItemCreate, days: int = 7, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """Temporarily dismiss — comes back after `days` days."""
+    from datetime import timedelta
+
+    existing = (
+        db.query(DismissedItem)
+        .filter(DismissedItem.user_id == user.id, DismissedItem.title == item.title, DismissedItem.media_type == item.media_type)
+        .first()
+    )
+    if existing:
+        existing.snoozed_until = datetime.utcnow() + timedelta(days=days)
+        db.commit()
+        return {"status": "snoozed", "until": existing.snoozed_until.isoformat()}
+
+    db_item = DismissedItem(
+        user_id=user.id,
+        snoozed_until=datetime.utcnow() + timedelta(days=days),
+        **item.model_dump(),
+    )
+    db.add(db_item)
+    db.commit()
+    return {"status": "snoozed", "until": db_item.snoozed_until.isoformat()}
+
+
 @router.get("/dismissed", response_model=list[DismissedItemResponse])
 def list_dismissed(user: User = Depends(require_user), db: Session = Depends(get_db)):
     return db.query(DismissedItem).filter(DismissedItem.user_id == user.id).order_by(DismissedItem.created_at.desc()).all()

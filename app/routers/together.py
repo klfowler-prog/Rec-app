@@ -114,13 +114,37 @@ async def compare(
     my_summary = build_summary(my_entries, user.name)
     their_summary = build_summary(their_entries, other.name)
 
+    # Queue items — GREAT candidates for Together since the user already wants to consume them
+    my_queue = [e for e in my_entries if e.status == "want_to_consume"]
+    their_queue = [e for e in their_entries if e.status == "want_to_consume"]
+    queue_section = ""
+    if my_queue or their_queue:
+        queue_lines = []
+        if my_queue:
+            queue_lines.append(f"\n{user.name}'s QUEUE (items they saved for later — great candidates!):")
+            for e in my_queue[:10]:
+                queue_lines.append(f"  - {e.title} ({e.media_type})")
+        if their_queue:
+            queue_lines.append(f"\n{other.name}'s QUEUE (items they saved for later):")
+            for e in their_queue[:10]:
+                queue_lines.append(f"  - {e.title} ({e.media_type})")
+        queue_section = "\n".join(queue_lines)
+
     avoid = set()
+    # Only avoid items BOTH have already consumed (not queue items — those are candidates!)
     for e in my_entries:
-        avoid.add(e.title.lower())
+        if e.status == "consumed":
+            avoid.add(e.title.lower())
     for e in their_entries:
-        avoid.add(e.title.lower())
-    # Also include dismissed items from both users
-    for d in db.query(DismissedItem.title).filter(DismissedItem.user_id.in_([user.id, other.id])).all():
+        if e.status == "consumed":
+            avoid.add(e.title.lower())
+    # Dismissed items — exclude snoozed ones that have expired
+    from datetime import datetime as dt
+    now = dt.utcnow()
+    for d in db.query(DismissedItem).filter(DismissedItem.user_id.in_([user.id, other.id])).all():
+        # Skip snoozed items that have expired (they should come back)
+        if d.snoozed_until and d.snoozed_until < now:
+            continue
         avoid.add(d.title.lower())
     # Send ALL avoided titles — truncating caused dismissed items to slip through
     avoid_str = "\n".join(f"- {t}" for t in sorted(avoid)) if avoid else "none"
@@ -143,7 +167,10 @@ async def compare(
 {my_summary}
 
 {their_summary}
+{queue_section}
 {together_streaming_ctx}
+QUEUE PRIORITY: If either person has something in their queue that the OTHER person would also love (based on their taste profile), PRIORITIZE those items. Queue items are things they already want to try — surfacing them in Together mode is the best possible outcome.
+
 TASK: Recommend 5 cross-medium items (a mix of movies, TV, books, podcasts) that BOTH people would rate ≥4. For each, predict how each person would rate it on a 1-5 scale.
 
 CRITICAL:
