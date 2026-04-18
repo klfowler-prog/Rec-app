@@ -399,7 +399,11 @@ async function pickResponse(valueStr) {
 
     // Auto-advance to the next question
     setTimeout(() => {
-        if (currentIdx < FLAT_ITEMS.length - 1) {
+        const offrampAt = QUIZ.offramp_after || 999;
+        if (currentIdx + 1 === offrampAt && currentIdx < FLAT_ITEMS.length - 1) {
+            // Show offramp
+            showOfframp();
+        } else if (currentIdx < FLAT_ITEMS.length - 1) {
             currentIdx++;
             renderCurrent();
         } else {
@@ -465,6 +469,51 @@ function resumeQuiz() {
             break;
         }
     }
+    renderCurrent();
+}
+
+function showOfframp() {
+    const card = document.getElementById('film-card');
+    const realAnswered = Object.values(responses).filter(v => v !== null && v !== undefined).length;
+    card.innerHTML = `
+        <div class="text-center py-8 space-y-4">
+            <div class="w-14 h-14 bg-sage/10 rounded-full flex items-center justify-center mx-auto">
+                <svg class="w-7 h-7 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            </div>
+            <h3 class="text-xl font-bold">Nice — ${realAnswered} rated!</h3>
+            <p class="text-sm text-txt-muted max-w-sm mx-auto">We have enough to understand your taste. You can stop here, or keep going to unlock even stronger recommendations.</p>
+            <div class="flex flex-col gap-2 max-w-xs mx-auto pt-2">
+                <button onclick="finishQuiz()" class="px-6 py-2.5 bg-sage text-white rounded-xl text-sm font-semibold hover:bg-sage-dark transition-base">
+                    That's enough — show my results
+                </button>
+                <button onclick="continueAfterOfframp()" class="px-6 py-2.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm font-medium hover:border-sage transition-base">
+                    Keep going — I want better recs
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function continueAfterOfframp() {
+    currentIdx++;
+    const card = document.getElementById('film-card');
+    card.innerHTML = `
+        <div class="space-y-4">
+            <div class="flex items-center gap-3">
+                <div class="poster-frame w-28 md:w-36 flex-shrink-0 rounded-lg overflow-hidden shadow-md">
+                    <div id="poster-img-wrap"></div>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-[10px] uppercase tracking-widest text-txt-muted mb-1" id="item-type-label"></p>
+                    <h3 id="item-title" class="text-lg md:text-xl font-bold leading-tight"></h3>
+                    <p id="item-year" class="text-xs text-txt-muted mt-0.5"></p>
+                    <p id="item-creator" class="text-xs text-txt-muted"></p>
+                </div>
+            </div>
+            <div id="response-buttons" class="grid grid-cols-5 gap-2 pt-2"></div>
+        </div>
+    `;
+    renderResponseButtons();
     renderCurrent();
 }
 

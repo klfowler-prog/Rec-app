@@ -760,15 +760,18 @@ async def taste_quiz_movies_items(
             return (1, -y)    # then newest of the modern stuff
         items.sort(key=_score_over_50)
 
-    # Cap at 20 items — enough to get 8-12 ratings without fatigue
-    MAX_PRESENTED = 20
-    items = items[:MAX_PRESENTED]
+    # Two batches: first 20 = main quiz, next 15 = bonus round
+    # The client shows an offramp between them
+    BATCH_1 = 20
+    BATCH_2 = 15
+    items = items[:BATCH_1 + BATCH_2]
 
     return {
         "items": items,
         "options": RESPONSE_OPTIONS,
         "axes": AXES,
         "min_answered": MIN_ANSWERED,
+        "offramp_after": BATCH_1,
         "total_questions": len(items),
         "media_type": "movie",
         "media_label": "film",
@@ -837,15 +840,16 @@ async def taste_quiz_tv_items(
     elif age == "over_50":
         items.sort(key=lambda i: (0 if _tv_year(i) < 2005 else 1, _tv_year(i) if _tv_year(i) < 2005 else -_tv_year(i)))
 
-    # Cap at 20 items — enough to get 8-12 ratings without fatigue
-    MAX_PRESENTED = 20
-    items = items[:MAX_PRESENTED]
+    BATCH_1 = 20
+    BATCH_2 = 15
+    items = items[:BATCH_1 + BATCH_2]
 
     result = {
         "items": items,
         "options": RESPONSE_OPTIONS,
         "axes": AXES,
         "min_answered": MIN_ANSWERED,
+        "offramp_after": BATCH_1,
         "total_questions": len(items),
         "media_type": "tv",
         "media_label": "show",
