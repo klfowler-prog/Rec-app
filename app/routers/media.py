@@ -694,19 +694,32 @@ async def taste_quiz_movies_items(
         items = [i for i in items
                  if i.get("title", "").lower() not in _adult_movies
                  and (i.get("year") or 0) >= 2005]
-        # Sort so teen-accessible items come first (newer + family/action/animation)
-        _teen_priority = {"five nights at freddy's", "the super mario bros. movie",
-                          "sonic the hedgehog", "detective pikachu", "frozen", "coco",
-                          "ratatouille", "the greatest showman", "soul surfer",
-                          "hidden figures", "the blind side", "a quiet place",
-                          "knives out", "top gun: maverick", "spider-man",
-                          "your name", "demon slayer: mugen train", "a silent voice",
-                          "la la land", "bohemian rhapsody", "the dark knight",
-                          "the secret life of walter mitty", "the martian",
-                          "creed", "21 jump street", "superbad", "it", "nope",
-                          "get out", "crazy rich asians"}
-        items.sort(key=lambda i: (0 if i.get("title", "").lower() in _teen_priority else 1,
-                                  -(i.get("year") or 0)))
+        # Sort by what teens are most likely to know — mainstream first,
+        # then genre, then anime/indie. Ensures a diverse mix early.
+        _tier1 = {  # Mainstream blockbusters, comedies, family — almost every teen knows these
+            "frozen", "coco", "the super mario bros. movie", "five nights at freddy's",
+            "sonic the hedgehog", "the dark knight", "top gun: maverick",
+            "superbad", "bridesmaids", "21 jump street", "mean girls",
+            "knives out", "get out", "crazy rich asians", "the greatest showman",
+            "ratatouille", "bohemian rhapsody", "hidden figures",
+        }
+        _tier2 = {  # Action, horror, drama — most teens have seen these
+            "it", "a quiet place", "nope", "detective pikachu",
+            "the martian", "creed", "la la land", "the blind side",
+            "soul surfer", "mission: impossible - fallout",
+            "parasite", "mad max: fury road", "john wick",
+        }
+        _tier3 = {  # Anime, indie, slower — teens who are into these love them, but not universal
+            "your name", "demon slayer: mugen train", "a silent voice",
+            "train to busan", "boyhood", "the secret life of walter mitty",
+        }
+        def _teen_sort(i):
+            t = i.get("title", "").lower()
+            if t in _tier1: return (0, -(i.get("year") or 0))
+            if t in _tier2: return (1, -(i.get("year") or 0))
+            if t in _tier3: return (2, -(i.get("year") or 0))
+            return (3, -(i.get("year") or 0))
+        items.sort(key=_teen_sort)
         log.info("movie_quiz [user=%d age=%s]: sorted %d items, first 5: %s",
                  user.id, age, len(items),
                  [i.get("title") for i in items[:5]])
