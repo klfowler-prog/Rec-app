@@ -448,13 +448,17 @@
                 return;
             }
             // Check if any of the card's providers match user's services
-            const providers = card.dataset.providerIds;
+            const providers = (card.dataset.providerIds || '').trim();
             if (!providers) {
-                // No provider data — show it (might be a book/podcast)
+                // No provider data — show it (book, podcast, or not yet fetched)
                 card.style.display = '';
                 return;
             }
-            const pids = providers.split(',').map(Number);
+            const pids = providers.split(',').map(Number).filter(n => !isNaN(n) && n > 0);
+            if (pids.length === 0) {
+                card.style.display = '';
+                return;
+            }
             const match = pids.some(pid => USER_SERVICES.has(pid));
             card.style.display = match ? '' : 'none';
         });
@@ -522,7 +526,27 @@
         if (section) section.classList.add('hidden');
     }
 
-    // Kick off the async sections
-    Promise.all([loadBestBets(), loadThemes(), loadMissing()]);
+    // Lazy-fetch streaming providers for movie/TV cards missing them
+    async function backfillProviders() {
+        const cards = document.querySelectorAll('[data-rec-card]');
+        for (const card of cards) {
+            const ids = (card.dataset.providerIds || '').trim();
+            if (ids) continue; // already has data
+            const link = card.querySelector('a[href*="/media/movie/"], a[href*="/media/tv/"]');
+            if (!link) continue;
+            const match = link.getAttribute('href').match(/\/media\/(movie|tv)\/([^?]+)/);
+            if (!match) continue;
+            try {
+                const resp = await fetch(`/api/media/providers/${match[1]}/${match[2]}`);
+                if (!resp.ok) continue;
+                const providers = await resp.json();
+                const pids = providers.map(p => p.provider_id).filter(Boolean).join(',');
+                if (pids) card.dataset.providerIds = pids;
+            } catch {}
+        }
+    }
+
+    // Kick off the async sections, then backfill providers
+    Promise.all([loadBestBets(), loadThemes(), loadMissing()]).then(() => backfillProviders());
 </script>
 {% endblock %}
