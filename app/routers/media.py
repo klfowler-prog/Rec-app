@@ -4143,7 +4143,7 @@ async def generate_mini_quiz(
     from app.services.taste_quiz_scoring import load_age_range
     age_range = load_age_range(db, user.id)
     if age_range == "under_18":
-        age_instruction = "IMPORTANT: This user is under 18. Only suggest PG/PG-13 content. No R-rated movies, no adult themes, no explicit content. Focus on titles from 2010-present that a teenager would know — across movies, TV, books, and podcasts."
+        age_instruction = "CRITICAL AGE RESTRICTION: This user is UNDER 18. You MUST only suggest content rated PG, PG-13, or TV-14 and below. NEVER suggest R-rated movies, TV-MA shows, or content with explicit sex, heavy drug use, or graphic violence. Specifically DO NOT suggest: Euphoria, Game of Thrones, Breaking Bad, Squid Game, or similar TV-MA content. Focus on titles from 2010-present that a teenager would actually be allowed to watch/read — across movies, TV, books, and podcasts."
     elif age_range == "18_35":
         age_instruction = "This user is 18-35. They likely know a mix of 2000s-present content across all media types. Include both mainstream hits and well-known indie/cult favorites."
     elif age_range == "35_50":
