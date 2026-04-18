@@ -52,10 +52,15 @@
             </a>
             {% endif %}
             {% if not qs.get('books') %}
-            <a href="/quick-start/books" class="flex items-center gap-2 px-3 py-2.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm hover:border-sage transition-base">
+            <a href="/quick-start/books/fiction" class="flex items-center gap-2 px-3 py-2.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm hover:border-sage transition-base">
                 <span class="w-2 h-2 rounded gradient-amber flex-shrink-0"></span>
-                <span class="font-medium">Books quiz</span>
-                <span class="text-[10px] text-txt-muted ml-auto">40 titles</span>
+                <span class="font-medium">Fiction books</span>
+                <span class="text-[10px] text-txt-muted ml-auto">~3 min</span>
+            </a>
+            <a href="/quick-start/books/nonfiction" class="flex items-center gap-2 px-3 py-2.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm hover:border-sage transition-base">
+                <span class="w-2 h-2 rounded gradient-amber flex-shrink-0"></span>
+                <span class="font-medium">Nonfiction books</span>
+                <span class="text-[10px] text-txt-muted ml-auto">~3 min</span>
             </a>
             {% endif %}
         </div>
@@ -290,10 +295,14 @@
                     <span>TV quiz</span>
                     {% if qs.get('tv') %}<span class="text-[10px] text-sage ml-auto">✓</span>{% endif %}
                 </a>
-                <a href="/quick-start/books" class="flex items-center gap-2 px-3 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg text-xs hover:border-sage transition-base">
+                <a href="/quick-start/books/fiction" class="flex items-center gap-2 px-3 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg text-xs hover:border-sage transition-base">
                     <span class="w-1.5 h-1.5 rounded gradient-amber flex-shrink-0"></span>
-                    <span>Books quiz</span>
+                    <span>Fiction books</span>
                     {% if qs.get('books') %}<span class="text-[10px] text-sage ml-auto">✓</span>{% endif %}
+                </a>
+                <a href="/quick-start/books/nonfiction" class="flex items-center gap-2 px-3 py-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg text-xs hover:border-sage transition-base">
+                    <span class="w-1.5 h-1.5 rounded gradient-amber flex-shrink-0"></span>
+                    <span>Nonfiction books</span>
                 </a>
             </div>
         </div>
