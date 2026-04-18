@@ -1198,9 +1198,11 @@ async def score_book_quiz_nonfiction(
 
 
 class OnboardingSubmission(BaseModel):
-    media_types: list[str] = []  # subset of ["movie","tv","book_fiction","book_nonfiction","podcast"]
-    generation: str = "mix"      # one of ["gen_z","millennial","classic","mix"]
-    scenes: list[str] = []       # subset of ONBOARDING_SCENES
+    media_types: list[str] = []
+    generation: str = "mix"
+    scenes: list[str] = []
+    streaming_services: list[int] = []
+    media_regions: list[str] = []
 
 
 @router.post("/onboarding")
@@ -2347,7 +2349,7 @@ Return ONLY valid JSON, no markdown:
         # Minimum predicted rating to surface an item. Anything below this
         # is "outside the user's lane" per the prompt contract; we drop it
         # rather than show a bad match.
-        MIN_PRED_RATING = 6.0
+        MIN_PRED_RATING = 3.0
 
         def _pr_sort_key(item: dict) -> float:
             # None predictions sort to the bottom so legit scored items win
@@ -3140,7 +3142,7 @@ Return ONLY a JSON object mapping each exact candidate title to either a number 
             "predicted_rating": predicted_map.get(item.title.lower()),
         }
 
-    MIN_SCORE = 5.5
+    MIN_SCORE = 3.0
     MAX_PER_SECTION = 8
     serialized_sections = []
     for label, items in filtered_sections:
@@ -3455,7 +3457,7 @@ Return ONLY valid JSON, no markdown. Each category gets a list of 5 items, stron
   "movie": [{{"title": "...", "year": 2020, "reason": "...", "predicted_rating": 4.5}}, ... 5 items],
   "tv": [{{"title": "...", "year": 2020, "reason": "...", "predicted_rating": 4.5}}, ... 5 items],
   "book": [{{"title": "...", "year": 2020, "reason": "...", "predicted_rating": 4.5}}, ... 5 items],
-  "podcast": [{{"title": "...", "year": 2020, "reason": "...", "predicted_rating": 8.5}}, ... 5 items]
+  "podcast": [{{"title": "...", "year": 2020, "reason": "...", "predicted_rating": 4.5}}, ... 5 items]
 }}
 
 predicted_rating is 1-5 based on how much this user would enjoy it.

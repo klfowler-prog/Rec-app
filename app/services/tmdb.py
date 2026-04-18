@@ -117,12 +117,17 @@ async def get_details(media_type: str, tmdb_id: str) -> MediaResult | None:
 TIER1_PROVIDERS = {
     8: "Netflix",
     15: "Hulu",
-    1899: "Max",       # HBO Max / Max
+    1899: "Max",
     337: "Disney+",
     9: "Prime Video",
     350: "Apple TV+",
     386: "Peacock",
     531: "Paramount+",
+    38: "BBC iPlayer",
+    103: "All 4",
+    380: "BritBox",
+    21: "Stan",
+    385: "Binge",
 }
 # Tier 2: Everything else that's flatrate — "Other streaming" badge
 # (no explicit list needed — anything flatrate not in TIER1 is Tier 2)

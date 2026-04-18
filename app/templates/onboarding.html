@@ -109,32 +109,34 @@
         </div>
     </div>
 
-    <!-- Step 4: Streaming services -->
+    <!-- Step 4: Regions + Streaming services -->
     <div class="step" id="step-4">
-        <h2 class="text-2xl font-bold mb-2">What do you subscribe to?</h2>
-        <p class="text-txt-muted mb-6">We'll tag recommendations with where to watch them.</p>
+        <h2 class="text-2xl font-bold mb-2">Where have you lived?</h2>
+        <p class="text-txt-muted mb-6">This helps us recommend things from the cultures you know. Tap all that apply.</p>
 
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {% set services = [
-                (8,    'Netflix',      '#E50914', 'N'),
-                (15,   'Hulu',         '#1CE783', 'h'),
-                (1899, 'Max',          '#002BE7', 'M'),
-                (337,  'Disney+',      '#113CCF', 'D+'),
-                (9,    'Prime Video',  '#00A8E1', 'P'),
-                (350,  'Apple TV+',    '#000000', 'tv+'),
-                (386,  'Peacock',      '#000000', 'P'),
-                (531,  'Paramount+',   '#0064FF', 'P+'),
+        <div class="flex flex-wrap gap-2 mb-8" id="region-chips">
+            {% set regions = [
+                ('us', '🇺🇸', 'United States'),
+                ('uk', '🇬🇧', 'United Kingdom'),
+                ('au', '🇦🇺', 'Australia'),
+                ('ca', '🇨🇦', 'Canada'),
+                ('eu', '🇪🇺', 'Europe'),
+                ('asia', '🌏', 'Asia'),
+                ('latam', '🌎', 'Latin America'),
+                ('other', '🌍', 'Other'),
             ] %}
-            {% for pid, name, color, icon in services %}
-            <label class="flex items-center gap-3 px-4 py-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl cursor-pointer hover:border-sage transition-base">
-                <input type="checkbox" name="streaming_services" value="{{ pid }}"
-                       {% if pid|string in (saved_services|default([])|map('string')|list) %}checked{% endif %}
-                       class="w-4 h-4 accent-sage">
-                <span class="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0" style="background: {{ color }};">{{ icon }}</span>
-                <span class="text-sm font-medium">{{ name }}</span>
-            </label>
+            {% for code, flag, label in regions %}
+            <button type="button" data-region="{{ code }}" onclick="toggleRegion(this)"
+                class="region-chip px-4 py-2 rounded-full border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark text-sm font-medium hover:border-sage transition-base">
+                {{ flag }} {{ label }}
+            </button>
             {% endfor %}
         </div>
+
+        <h3 class="text-lg font-semibold mb-2">What do you subscribe to?</h3>
+        <p class="text-txt-muted text-sm mb-4">We'll tag recommendations with where to watch them.</p>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3" id="streaming-grid"></div>
 
         <div class="flex justify-between items-center mt-8">
             <button onclick="goToStep(3)" class="text-sm text-txt-muted hover:text-txt">← Back</button>
@@ -245,6 +247,47 @@ function goToStep(n) {
     window.scrollTo(0, 0);
 }
 
+// --- Shared search helper with typo retry ---
+function cleanQuery(q) {
+    return q.replace(/[''""]/g, '').replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+async function doSearch(q) {
+    const resp = await fetch(`/api/media/search?q=${encodeURIComponent(q)}`);
+    return await resp.json();
+}
+
+async function searchWithRetry(q) {
+    let items = await doSearch(q);
+    if (items.length) return items;
+
+    const cleaned = cleanQuery(q);
+    if (cleaned && cleaned !== q) {
+        items = await doSearch(cleaned);
+        if (items.length) return items;
+    }
+
+    const words = cleaned.split(' ').filter(w => w.length > 2);
+    if (words.length > 1) {
+        items = await doSearch(words.join(' '));
+        if (items.length) return items;
+        items = await doSearch(words[0]);
+        if (items.length) return items;
+    }
+
+    return [];
+}
+
+function renderSearchItem(item, onclick) {
+    const img = item.image_url
+        ? `<img src="${item.image_url}" alt="" class="w-8 h-11 object-cover rounded">`
+        : `<div class="w-8 h-11 bg-sage/10 rounded flex items-center justify-center"><span class="text-sage text-xs">${escapeHtml((item.title||'?')[0])}</span></div>`;
+    return `<button onclick='${onclick}' class="w-full flex items-center gap-3 px-3 py-2 hover:bg-sage/5 text-left transition-base">
+        ${img}
+        <div class="flex-1 min-w-0"><p class="text-sm font-medium truncate">${escapeHtml(item.title)}</p><p class="text-[10px] text-txt-muted">${item.media_type} ${item.year ? '· ' + item.year : ''}</p></div>
+    </button>`;
+}
+
 // --- Step 1: Favorites search ---
 function searchFavorite(input) {
     const idx = input.dataset.index;
@@ -254,16 +297,15 @@ function searchFavorite(input) {
     if (q.length < 2) { results.classList.add('hidden'); return; }
     debounceTimers[`fav-${idx}`] = setTimeout(async () => {
         try {
-            const resp = await fetch(`/api/media/search?q=${encodeURIComponent(q)}`);
-            const items = await resp.json();
-            if (!items.length) { results.innerHTML = '<p class="p-3 text-xs text-txt-muted">No results</p>'; results.classList.remove('hidden'); return; }
-            results.innerHTML = items.slice(0, 5).map(item => {
-                const img = item.image_url ? `<img src="${item.image_url}" alt="" class="w-8 h-11 object-cover rounded">` : `<div class="w-8 h-11 bg-sage/10 rounded flex items-center justify-center"><span class="text-sage text-xs">${escapeHtml((item.title||'?')[0])}</span></div>`;
-                return `<button onclick='pickFavorite(${idx}, ${JSON.stringify(item).replace(/'/g, "&#39;")})' class="w-full flex items-center gap-3 px-3 py-2 hover:bg-sage/5 text-left transition-base">
-                    ${img}
-                    <div class="flex-1 min-w-0"><p class="text-sm font-medium truncate">${escapeHtml(item.title)}</p><p class="text-[10px] text-txt-muted">${item.media_type} ${item.year ? '· ' + item.year : ''}</p></div>
-                </button>`;
-            }).join('');
+            const items = await searchWithRetry(q);
+            if (!items.length) {
+                results.innerHTML = '<p class="p-3 text-xs text-txt-muted">No results found. Try checking the spelling or using fewer words.</p>';
+                results.classList.remove('hidden');
+                return;
+            }
+            results.innerHTML = items.slice(0, 5).map(item =>
+                renderSearchItem(item, `pickFavorite(${idx}, ${JSON.stringify(item).replace(/'/g, "&#39;")})`)
+            ).join('');
             results.classList.remove('hidden');
         } catch {}
     }, 300);
@@ -289,7 +331,7 @@ function pickFavorite(idx, item) {
             external_id: item.external_id, source: item.source, title: item.title,
             media_type: item.media_type, image_url: item.image_url, year: item.year,
             creator: item.creator, genres: Array.isArray(item.genres) ? item.genres.join(', ') : item.genres,
-            description: item.description, status: 'consumed', rating: 9,
+            description: item.description, status: 'consumed', rating: 5,
         }),
     }).catch(() => {});
 }
@@ -393,18 +435,15 @@ function searchNowItem(input) {
     if (q.length < 2) { results.classList.add('hidden'); return; }
     debounceTimers[`now-${idx}`] = setTimeout(async () => {
         try {
-            const resp = await fetch(`/api/media/search?q=${encodeURIComponent(q)}`);
-            const items = await resp.json();
-            results.innerHTML = items.slice(0, 5).map(item => {
-                const img = item.image_url
-                    ? `<img src="${item.image_url}" alt="" class="w-8 h-11 object-cover rounded">`
-                    : `<div class="w-8 h-11 bg-sage/10 rounded flex items-center justify-center"><span class="text-sage text-xs">${escapeHtml((item.title||'?')[0])}</span></div>`;
-                const badge = {movie:'bg-blue-50 text-blue-600',tv:'bg-purple-50 text-purple-600',book:'bg-amber-50 text-amber-600',podcast:'bg-green-50 text-green-600'}[item.media_type] || '';
-                return `<button onclick='pickNowItem(${idx}, ${JSON.stringify(item).replace(/'/g, "&#39;")})' class="w-full flex items-center gap-3 px-3 py-2 hover:bg-sage/5 text-left transition-base">
-                    ${img}
-                    <div class="flex-1 min-w-0"><p class="text-sm font-medium truncate">${escapeHtml(item.title)}</p><p class="text-[10px] text-txt-muted">${item.media_type} ${item.year ? '· ' + item.year : ''}</p></div>
-                </button>`;
-            }).join('');
+            const items = await searchWithRetry(q);
+            if (!items.length) {
+                results.innerHTML = '<p class="p-3 text-xs text-txt-muted">No results found. Try checking the spelling or using fewer words.</p>';
+                results.classList.remove('hidden');
+                return;
+            }
+            results.innerHTML = items.slice(0, 5).map(item =>
+                renderSearchItem(item, `pickNowItem(${idx}, ${JSON.stringify(item).replace(/'/g, "&#39;")})`)
+            ).join('');
             results.classList.remove('hidden');
         } catch {}
     }, 300);
@@ -435,6 +474,52 @@ function pickNowItem(idx, item) {
 }
 
 // --- Step 4: Finish ---
+// --- Step 4: Regions + streaming services ---
+const ALL_SERVICES = [
+    { pid: 8,    name: 'Netflix',      color: '#E50914', icon: 'N',   regions: ['us','uk','au','ca','eu','asia','latam','other'] },
+    { pid: 9,    name: 'Prime Video',  color: '#00A8E1', icon: 'P',   regions: ['us','uk','au','ca','eu','asia','latam','other'] },
+    { pid: 337,  name: 'Disney+',      color: '#113CCF', icon: 'D+',  regions: ['us','uk','au','ca','eu','asia','latam','other'] },
+    { pid: 350,  name: 'Apple TV+',    color: '#000000', icon: 'tv+', regions: ['us','uk','au','ca','eu','asia','latam','other'] },
+    { pid: 15,   name: 'Hulu',         color: '#1CE783', icon: 'h',   regions: ['us'] },
+    { pid: 1899, name: 'Max',          color: '#002BE7', icon: 'M',   regions: ['us'] },
+    { pid: 386,  name: 'Peacock',      color: '#000000', icon: 'P',   regions: ['us'] },
+    { pid: 531,  name: 'Paramount+',   color: '#0064FF', icon: 'P+',  regions: ['us','au','ca'] },
+    { pid: 38,   name: 'BBC iPlayer',  color: '#000000', icon: 'BBC', regions: ['uk'] },
+    { pid: 103,  name: 'All 4',        color: '#FF1493', icon: '4',   regions: ['uk'] },
+    { pid: 380,  name: 'BritBox',      color: '#2B1E70', icon: 'B',   regions: ['uk','au','ca','us'] },
+    { pid: 21,   name: 'Stan',         color: '#002868', icon: 'S',   regions: ['au'] },
+    { pid: 385,  name: 'Binge',        color: '#FF6B00', icon: 'B',   regions: ['au'] },
+];
+
+const selectedRegions = new Set();
+
+function toggleRegion(btn) {
+    const region = btn.dataset.region;
+    if (selectedRegions.has(region)) {
+        selectedRegions.delete(region);
+        btn.classList.remove('bg-sage/10', 'border-sage', 'text-sage-dark');
+    } else {
+        selectedRegions.add(region);
+        btn.classList.add('bg-sage/10', 'border-sage', 'text-sage-dark');
+    }
+    renderStreamingServices();
+}
+
+function renderStreamingServices() {
+    const grid = document.getElementById('streaming-grid');
+    const regions = selectedRegions.size ? selectedRegions : new Set(['us']);
+    const visible = ALL_SERVICES.filter(s => s.regions.some(r => regions.has(r)));
+    grid.innerHTML = visible.map(s => `
+        <label class="flex items-center gap-3 px-4 py-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl cursor-pointer hover:border-sage transition-base">
+            <input type="checkbox" name="streaming_services" value="${s.pid}" class="w-4 h-4 accent-sage">
+            <span class="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0" style="background: ${s.color};">${s.icon}</span>
+            <span class="text-sm font-medium">${s.name}</span>
+        </label>
+    `).join('');
+}
+
+renderStreamingServices();
+
 async function finishOnboarding() {
     const btn = document.getElementById('finish-btn');
     btn.disabled = true;
@@ -454,6 +539,7 @@ async function finishOnboarding() {
             body: JSON.stringify({
                 media_types: mediaTypes.length ? mediaTypes : ['movie', 'tv', 'book_fiction'],
                 generation: 'mix', scenes: [], streaming_services: services,
+                media_regions: [...selectedRegions],
             }),
         });
     } catch {}

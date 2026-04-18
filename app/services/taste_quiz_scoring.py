@@ -235,14 +235,15 @@ def save_onboarding(db, user_id: int, answers: dict) -> dict:
     echo it back to the client."""
     from app.models import UserPreferences
 
-    # Valid streaming service IDs (TMDB provider IDs for Tier 1)
-    VALID_SERVICES = {8, 15, 1899, 337, 9, 350, 386, 531}
+    VALID_SERVICES = {8, 9, 15, 21, 38, 103, 337, 350, 380, 385, 386, 531, 1899}
+    VALID_REGIONS = {"us", "uk", "au", "ca", "eu", "asia", "latam", "other"}
 
     cleaned: dict = {
         "media_types": [t for t in (answers.get("media_types") or []) if t in ONBOARDING_MEDIA_TYPES],
         "generation": answers.get("generation") if answers.get("generation") in ONBOARDING_GENERATIONS else "mix",
         "scenes": [s for s in (answers.get("scenes") or []) if s in ONBOARDING_SCENES],
         "streaming_services": [int(s) for s in (answers.get("streaming_services") or []) if int(s) in VALID_SERVICES] if answers.get("streaming_services") else [],
+        "media_regions": [r for r in (answers.get("media_regions") or []) if r in VALID_REGIONS],
         "completed_at": datetime.utcnow().isoformat(),
     }
 
@@ -270,6 +271,14 @@ def load_streaming_services(db, user_id: int) -> list[int]:
     if not onboarding:
         return []
     return onboarding.get("streaming_services") or []
+
+
+def load_media_regions(db, user_id: int) -> list[str]:
+    """Return the user's selected media regions, or empty list."""
+    onboarding = load_onboarding(db, user_id)
+    if not onboarding:
+        return []
+    return onboarding.get("media_regions") or []
 
 
 def load_onboarding(db, user_id: int) -> dict | None:
