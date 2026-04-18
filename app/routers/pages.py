@@ -117,10 +117,11 @@ async def share_page(request: Request, share_user_id: int, db: Session = Depends
 @router.get("/welcome")
 async def welcome_page(request: Request):
     """Public landing page for unauthenticated users."""
-    # If already logged in, skip straight to home
+    # If already logged in, send to onboarding (gate will pass them
+    # through to home if they already have a taste profile)
     user_id = request.session.get("user_id")
     if user_id:
-        return RedirectResponse("/")
+        return RedirectResponse("/onboarding")
     return templates.TemplateResponse("welcome.html", {"request": request})
 
 
@@ -707,15 +708,18 @@ async def quick_start_page(request: Request, user: User = Depends(require_user),
 
 @router.get("/onboarding")
 async def onboarding_page(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
-    """4-step taste-profile onboarding wizard. Step 1 picks the media
-    types you engage with, Step 2 picks an era, Step 2b picks the
-    'worlds you're into' (anime, action, gaming culture, etc.), Step
-    3 surfaces a quiz checklist filtered by your media-type picks.
+    """4-step taste-profile onboarding wizard."""
+    from app.services.taste_quiz_scoring import load_onboarding, load_quiz_results
 
-    Pre-loads the saved answers (if any) so the user can come back and
-    edit. Skipping any step persists 'mix' / empty defaults so the
-    rest of the app falls back to current behavior."""
-    from app.services.taste_quiz_scoring import load_onboarding
+    # If user already has a taste profile, send them home instead
+    _rc = db.query(MediaEntry).filter(
+        MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None)
+    ).count()
+    _qr = load_quiz_results(db, user.id)
+    _hq = any((_qr or {}).get(t, {}).get("profiles") for t in ("movies", "tv", "books"))
+    if _rc >= 5 or _hq:
+        return RedirectResponse("/")
+
 
     saved = load_onboarding(db, user.id) or {}
 
