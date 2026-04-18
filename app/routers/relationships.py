@@ -306,6 +306,48 @@ def compatibility(
     }
 
 
+@router.post("/quick-pair/{partner_id}")
+def quick_pair(
+    partner_id: int,
+    relationship_type: str = Query("friend"),
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Directly pair with another user (for small user bases where
+    everyone can see everyone). Creates an accepted relationship
+    immediately — no invite/accept flow needed."""
+    if partner_id == user.id:
+        raise HTTPException(400, "Can't pair with yourself")
+
+    partner = db.query(User).filter(User.id == partner_id).first()
+    if not partner:
+        raise HTTPException(404, "User not found")
+
+    # Check for existing relationship
+    existing = db.query(UserRelationship).filter(
+        ((UserRelationship.sender_id == user.id) & (UserRelationship.receiver_id == partner_id))
+        | ((UserRelationship.sender_id == partner_id) & (UserRelationship.receiver_id == user.id))
+    ).first()
+    if existing:
+        if existing.status == "accepted":
+            return {"status": "already_paired"}
+        existing.status = "accepted"
+        existing.accepted_at = datetime.utcnow()
+        db.commit()
+        return {"status": "accepted", "partner_name": partner.name}
+
+    rel = UserRelationship(
+        sender_id=user.id,
+        receiver_id=partner_id,
+        relationship_type=relationship_type,
+        status="accepted",
+        accepted_at=datetime.utcnow(),
+    )
+    db.add(rel)
+    db.commit()
+    return {"status": "accepted", "partner_name": partner.name}
+
+
 @router.get("/social-proof/{external_id}")
 def social_proof(
     external_id: str,

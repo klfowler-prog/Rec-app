@@ -20,21 +20,23 @@
         <p class="text-txt-muted text-sm">Find things to enjoy with the people you love.</p>
     </div>
 
-    <!-- Partners -->
+    <!-- Partners + all users -->
     <div id="partners-section">
         <div class="flex items-center justify-between mb-3">
             <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold">Your people</p>
-            <button onclick="showInviteModal()" class="text-xs text-sage font-medium hover:underline">+ Invite someone</button>
         </div>
         <div id="partners-list" class="flex flex-wrap gap-3">
             <div class="text-sm text-txt-muted">Loading...</div>
         </div>
     </div>
 
-    <!-- Pending invitations -->
-    <div id="pending-section" class="hidden">
-        <p class="text-[11px] text-txt-muted uppercase tracking-[0.18em] font-bold mb-2">Pending invitations</p>
-        <div id="pending-list" class="space-y-2"></div>
+    <!-- Add more people -->
+    <div id="add-people-section" class="hidden">
+        <div class="flex items-center justify-between mb-3">
+            <p class="text-[11px] text-txt-muted uppercase tracking-[0.18em] font-bold">Add someone</p>
+            <button onclick="showInviteModal()" class="text-xs text-sage font-medium hover:underline">+ Invite by link</button>
+        </div>
+        <div id="unpaired-list" class="flex flex-wrap gap-3"></div>
     </div>
 
     <!-- Compare results -->
@@ -83,34 +85,72 @@ function escapeHtml(text) { const d = document.createElement('div'); d.textConte
 let selectedRelType = 'partner';
 let selectedPartnerId = null;
 
-// --- Partners ---
+// --- Partners + unpaired users ---
 async function loadPartners() {
     const list = document.getElementById('partners-list');
-    try {
-        const resp = await fetch('/api/relationships/partners');
-        const partners = await resp.json();
+    const addSection = document.getElementById('add-people-section');
+    const unpairedList = document.getElementById('unpaired-list');
 
-        if (!partners.length) {
-            list.innerHTML = `
-                <div class="w-full text-center py-8 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl">
-                    <p class="text-sm text-txt-muted mb-3">No one here yet. Invite someone to get started.</p>
-                    <button onclick="showInviteModal()" class="px-4 py-2 bg-sage text-white rounded-lg text-sm font-medium hover:bg-sage-dark transition-base">Invite someone</button>
-                </div>`;
-            return;
+    try {
+        const [partnersResp, allUsersResp] = await Promise.all([
+            fetch('/api/relationships/partners'),
+            fetch('/api/together/users'),
+        ]);
+        const partners = await partnersResp.json();
+        const allUsers = await allUsersResp.json();
+        const pairedIds = new Set(partners.map(p => p.id));
+
+        // Show paired partners
+        if (partners.length) {
+            list.innerHTML = partners.map(p => {
+                const avatar = p.picture
+                    ? `<img src="${p.picture}" alt="" class="w-10 h-10 rounded-full">`
+                    : `<div class="w-10 h-10 rounded-full bg-sage/20 flex items-center justify-center text-sm font-bold text-sage">${escapeHtml(p.name[0])}</div>`;
+                const typeLabel = {partner: 'Partner', family: 'Family', friend: 'Friend'}[p.relationship_type] || '';
+                return `
+                    <button onclick="selectPartner(${p.id}, this)" class="partner-btn flex flex-col items-center gap-1.5 p-3 rounded-xl border border-border-light dark:border-border-dark hover:border-sage transition-base min-w-[80px]" data-partner-id="${p.id}">
+                        ${avatar}
+                        <p class="text-xs font-medium truncate max-w-[70px]">${escapeHtml(p.name.split(' ')[0])}</p>
+                        <span class="text-[9px] text-txt-muted">${typeLabel}</span>
+                    </button>`;
+            }).join('');
+        } else {
+            list.innerHTML = '<p class="text-sm text-txt-muted">No one paired yet. Add someone below to get started.</p>';
         }
 
-        list.innerHTML = partners.map(p => {
-            const avatar = p.picture
-                ? `<img src="${p.picture}" alt="" class="w-10 h-10 rounded-full">`
-                : `<div class="w-10 h-10 rounded-full bg-sage/20 flex items-center justify-center text-sm font-bold text-sage">${escapeHtml(p.name[0])}</div>`;
-            const typeLabel = {partner: 'Partner', family: 'Family', friend: 'Friend'}[p.relationship_type] || '';
-            return `
-                <button onclick="selectPartner(${p.id}, this)" class="partner-btn flex flex-col items-center gap-1.5 p-3 rounded-xl border border-border-light dark:border-border-dark hover:border-sage transition-base min-w-[80px]" data-partner-id="${p.id}">
-                    ${avatar}
-                    <p class="text-xs font-medium truncate max-w-[70px]">${escapeHtml(p.name.split(' ')[0])}</p>
-                    <span class="text-[9px] text-txt-muted">${typeLabel}</span>
-                </button>`;
-        }).join('');
+        // Show unpaired users
+        const unpaired = allUsers.filter(u => !pairedIds.has(u.id));
+        if (unpaired.length) {
+            addSection.classList.remove('hidden');
+            unpairedList.innerHTML = unpaired.map(u => {
+                const avatar = u.picture
+                    ? `<img src="${u.picture}" alt="" class="w-8 h-8 rounded-full">`
+                    : `<div class="w-8 h-8 rounded-full bg-border-light dark:bg-border-dark flex items-center justify-center text-xs font-bold text-txt-muted">${escapeHtml(u.name[0])}</div>`;
+                return `
+                    <div class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-border-light dark:border-border-dark min-w-[80px]" id="unpaired-${u.id}">
+                        ${avatar}
+                        <p class="text-[10px] font-medium truncate max-w-[70px]">${escapeHtml(u.name.split(' ')[0])}</p>
+                        <div class="flex gap-1">
+                            <button onclick="quickPair(${u.id},'partner')" class="text-[8px] px-1.5 py-0.5 rounded bg-sage/10 text-sage hover:bg-sage hover:text-white transition-base" title="Partner">Partner</button>
+                            <button onclick="quickPair(${u.id},'family')" class="text-[8px] px-1.5 py-0.5 rounded bg-sage/10 text-sage hover:bg-sage hover:text-white transition-base" title="Family">Family</button>
+                            <button onclick="quickPair(${u.id},'friend')" class="text-[8px] px-1.5 py-0.5 rounded bg-sage/10 text-sage hover:bg-sage hover:text-white transition-base" title="Friend">Friend</button>
+                        </div>
+                    </div>`;
+            }).join('');
+        }
+    } catch {}
+}
+
+async function quickPair(userId, relType) {
+    try {
+        const resp = await fetch(`/api/relationships/quick-pair/${userId}?relationship_type=${relType}`, { method: 'POST' });
+        if (resp.ok) {
+            const el = document.getElementById(`unpaired-${userId}`);
+            if (el) {
+                el.innerHTML = `<span class="text-xs text-sage">Added!</span>`;
+                setTimeout(() => location.reload(), 1000);
+            }
+        }
     } catch {}
 }
 
@@ -355,13 +395,12 @@ async function sendInvite() {
         const data = await resp.json();
         if (resp.ok) {
             const link = `${window.location.origin}${data.invite_url}`;
+            const message = `Hey! I've been using NextUp — it recommends movies, shows, books, and podcasts based on your taste. It also has a Together mode where we can compare our taste and find things we'd both love. Join here: ${link}`;
             result.innerHTML = `
                 <div class="p-3 bg-sage/10 rounded-lg">
-                    <p class="text-sm font-medium text-sage mb-2">Invite created!</p>
-                    <div class="flex items-center gap-2">
-                        <input type="text" value="${link}" readonly class="flex-1 px-2 py-1.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded text-xs">
-                        <button onclick="navigator.clipboard.writeText('${link}');this.textContent='Copied!'" class="px-3 py-1.5 bg-sage text-white rounded text-xs font-medium">Copy</button>
-                    </div>
+                    <p class="text-sm font-medium text-sage mb-2">Invite ready — copy and send!</p>
+                    <p class="text-xs text-txt-muted mb-2 leading-relaxed">${escapeHtml(message)}</p>
+                    <button onclick="navigator.clipboard.writeText(\`${message.replace(/`/g, '\\`')}\`);this.textContent='Copied!';setTimeout(()=>this.textContent='Copy message',2000)" class="w-full px-3 py-2 bg-sage text-white rounded-lg text-xs font-semibold hover:bg-sage-dark transition-base">Copy message</button>
                 </div>`;
             result.classList.remove('hidden');
             loadPending();
