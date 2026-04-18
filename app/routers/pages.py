@@ -180,6 +180,21 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
     they didn't know they wanted. Everything else (mood browse, themes,
     Mad Lib, chat) lives on /discover."""
 
+    # Gate: if the user has no taste signal at all, send them to onboarding.
+    # This prevents the "dead zone" where someone has items but no ratings
+    # or quizzes, and sees a blank home page with no recommendations.
+    from app.services.taste_quiz_scoring import load_quiz_results as _lqr
+    _rated = db.query(MediaEntry).filter(
+        MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None)
+    ).limit(1).first()
+    _quiz = _lqr(db, user.id)
+    _has_quiz = any(
+        (_quiz or {}).get(t, {}).get("profiles")
+        for t in ("movies", "tv", "books")
+    )
+    if not _rated and not _has_quiz:
+        return RedirectResponse("/onboarding", status_code=302)
+
     total = db.query(MediaEntry).filter(MediaEntry.user_id == user.id).count()
 
     # "Sharpen your recs" — a small batch of unrated consumed items.
@@ -615,12 +630,20 @@ async def discover_page(
     db: Session = Depends(get_db),
     context: str | None = None,
 ):
-    """Single 'find me something' surface. Replaces the old /recommend page
-    and absorbs the activity chips, Mad Lib, Best Bets, and For Your Day
-    themes that previously lived on Home. Accepts an optional ?context=<slug>
-    from a chip click and redirects to the same page with a prewritten
-    mood query, so the inline chat (which auto-sends from ?mood=) takes
-    over."""
+    """Single 'find me something' surface."""
+    # Redirect to onboarding if no taste signal
+    from app.services.taste_quiz_scoring import load_quiz_results as _lqr2
+    _rated2 = db.query(MediaEntry).filter(
+        MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None)
+    ).limit(1).first()
+    _quiz2 = _lqr2(db, user.id)
+    _has_quiz2 = any(
+        (_quiz2 or {}).get(t, {}).get("profiles")
+        for t in ("movies", "tv", "books")
+    )
+    if not _rated2 and not _has_quiz2:
+        return RedirectResponse("/onboarding", status_code=302)
+
     if context and context in _CONTEXT_TO_MOOD:
         from urllib.parse import urlencode
 
