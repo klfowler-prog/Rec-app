@@ -185,6 +185,53 @@
 
         <div class="flex justify-between items-center mt-8">
             <button onclick="goToStep(2)" class="text-sm text-txt-muted hover:text-txt">← Back</button>
+            <button onclick="goToStep('genres')" class="px-6 py-2.5 bg-sage text-white rounded-xl text-sm font-semibold hover:bg-sage-dark transition-base">
+                Next →
+            </button>
+        </div>
+    </div>
+
+    <!-- Step 3b: Genre / scene preferences (feeds into quiz filtering) -->
+    <div class="step" id="step-genres">
+        <h2 class="text-2xl font-bold mb-2">What are you into?</h2>
+        <p class="text-txt-muted mb-6">Pick everything that appeals to you. We'll use this to personalize your quizzes and recommendations.</p>
+
+        <div class="flex flex-wrap gap-2" id="scene-chips">
+            {% set scene_options = [
+                ('feelgood_comfort', 'Feel-good / Comfort'),
+                ('comedy', 'Comedy'),
+                ('romance', 'Romance'),
+                ('action_thriller', 'Action / Thriller'),
+                ('suspense_mystery', 'Suspense / Mystery'),
+                ('horror', 'Horror'),
+                ('scifi_fantasy', 'Sci-Fi / Fantasy'),
+                ('prestige_drama', 'Prestige Drama'),
+                ('true_crime', 'True Crime'),
+                ('history_war', 'History / War'),
+                ('docs_nonfiction', 'Documentaries'),
+                ('sports', 'Sports'),
+                ('anime', 'Anime / Manga'),
+                ('k_content', 'K-Drama / K-Pop'),
+                ('reality_tv', 'Reality TV'),
+                ('kids_family', 'Family / Animated'),
+                ('indie_arthouse', 'Indie / Arthouse'),
+                ('cooking_food', 'Food / Cooking'),
+                ('music', 'Music'),
+                ('self_improvement', 'Self-improvement'),
+                ('faith_family', 'Faith / Inspirational'),
+                ('gaming_culture', 'Gaming Culture'),
+            ] %}
+            {% for code, label in scene_options %}
+            <button type="button" data-scene="{{ code }}" onclick="toggleScene(this)"
+                class="scene-chip px-3 py-2 rounded-full border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark text-sm font-medium hover:border-sage transition-base
+                {% if code in saved_scenes %}bg-sage/15 border-sage/30 text-sage{% endif %}">
+                {{ label }}
+            </button>
+            {% endfor %}
+        </div>
+
+        <div class="flex justify-between items-center mt-8">
+            <button onclick="goToStep(3)" class="text-sm text-txt-muted hover:text-txt">← Back</button>
             <button onclick="goToStep(4)" class="px-6 py-2.5 bg-sage text-white rounded-xl text-sm font-semibold hover:bg-sage-dark transition-base">
                 Next →
             </button>
@@ -709,6 +756,19 @@ const ALL_SERVICES = [
     { pid: 283,  name: 'Crunchyroll',  color: '#F47521', icon: 'CR',  regions: ['us','uk','au','ca','eu','asia','latam','other'] },
 ];
 
+const selectedScenes = new Set([{% for s in saved_scenes %}'{{ s }}',{% endfor %}]);
+
+function toggleScene(btn) {
+    const scene = btn.dataset.scene;
+    if (selectedScenes.has(scene)) {
+        selectedScenes.delete(scene);
+        btn.classList.remove('bg-sage/15', 'border-sage/30', 'text-sage');
+    } else {
+        selectedScenes.add(scene);
+        btn.classList.add('bg-sage/15', 'border-sage/30', 'text-sage');
+    }
+}
+
 const selectedRegions = new Set();
 
 function toggleRegion(btn) {
@@ -756,7 +816,7 @@ async function finishOnboarding() {
             method: 'POST', headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
                 media_types: mediaTypes.length ? mediaTypes : ['movie', 'tv', 'book_fiction'],
-                generation: 'mix', scenes: [], streaming_services: services,
+                generation: 'mix', scenes: [...selectedScenes], streaming_services: services,
                 media_regions: [...selectedRegions],
                 age_range: selectedAge,
             }),
