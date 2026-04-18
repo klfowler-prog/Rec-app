@@ -26,8 +26,44 @@
         <div class="h-1 flex-1 rounded-full bg-border-light dark:bg-border-dark" id="prog-5"></div>
     </div>
 
+    {% if unrated_items %}
+    <!-- Step 0: Rate items you already added -->
+    <div class="step active step-transition" id="step-0">
+        <h2 class="text-2xl font-bold mb-2">You said you {{ 'watched' if unrated_items[0].media_type in ('movie', 'tv') else 'checked out' }} these</h2>
+        <p class="text-txt-muted mb-6">Quick — tell us what you thought. This is the fastest way to start getting great recommendations.</p>
+
+        <div class="space-y-3">
+            {% for item in unrated_items %}
+            <div class="flex items-center gap-3 p-3 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light/50 dark:border-border-dark/50 shadow-sm" data-rec-card id="onboard-rate-{{ item.id }}">
+                <div class="w-12 h-16 flex-shrink-0 rounded-lg overflow-hidden shadow-sm">
+                    {% if item.image_url %}
+                        <img src="{{ item.image_url }}" alt="" class="w-full h-full object-cover">
+                    {% else %}
+                        <div class="w-full h-full flex items-center justify-center bg-sage/10">
+                            <span class="text-sage text-lg font-bold">{{ (item.title or '?')[0] }}</span>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-semibold leading-tight line-clamp-1">{{ item.title }}</p>
+                    <p class="text-[10px] uppercase tracking-wide text-txt-muted">{{ {'movie':'Movie','tv':'TV','book':'Book','podcast':'Podcast'}.get(item.media_type, item.media_type) }}</p>
+                    <div class="mt-1.5" data-onboard-rate-slot data-entry-id="{{ item.id }}"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="flex justify-between items-center mt-8">
+            <button onclick="goToStep(1)" class="text-sm text-txt-muted hover:text-txt">Skip — I'll rate later</button>
+            <button onclick="goToStep(1)" class="px-6 py-2.5 bg-sage text-white rounded-xl text-sm font-semibold hover:bg-sage-dark transition-base">
+                Continue →
+            </button>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Step 1: Three things you love -->
-    <div class="step active step-transition" id="step-1">
+    <div class="step {% if not unrated_items %}active{% endif %} step-transition" id="step-1">
         <h2 class="text-2xl font-bold mb-2">Three things you love</h2>
         <p class="text-txt-muted mb-6">Pick three favorites — a movie, a show, a book, a podcast, anything. These help us understand your taste instantly.</p>
 
@@ -235,10 +271,12 @@ function escapeHtml(t) { const d = document.createElement('div'); d.textContent 
 // --- Step navigation ---
 function goToStep(n) {
     document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
-    document.getElementById(`step-${n}`).classList.add('active', 'step-transition');
-    // Update progress bar
+    const step = document.getElementById(`step-${n}`);
+    if (step) step.classList.add('active', 'step-transition');
+    // Update progress bar (steps 1-5, step 0 doesn't count)
     for (let i = 1; i <= 5; i++) {
-        document.getElementById(`prog-${i}`).className = `h-1 flex-1 rounded-full ${i <= n ? 'bg-sage' : 'bg-border-light dark:bg-border-dark'}`;
+        const prog = document.getElementById(`prog-${i}`);
+        if (prog) prog.className = `h-1 flex-1 rounded-full ${i <= n ? 'bg-sage' : 'bg-border-light dark:bg-border-dark'}`;
     }
     // Trigger mini-quiz generation when entering step 2
     if (n === 2) generateMiniQuiz();
@@ -246,6 +284,14 @@ function goToStep(n) {
     if (n === 5) { buildQuizOptions(); generateTasteSnapshot(); }
     window.scrollTo(0, 0);
 }
+
+// Wire up rating dots on step 0 (rate items you already added)
+document.querySelectorAll('[data-onboard-rate-slot]').forEach(slot => {
+    const entryId = parseInt(slot.dataset.entryId, 10);
+    if (entryId && typeof showRatingDots === 'function') {
+        showRatingDots(slot, entryId);
+    }
+});
 
 // --- Shared search helper with typo retry ---
 function cleanQuery(q) {

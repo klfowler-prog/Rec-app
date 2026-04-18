@@ -89,6 +89,7 @@ async def auth_callback(request: Request, code: str = "", state: str = "", db: S
 
     # Find or create user
     google_id = userinfo["id"]
+    is_brand_new = False
     try:
         user = db.query(User).filter(User.google_id == google_id).first()
         if not user:
@@ -101,6 +102,7 @@ async def auth_callback(request: Request, code: str = "", state: str = "", db: S
             db.add(user)
             db.commit()
             db.refresh(user)
+            is_brand_new = True
         else:
             user.name = userinfo.get("name", user.name)
             user.picture = userinfo.get("picture", user.picture)
@@ -113,6 +115,10 @@ async def auth_callback(request: Request, code: str = "", state: str = "", db: S
     request.session["user_id"] = user.id
     request.session["user_name"] = user.name
     request.session["user_picture"] = user.picture
+
+    # Brand new users go straight to onboarding — no chance to skip
+    if is_brand_new:
+        return RedirectResponse("/onboarding")
 
     return RedirectResponse("/")
 

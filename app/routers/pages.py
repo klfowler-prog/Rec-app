@@ -718,6 +718,21 @@ async def onboarding_page(request: Request, user: User = Depends(require_user), 
     from app.services.taste_quiz_scoring import load_onboarding
 
     saved = load_onboarding(db, user.id) or {}
+
+    # Check if user has unrated items — if so, onboarding should prompt
+    # them to rate those first ("You said you watched these. How were they?")
+    unrated_items = (
+        db.query(MediaEntry)
+        .filter(
+            MediaEntry.user_id == user.id,
+            MediaEntry.status == "consumed",
+            MediaEntry.rating.is_(None),
+        )
+        .order_by(MediaEntry.created_at.desc())
+        .limit(8)
+        .all()
+    )
+
     return templates.TemplateResponse(
         "onboarding.html",
         {
@@ -727,6 +742,7 @@ async def onboarding_page(request: Request, user: User = Depends(require_user), 
             "saved_generation": saved.get("generation", "mix"),
             "saved_scenes": saved.get("scenes", []),
             "saved_services": saved.get("streaming_services", []),
+            "unrated_items": unrated_items,
         },
     )
 
