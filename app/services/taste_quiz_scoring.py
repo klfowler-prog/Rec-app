@@ -237,6 +237,7 @@ def save_onboarding(db, user_id: int, answers: dict) -> dict:
 
     VALID_SERVICES = {8, 9, 15, 21, 38, 103, 283, 337, 350, 380, 385, 386, 531, 1899}
     VALID_REGIONS = {"us", "uk", "au", "ca", "eu", "asia", "latam", "other"}
+    VALID_AGE_RANGES = {"under_18", "18_40", "over_40"}
 
     cleaned: dict = {
         "media_types": [t for t in (answers.get("media_types") or []) if t in ONBOARDING_MEDIA_TYPES],
@@ -244,6 +245,7 @@ def save_onboarding(db, user_id: int, answers: dict) -> dict:
         "scenes": [s for s in (answers.get("scenes") or []) if s in ONBOARDING_SCENES],
         "streaming_services": [int(s) for s in (answers.get("streaming_services") or []) if int(s) in VALID_SERVICES] if answers.get("streaming_services") else [],
         "media_regions": [r for r in (answers.get("media_regions") or []) if r in VALID_REGIONS],
+        "age_range": answers.get("age_range") if answers.get("age_range") in VALID_AGE_RANGES else "",
         "completed_at": datetime.utcnow().isoformat(),
     }
 
@@ -279,6 +281,14 @@ def load_media_regions(db, user_id: int) -> list[str]:
     if not onboarding:
         return []
     return onboarding.get("media_regions") or []
+
+
+def load_age_range(db, user_id: int) -> str:
+    """Return the user's age range ('under_18', '18_40', 'over_40') or empty string."""
+    onboarding = load_onboarding(db, user_id)
+    if not onboarding:
+        return ""
+    return onboarding.get("age_range") or ""
 
 
 def load_onboarding(db, user_id: int) -> dict | None:

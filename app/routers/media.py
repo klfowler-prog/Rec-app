@@ -1243,6 +1243,7 @@ class OnboardingSubmission(BaseModel):
     scenes: list[str] = []
     streaming_services: list[int] = []
     media_regions: list[str] = []
+    age_range: str = ""
 
 
 @router.post("/onboarding")
@@ -4126,7 +4127,18 @@ async def generate_mini_quiz(
     else:
         type_instruction = "Mix across the same media types the user picked."
 
+    # Age-appropriate content guidance
+    from app.services.taste_quiz_scoring import load_age_range
+    age_range = load_age_range(db, user.id)
+    if age_range == "under_18":
+        age_instruction = "IMPORTANT: This user is under 18. Only suggest PG/PG-13 content. No R-rated movies, no adult themes, no explicit content. Focus on titles from 2010-present that a teenager would know."
+    elif age_range == "over_40":
+        age_instruction = "This user is over 40. Include classic titles from the 80s-2000s they'd know well. Don't assume they've seen recent streaming originals — mix in established favorites."
+    else:
+        age_instruction = ""
+
     prompt = f"""Based on these 3 favorites, suggest 10 titles the user has VERY LIKELY already seen/read/listened to. Pick things in the same orbit — similar audiences, similar vibes, same era — that most fans of these titles would know.
+{age_instruction}
 
 User's favorites:
 {fav_text}

@@ -26,9 +26,39 @@
         <div class="h-1 flex-1 rounded-full bg-border-light dark:bg-border-dark" id="prog-5"></div>
     </div>
 
+    <!-- Age range — quick one-tap before anything else -->
+    <div class="step active step-transition" id="step-age">
+        <h2 class="text-2xl font-bold mb-2">One quick thing first</h2>
+        <p class="text-txt-muted mb-6">This helps us recommend things you'll actually know and love.</p>
+
+        <div class="space-y-3">
+            <button onclick="selectAge('under_18')" class="age-btn w-full flex items-center gap-4 p-4 rounded-xl border border-border-light dark:border-border-dark hover:border-sage/40 transition-base text-left" data-age="under_18">
+                <span class="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/20 flex items-center justify-center text-lg flex-shrink-0">🎮</span>
+                <div>
+                    <p class="text-sm font-semibold">Under 18</p>
+                    <p class="text-xs text-txt-muted">I grew up with streaming, Marvel, and TikTok</p>
+                </div>
+            </button>
+            <button onclick="selectAge('18_40')" class="age-btn w-full flex items-center gap-4 p-4 rounded-xl border border-border-light dark:border-border-dark hover:border-sage/40 transition-base text-left" data-age="18_40">
+                <span class="w-10 h-10 rounded-lg bg-sage/10 flex items-center justify-center text-lg flex-shrink-0">📺</span>
+                <div>
+                    <p class="text-sm font-semibold">18 – 40</p>
+                    <p class="text-xs text-txt-muted">I've seen everything from The Office to Parasite</p>
+                </div>
+            </button>
+            <button onclick="selectAge('over_40')" class="age-btn w-full flex items-center gap-4 p-4 rounded-xl border border-border-light dark:border-border-dark hover:border-sage/40 transition-base text-left" data-age="over_40">
+                <span class="w-10 h-10 rounded-lg bg-coral/10 flex items-center justify-center text-lg flex-shrink-0">🎬</span>
+                <div>
+                    <p class="text-sm font-semibold">Over 40</p>
+                    <p class="text-xs text-txt-muted">I know the classics and I know what I like</p>
+                </div>
+            </button>
+        </div>
+    </div>
+
     {% if unrated_items %}
     <!-- Step 0: Rate items you already added -->
-    <div class="step active step-transition" id="step-0">
+    <div class="step step-transition" id="step-0">
         <h2 class="text-2xl font-bold mb-2">You said you {{ 'watched' if unrated_items[0].media_type in ('movie', 'tv') else 'checked out' }} these</h2>
         <p class="text-txt-muted mb-4">Rate at least {{ 5 - rated_count }} more to unlock your personalized recommendations.</p>
         <div class="flex items-center gap-2 mb-6">
@@ -82,7 +112,7 @@
     {% endif %}
 
     <!-- Step 1: Three things you love -->
-    <div class="step {% if not unrated_items %}active{% endif %} step-transition" id="step-1">
+    <div class="step step-transition" id="step-1">
         <h2 class="text-2xl font-bold mb-2">Three things you love</h2>
         <p class="text-txt-muted mb-4">Pick three favorites — a movie, a show, a book, a podcast, anything. These help us understand your taste instantly.</p>
 
@@ -293,13 +323,34 @@
 const favorites = [null, null, null];
 const miniQuizRatings = {};
 let debounceTimers = {};
+let selectedAge = '';
+
+function selectAge(age) {
+    selectedAge = age;
+    document.querySelectorAll('.age-btn').forEach(btn => {
+        const isActive = btn.dataset.age === age;
+        btn.classList.toggle('border-sage', isActive);
+        btn.classList.toggle('bg-sage/5', isActive);
+        btn.classList.toggle('border-border-light', !isActive);
+        btn.classList.toggle('dark:border-border-dark', !isActive);
+    });
+    // Auto-advance after a brief moment
+    setTimeout(() => {
+        {% if unrated_items %}
+        goToStep(0);
+        {% else %}
+        goToStep(1);
+        {% endif %}
+    }, 300);
+}
 
 function escapeHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
 
 // --- Step navigation ---
 function goToStep(n) {
     document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
-    const step = document.getElementById(`step-${n}`);
+    const stepId = (n === 'age') ? 'step-age' : `step-${n}`;
+    const step = document.getElementById(stepId);
     if (step) step.classList.add('active', 'step-transition');
     // Update progress bar (steps 1-5, step 0 doesn't count)
     for (let i = 1; i <= 5; i++) {
@@ -732,6 +783,7 @@ async function finishOnboarding() {
                 media_types: mediaTypes.length ? mediaTypes : ['movie', 'tv', 'book_fiction'],
                 generation: 'mix', scenes: [], streaming_services: services,
                 media_regions: [...selectedRegions],
+                age_range: selectedAge,
             }),
         });
     } catch {}
