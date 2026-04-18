@@ -705,6 +705,25 @@ async def taste_quiz_movies_items(
                           "get out", "crazy rich asians"}
         items.sort(key=lambda i: (0 if i.get("title", "").lower() in _teen_priority else 1,
                                   -(i.get("year") or 0)))
+    elif age == "18_35":
+        # Newest first — this generation knows 2010s+ best
+        items.sort(key=lambda i: -(i.get("year") or 0))
+    elif age == "35_50":
+        # Mix of eras — prioritize 1995-2015 sweet spot, then fan out
+        def _score_35_50(i):
+            y = i.get("year") or 2000
+            if 1995 <= y <= 2015:
+                return (0, -y)
+            return (1, -y)
+        items.sort(key=_score_35_50)
+    elif age == "over_50":
+        # Classics first — prioritize pre-2000, then chronological
+        def _score_over_50(i):
+            y = i.get("year") or 1990
+            if y < 2000:
+                return (0, y)  # oldest classics first
+            return (1, -y)    # then newest of the modern stuff
+        items.sort(key=_score_over_50)
 
     return {
         "items": items,
@@ -753,6 +772,32 @@ async def taste_quiz_tv_items(
         items = [i for i in items
                  if i.get("title", "").lower() not in _adult_tv
                  and ((i.get("year") or 2020) >= 2005)]
+        # Teen-friendly shows first
+        _teen_tv = {"stranger things", "the office", "friends", "schitt's creek",
+                    "abbott elementary", "ted lasso", "wednesday", "heartstopper",
+                    "never have i ever", "outer banks", "cobra kai", "bridgerton",
+                    "the mandalorian", "loki", "wandavision", "the bear",
+                    "yellowjackets", "only murders in the building", "parks and recreation",
+                    "arrested development", "brooklyn nine-nine", "new girl",
+                    "the good place", "modern family", "glee", "grey's anatomy"}
+        items.sort(key=lambda i: (0 if i.get("title", "").lower() in _teen_tv else 1,
+                                  -(i.get("year") or 0)))
+    elif age == "18_35":
+        items.sort(key=lambda i: -(i.get("year") or 0))
+    elif age == "35_50":
+        def _tv_35_50(i):
+            y = i.get("year") or 2005
+            if 1995 <= y <= 2015:
+                return (0, -y)
+            return (1, -y)
+        items.sort(key=_tv_35_50)
+    elif age == "over_50":
+        def _tv_over_50(i):
+            y = i.get("year") or 2000
+            if y < 2005:
+                return (0, y)
+            return (1, -y)
+        items.sort(key=_tv_over_50)
 
     result = {
         "items": items,
