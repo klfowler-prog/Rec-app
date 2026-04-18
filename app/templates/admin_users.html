@@ -4,17 +4,17 @@
 {% block content %}
 <div class="max-w-2xl space-y-6">
 
-    <!-- Testing tools -->
+    <!-- Testing tools — auto-impersonates Test User -->
     <div class="bg-surface-light dark:bg-surface-dark border border-sage/20 rounded-xl p-5">
-        <h3 class="text-sm font-semibold mb-3">Testing</h3>
+        <h3 class="text-sm font-semibold mb-3">Testing <span class="text-txt-muted font-normal">(as Test User)</span></h3>
         <div class="flex flex-wrap gap-2">
-            <a href="/onboarding?preview=1" class="px-3 py-1.5 bg-sage/10 text-sage text-xs font-medium rounded-lg hover:bg-sage/20 transition-base">Preview onboarding</a>
-            <a href="/quick-start/movies" class="px-3 py-1.5 bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400 text-xs font-medium rounded-lg hover:opacity-80 transition-base">Movie quiz</a>
-            <a href="/quick-start/tv" class="px-3 py-1.5 bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400 text-xs font-medium rounded-lg hover:opacity-80 transition-base">TV quiz</a>
-            <a href="/quick-start/books/fiction" class="px-3 py-1.5 bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400 text-xs font-medium rounded-lg hover:opacity-80 transition-base">Fiction quiz</a>
-            <a href="/quick-start/books/nonfiction" class="px-3 py-1.5 bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400 text-xs font-medium rounded-lg hover:opacity-80 transition-base">Nonfiction quiz</a>
+            <button onclick="testAs('/onboarding?preview=1')" class="px-3 py-1.5 bg-sage/10 text-sage text-xs font-medium rounded-lg hover:bg-sage/20 transition-base">Preview onboarding</button>
+            <button onclick="testAs('/quick-start/movies')" class="px-3 py-1.5 bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400 text-xs font-medium rounded-lg hover:opacity-80 transition-base">Movie quiz</button>
+            <button onclick="testAs('/quick-start/tv')" class="px-3 py-1.5 bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400 text-xs font-medium rounded-lg hover:opacity-80 transition-base">TV quiz</button>
+            <button onclick="testAs('/quick-start/books/fiction')" class="px-3 py-1.5 bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400 text-xs font-medium rounded-lg hover:opacity-80 transition-base">Fiction quiz</button>
+            <button onclick="testAs('/quick-start/books/nonfiction')" class="px-3 py-1.5 bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400 text-xs font-medium rounded-lg hover:opacity-80 transition-base">Nonfiction quiz</button>
         </div>
-        <p class="text-[10px] text-txt-muted mt-2">Use "Log in as" below to impersonate a user, then click these to test their experience.</p>
+        <p class="text-[10px] text-txt-muted mt-2">Switches to Test User automatically, then opens the page.</p>
     </div>
 
     <div>
@@ -158,6 +158,30 @@ function copyNudge(btn, firstName, totalItems, ratedItems) {
         btn.textContent = 'Copied!';
         setTimeout(() => { btn.textContent = orig; }, 2000);
     });
+}
+
+function testAs(redirectTo) {
+    // Find the Test User ID from the user list
+    const testUserId = '{{ test_user_id }}';
+
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/admin/impersonate-and-redirect';
+
+    const idInput = document.createElement('input');
+    idInput.type = 'hidden';
+    idInput.name = 'user_id';
+    idInput.value = testUserId;
+    form.appendChild(idInput);
+
+    const redirectInput = document.createElement('input');
+    redirectInput.type = 'hidden';
+    redirectInput.name = 'redirect_to';
+    redirectInput.value = redirectTo;
+    form.appendChild(redirectInput);
+
+    document.body.appendChild(form);
+    form.submit();
 }
 </script>
 {% endblock %}

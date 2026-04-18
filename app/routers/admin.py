@@ -30,6 +30,14 @@ async def admin_users(request: Request, user: User = Depends(require_user), db: 
         quizzes = sum(1 for t in ("movies", "tv", "books") if qr and qr.get(t, {}).get("profiles"))
         user_stats[u.id] = {"total": total, "rated": rated, "quizzes": quizzes}
 
+    # Find or create test user
+    test_user = db.query(User).filter(User.email == "test@nextup.local").first()
+    if not test_user:
+        test_user = User(google_id="test_user_000", email="test@nextup.local", name="Test User", picture=None)
+        db.add(test_user)
+        db.commit()
+        db.refresh(test_user)
+
     return templates.TemplateResponse("admin_users.html", {
         "request": request,
         "user": user,
@@ -37,6 +45,7 @@ async def admin_users(request: Request, user: User = Depends(require_user), db: 
         "all_users": all_users,
         "user_stats": user_stats,
         "invite_only": settings.invite_only,
+        "test_user_id": test_user.id,
     })
 
 
@@ -96,6 +105,28 @@ async def admin_delete_user(
     db.query(User).filter(User.id == user_id).delete()
     db.commit()
     return RedirectResponse("/admin/users", status_code=303)
+
+
+@router.post("/impersonate-and-redirect")
+async def admin_impersonate_redirect(
+    request: Request,
+    user_id: int = Form(...),
+    redirect_to: str = Form("/"),
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Switch to a user and redirect to a specific page. Used by testing tools."""
+    if not settings.admin_email or user.email.lower() != settings.admin_email.lower():
+        return RedirectResponse("/")
+    target = db.query(User).filter(User.id == user_id).first()
+    if not target:
+        return RedirectResponse("/admin/users", status_code=303)
+    if "real_user_id" not in request.session:
+        request.session["real_user_id"] = user.id
+    request.session["user_id"] = target.id
+    request.session["user_name"] = target.name
+    request.session["user_picture"] = target.picture
+    return RedirectResponse(redirect_to, status_code=303)
 
 
 @router.post("/impersonate")
