@@ -4106,6 +4106,7 @@ async def taste_dna_share_image(
 async def generate_mini_quiz(
     request: Request,
     user: User = Depends(require_user),
+    db: Session = Depends(get_db),
 ):
     """Generate 8-10 contextual titles based on the user's 3 favorites.
     Returns items the user likely knows so they can rate quickly."""
@@ -4174,7 +4175,8 @@ Return ONLY valid JSON — a list of objects with "title", "media_type" (movie/t
         if first_bracket >= 0 and last_bracket > first_bracket:
             text = text[first_bracket:last_bracket + 1]
         raw_items = json.loads(text)
-    except Exception:
+    except Exception as e:
+        log.error("mini-quiz generation failed: %s", str(e))
         return {"items": []}
 
     # Enrich with posters via search
