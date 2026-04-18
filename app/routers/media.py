@@ -1289,6 +1289,39 @@ async def save_onboarding_answers(
     return {"saved": cleaned, "next_url": next_url}
 
 
+@router.post("/streaming-services")
+async def update_streaming_services(
+    payload: dict,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Update just the user's streaming services without touching other onboarding data."""
+    import json
+    from app.models import UserPreferences
+
+    services = payload.get("streaming_services", [])
+    VALID = {8, 9, 15, 21, 38, 103, 337, 350, 380, 385, 386, 531, 1899}
+    cleaned = [int(s) for s in services if int(s) in VALID]
+
+    prefs = db.query(UserPreferences).filter(UserPreferences.user_id == user.id).first()
+    if not prefs:
+        prefs = UserPreferences(user_id=user.id)
+        db.add(prefs)
+
+    try:
+        existing = json.loads(prefs.quiz_results) if prefs.quiz_results else {}
+    except (json.JSONDecodeError, TypeError):
+        existing = {}
+
+    onboarding = existing.get("onboarding", {})
+    onboarding["streaming_services"] = cleaned
+    existing["onboarding"] = onboarding
+    prefs.quiz_results = json.dumps(existing)
+    db.commit()
+
+    return {"streaming_services": cleaned}
+
+
 @router.get("/taste-test")
 async def taste_test():
     """Return contrasting taste-axis pools. Each axis has two LABELED

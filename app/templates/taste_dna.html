@@ -811,7 +811,7 @@ async function toggleService(btn, serviceId) {
 
     // Save to backend
     try {
-        await fetch('/api/media/onboarding/save', {
+        await fetch('/api/media/streaming-services', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ streaming_services: currentServices }),
