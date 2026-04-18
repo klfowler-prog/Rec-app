@@ -172,3 +172,26 @@ class CollectionItem(Base):
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+
+
+class RecEvent(Base):
+    """Tracks what the engine recommended and what the user did with it.
+    Each row is one item shown on one surface. Outcome is updated when
+    the user acts (save, rate, dismiss) or left null if they ignored it."""
+    __tablename__ = "rec_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    media_type: Mapped[str] = mapped_column(String, nullable=False)
+    surface: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    predicted_rating: Mapped[float | None] = mapped_column(Float, nullable=True)
+    outcome: Mapped[str | None] = mapped_column(String, nullable=True)
+    user_rating: Mapped[float | None] = mapped_column(Float, nullable=True)
+    shown_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    acted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    __table_args__ = (
+        Index("idx_rec_events_user_surface", "user_id", "surface"),
+        Index("idx_rec_events_user_outcome", "user_id", "outcome"),
+    )

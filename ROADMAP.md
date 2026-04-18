@@ -181,6 +181,38 @@ Three shareable visual features for the My Taste page. Each should be visually s
 
 ---
 
+## Recommendation Engine Evolution
+
+### Phase 1: Outcome Tracking (DONE — deployed)
+- [x] `rec_events` table: logs every item shown + which surface + predicted_rating
+- [x] Impression logging on best_bet and theme surfaces
+- [x] Outcome recording: saved, started, consumed, dismissed + user_rating
+- [x] Feedback block injected into home_bundle and best_bet prompts
+- [ ] Add impression logging to top_picks, related_items, new_releases surfaces
+- [ ] Dashboard/query to measure hit rate per surface (% saved, % dismissed, avg user_rating)
+
+### Phase 2: Feedback-Driven Calibration (next 2-4 weeks)
+- [ ] Analyze accumulated outcome data: which surfaces have best hit rates?
+- [ ] Weight rec_feedback block more heavily once data volume is meaningful (~100+ outcomes)
+- [ ] Track "predicted_rating vs actual user_rating" accuracy — how well is the AI calibrated?
+- [ ] Add "recs that were saved but never rated" as a signal (aspiration vs reality gap)
+- [ ] Surface-level tuning: if theme_tonight_binge has 80% dismiss rate, investigate prompt quality
+
+### Phase 3: Item Embeddings & Retrieval (4-8 weeks out)
+- [ ] Compute embeddings for all items in users' libraries (Gemini embedding API or sentence-transformers)
+- [ ] Build nearest-neighbor index (FAISS or pgvector in Supabase)
+- [ ] Retrieve-then-rank: pull 50 nearest items to user's top-rated, then ask AI to pick + explain
+- [ ] Replace "AI generates titles from memory" with "AI selects from real candidate pool"
+- [ ] Expected improvements: fewer hallucinated titles, better thematic matches, lower API cost
+
+### Phase 4: Collaborative Filtering (when user base supports it — 50+ active users)
+- [ ] Item-item co-occurrence matrix from media_entries (users who rated X highly also rated Y)
+- [ ] Taste cluster identification from overlapping profiles
+- [ ] Blend collaborative signal into existing AI prompts: "statistically, users like you also loved..."
+- [ ] Together mode generalization: taste clusters as implicit "together" groups
+
+---
+
 ## Feature Ideas (Backlog)
 
 ### High Priority
