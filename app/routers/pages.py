@@ -434,6 +434,31 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
                     "has_overlap": True,
                 }))
 
+        # Personal recommendations sent to this user (highest priority)
+        from app.models import UserRecommendation
+        personal_recs = db.query(UserRecommendation).filter(
+            UserRecommendation.to_user_id == user.id,
+        ).order_by(UserRecommendation.created_at.desc()).limit(3).all()
+
+        for rec in personal_recs:
+            sender = partner_map.get(rec.from_user_id)
+            if not sender:
+                sender_user = db.query(User).filter(User.id == rec.from_user_id).first()
+                if not sender_user:
+                    continue
+                sender = sender_user
+            first_name = sender.name.split()[0] if sender.name else "Someone"
+            recency = rec.created_at.timestamp() if rec.created_at else 0
+            raw_highlights.append((-1, recency, {  # -1 priority = highest
+                "action": f"{first_name} thinks you'd love {rec.title}",
+                "partner_name": first_name,
+                "partner_picture": getattr(sender, 'picture', '') or "",
+                "title": rec.title,
+                "media_type": rec.media_type,
+                "rating": None,
+                "has_overlap": True,
+            }))
+
         # Sort by priority (overlap first), then most recent activity
         raw_highlights.sort(key=lambda x: (x[0], -x[1]))
         seen_titles: set[str] = set()

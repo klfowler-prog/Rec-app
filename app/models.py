@@ -222,6 +222,28 @@ class UserRelationship(Base):
     )
 
 
+class UserRecommendation(Base):
+    """A personal recommendation from one user to another.
+    Created when someone clicks 'Send to [partner]' on a detail page."""
+    __tablename__ = "user_recommendations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    from_user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    to_user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    media_type: Mapped[str] = mapped_column(String, nullable=False)
+    external_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    source: Mapped[str | None] = mapped_column(String, nullable=True)
+    image_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)  # optional personal message
+    seen: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+
+    __table_args__ = (
+        Index("idx_user_rec_to", "to_user_id", "seen"),
+    )
+
+
 class WatchedWith(Base):
     """Records who consumed a media entry together. Many-to-many
     between a MediaEntry and Users. Created when the user answers

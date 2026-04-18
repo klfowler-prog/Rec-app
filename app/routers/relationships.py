@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_user
 from app.database import get_db
-from app.models import MediaEntry, User, UserRelationship
+from app.models import MediaEntry, User, UserRecommendation, UserRelationship
 
 router = APIRouter()
 
@@ -391,6 +391,84 @@ def quick_pair(
     db.add(rel)
     db.commit()
     return {"status": "accepted", "partner_name": partner.name}
+
+
+class RecommendToRequest(BaseModel):
+    to_user_id: int
+    title: str
+    media_type: str
+    external_id: str = ""
+    source: str = ""
+    image_url: str = ""
+    note: str = ""
+
+
+@router.post("/recommend")
+def recommend_to_partner(
+    req: RecommendToRequest,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Send a personal recommendation to a paired partner."""
+    # Verify they're paired
+    rel = db.query(UserRelationship).filter(
+        ((UserRelationship.sender_id == user.id) & (UserRelationship.receiver_id == req.to_user_id))
+        | ((UserRelationship.sender_id == req.to_user_id) & (UserRelationship.receiver_id == user.id)),
+        UserRelationship.status == "accepted",
+    ).first()
+    if not rel:
+        raise HTTPException(403, "You're not paired with this person")
+
+    rec = UserRecommendation(
+        from_user_id=user.id,
+        to_user_id=req.to_user_id,
+        title=req.title,
+        media_type=req.media_type,
+        external_id=req.external_id or None,
+        source=req.source or None,
+        image_url=req.image_url or None,
+        note=req.note or None,
+    )
+    db.add(rec)
+    db.commit()
+    return {"status": "sent", "id": rec.id}
+
+
+@router.get("/recommendations-for-me")
+def get_recommendations_for_me(
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Get personal recommendations sent to the current user."""
+    recs = db.query(UserRecommendation).filter(
+        UserRecommendation.to_user_id == user.id,
+    ).order_by(UserRecommendation.created_at.desc()).limit(10).all()
+
+    result = []
+    for r in recs:
+        sender = db.query(User).filter(User.id == r.from_user_id).first()
+        result.append({
+            "id": r.id,
+            "from_name": sender.name.split()[0] if sender else "Someone",
+            "from_picture": sender.picture if sender else None,
+            "title": r.title,
+            "media_type": r.media_type,
+            "external_id": r.external_id,
+            "source": r.source,
+            "image_url": r.image_url,
+            "note": r.note,
+            "seen": r.seen,
+            "created_at": r.created_at.isoformat(),
+        })
+
+    # Mark as seen
+    db.query(UserRecommendation).filter(
+        UserRecommendation.to_user_id == user.id,
+        UserRecommendation.seen == False,
+    ).update({"seen": True})
+    db.commit()
+
+    return result
 
 
 @router.get("/social-proof/{external_id}")

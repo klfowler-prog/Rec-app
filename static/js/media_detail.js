@@ -198,8 +198,9 @@ async function loadDetail() {
             loadTasteFit();
         }
 
-        // Load cross-medium related items
+        // Load cross-medium related items + send-to partners
         loadRelated();
+        loadSendTo();
     } catch (err) {
         detailLoading.innerHTML = `
             <div class="text-center space-y-3">
@@ -356,6 +357,55 @@ async function loadTasteFit() {
             </div>
         `;
         section.classList.remove('hidden');
+    } catch {}
+}
+
+async function loadSendTo() {
+    const section = document.getElementById('send-to-section');
+    const buttons = document.getElementById('send-to-buttons');
+    if (!section || !buttons || !currentMedia) return;
+    try {
+        const resp = await fetch('/api/relationships/partners');
+        if (!resp.ok) return;
+        const partners = await resp.json();
+        if (!partners.length) return;
+
+        buttons.innerHTML = `<span class="text-[10px] text-txt-muted">Send to:</span>` +
+            partners.map(p => {
+                const avatar = p.picture
+                    ? `<img src="${p.picture}" alt="" class="w-5 h-5 rounded-full">`
+                    : `<span class="w-5 h-5 rounded-full bg-sage/20 inline-flex items-center justify-center text-[9px] font-bold text-sage">${(p.name||'?')[0]}</span>`;
+                return `<button onclick="sendToPartner(${p.id}, '${escapeHtml(p.name.split(' ')[0])}')" class="send-to-btn flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border-light dark:border-border-dark text-xs hover:border-sage hover:text-sage transition-base">
+                    ${avatar} ${escapeHtml(p.name.split(' ')[0])}
+                </button>`;
+            }).join('');
+        section.classList.remove('hidden');
+    } catch {}
+}
+
+async function sendToPartner(partnerId, partnerName) {
+    if (!currentMedia) return;
+    try {
+        const resp = await fetch('/api/relationships/recommend', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                to_user_id: partnerId,
+                title: currentMedia.title,
+                media_type: currentMedia.media_type,
+                external_id: currentMedia.external_id || EXTERNAL_ID,
+                source: currentMedia.source || SOURCE,
+                image_url: currentMedia.image_url || '',
+            }),
+        });
+        if (resp.ok) {
+            document.querySelectorAll('.send-to-btn').forEach(b => {
+                if (b.textContent.trim().includes(partnerName)) {
+                    b.innerHTML = `<span class="text-sage text-xs">Sent to ${partnerName}!</span>`;
+                    b.disabled = true;
+                }
+            });
+        }
     } catch {}
 }
 
