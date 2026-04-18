@@ -15,6 +15,7 @@ class User(Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
     picture: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    last_login: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class AllowedEmail(Base):

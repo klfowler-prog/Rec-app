@@ -26,6 +26,11 @@ with engine.connect() as conn:
         if "quiz_results" not in up_columns:
             conn.execute(text("ALTER TABLE user_preferences ADD COLUMN quiz_results TEXT"))
             conn.commit()
+    if "users" in inspector.get_table_names():
+        user_columns = [c["name"] for c in inspector.get_columns("users")]
+        if "last_login" not in user_columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN last_login TIMESTAMP"))
+            conn.commit()
 
     # One-time migration: convert 10-point ratings to 5-point scale.
     # Detects unconverted data by checking if any rating OR predicted_rating > 5.

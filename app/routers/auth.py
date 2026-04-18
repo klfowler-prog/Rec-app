@@ -111,6 +111,11 @@ async def auth_callback(request: Request, code: str = "", state: str = "", db: S
         db.rollback()
         return RedirectResponse("/?error=db_failed")
 
+    # Update last login
+    from datetime import datetime
+    user.last_login = datetime.utcnow()
+    db.commit()
+
     # Set session
     request.session["user_id"] = user.id
     request.session["user_name"] = user.name

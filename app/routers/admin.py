@@ -18,11 +18,24 @@ async def admin_users(request: Request, user: User = Depends(require_user), db: 
         return RedirectResponse("/")
     allowed = db.query(AllowedEmail).order_by(AllowedEmail.created_at.desc()).all()
     all_users = db.query(User).order_by(User.created_at.desc()).all()
+
+    # Build per-user stats
+    from sqlalchemy import func as sqlfunc
+    from app.services.taste_quiz_scoring import load_quiz_results
+    user_stats = {}
+    for u in all_users:
+        total = db.query(MediaEntry).filter(MediaEntry.user_id == u.id).count()
+        rated = db.query(MediaEntry).filter(MediaEntry.user_id == u.id, MediaEntry.rating.isnot(None)).count()
+        qr = load_quiz_results(db, u.id)
+        quizzes = sum(1 for t in ("movies", "tv", "books") if qr and qr.get(t, {}).get("profiles"))
+        user_stats[u.id] = {"total": total, "rated": rated, "quizzes": quizzes}
+
     return templates.TemplateResponse("admin_users.html", {
         "request": request,
         "user": user,
         "allowed": allowed,
         "all_users": all_users,
+        "user_stats": user_stats,
         "invite_only": settings.invite_only,
     })
 
