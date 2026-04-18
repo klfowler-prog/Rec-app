@@ -685,9 +685,8 @@ async def taste_quiz_movies_items(
     age = load_age_range(db, user.id)
     if age == "under_18":
         # Only block hard R / truly adult content — leave PG-13 action/horror
-        _adult_movies = {"superbad", "tropic thunder", "bridesmaids",
-                         "hereditary", "midsommar", "the babadook",
-                         "gone girl", "zodiac", "prisoners",
+        _adult_movies = {"tropic thunder", "hereditary", "midsommar",
+                         "the babadook", "gone girl", "zodiac", "prisoners",
                          "there will be blood", "no country for old men",
                          "marriage story", "decision to leave", "past lives"}
         items = [i for i in items
