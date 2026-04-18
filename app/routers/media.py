@@ -1201,6 +1201,7 @@ class OnboardingSubmission(BaseModel):
     media_types: list[str] = []  # subset of ["movie","tv","book_fiction","book_nonfiction","podcast"]
     generation: str = "mix"      # one of ["gen_z","millennial","classic","mix"]
     scenes: list[str] = []       # subset of ONBOARDING_SCENES
+    media_regions: list[str] = []  # e.g. ["us","uk","au"]
 
 
 @router.post("/onboarding")
