@@ -684,7 +684,7 @@ async def taste_quiz_movies_items(
     from app.services.taste_quiz_scoring import load_age_range
     age = load_age_range(db, user.id)
     if age == "under_18":
-        # Only block hard R / truly adult content — leave PG-13 action/horror
+        # Block hard R / truly adult content
         _adult_movies = {"tropic thunder", "hereditary", "midsommar",
                          "the babadook", "gone girl", "zodiac", "prisoners",
                          "there will be blood", "no country for old men",
@@ -692,6 +692,19 @@ async def taste_quiz_movies_items(
         items = [i for i in items
                  if i.get("title", "").lower() not in _adult_movies
                  and (i.get("year") or 0) >= 2005]
+        # Sort so teen-accessible items come first (newer + family/action/animation)
+        _teen_priority = {"five nights at freddy's", "the super mario bros. movie",
+                          "sonic the hedgehog", "detective pikachu", "frozen", "coco",
+                          "ratatouille", "the greatest showman", "soul surfer",
+                          "hidden figures", "the blind side", "a quiet place",
+                          "knives out", "top gun: maverick", "spider-man",
+                          "your name", "demon slayer: mugen train", "a silent voice",
+                          "la la land", "bohemian rhapsody", "the dark knight",
+                          "the secret life of walter mitty", "the martian",
+                          "creed", "21 jump street", "superbad", "it", "nope",
+                          "get out", "crazy rich asians"}
+        items.sort(key=lambda i: (0 if i.get("title", "").lower() in _teen_priority else 1,
+                                  -(i.get("year") or 0)))
 
     return {
         "items": items,
