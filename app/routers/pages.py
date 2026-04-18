@@ -342,16 +342,6 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
             pct = round(best[2] * 100)
             taste_teaser = f'Your {best[1]} taste: {pct}% "{best[0]}"'
 
-    # Grab a few poster URLs for card backgrounds
-    poster_items = (
-        db.query(MediaEntry.image_url, MediaEntry.media_type)
-        .filter(MediaEntry.user_id == user.id, MediaEntry.image_url.isnot(None), MediaEntry.rating >= 4)
-        .order_by(MediaEntry.rating.desc())
-        .limit(6)
-        .all()
-    )
-    nav_posters = [p.image_url for p in poster_items if p.image_url]
-
     # Count of other NextUp users the current user could pair with in
     # Together mode. Drives the Home teaser copy — zero partners gets
     # a strong 'invite your people' hook, non-zero gets the standard
@@ -485,7 +475,6 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
             "queue_count": queue_count,
             "type_counts": type_counts,
             "quizzes_done": quizzes_done,
-            "nav_posters": nav_posters,
             "together_partner_count": together_partner_count,
             "together_highlights": together_highlights,
             "avg_rating": avg_rating,

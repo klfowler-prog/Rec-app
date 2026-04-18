@@ -114,7 +114,7 @@ async function connectPlex() {
 
         if (data.results) {
             document.getElementById('results-list').innerHTML = data.results.slice(0, 50).map(r => `
-                <div class="flex items-center gap-3 px-4 py-2 rounded-lg text-sm ${r.status === 'added' ? 'border-l-2 border-emerald-500' : 'border-l-2 border-coral'} bg-surface-light dark:bg-surface-dark">
+                <div class="flex items-center gap-3 px-4 py-2 rounded-lg text-sm ${r.status === 'added' ? 'border-l-2 border-sage' : 'border-l-2 border-coral'} bg-surface-light dark:bg-surface-dark">
                     ${r.image_url ? `<img src="${r.image_url}" class="w-6 h-9 object-cover rounded" alt="">` : '<div class="w-6 h-9 bg-sage/10 rounded"></div>'}
                     <span class="flex-1 truncate">${escapeHtml(r.title)}</span>
                     ${r.rating ? `<span class="text-xs font-medium text-sage">${r.rating}/5</span>` : ''}
