@@ -133,7 +133,7 @@ async def compare(
     if my_services or their_services:
         my_svc_names = ", ".join(TIER1_PROVIDERS.get(pid, f"Service {pid}") for pid in my_services) if my_services else "unknown"
         their_svc_names = ", ".join(TIER1_PROVIDERS.get(pid, f"Service {pid}") for pid in their_services) if their_services else "unknown"
-        together_streaming_ctx = f"\nSTREAMING: {user.name} subscribes to: {my_svc_names}. {other.name} subscribes to: {their_svc_names}. Strongly prefer items both can access on their shared services.\n"
+        together_streaming_ctx = f"\nSTREAMING: {user.name} has: {my_svc_names}. {other.name} has: {their_svc_names}. Note which service each recommendation is available on so they know who can watch it.\n"
     else:
         together_streaming_ctx = ""
 
