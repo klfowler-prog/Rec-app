@@ -344,6 +344,46 @@ def build_resonance_block(db: Session, user_id: int) -> str:
     )
 
 
+def build_rec_feedback_block(db: Session, user_id: int) -> str:
+    """Build a prompt block showing recent rec outcomes so the AI can
+    learn from what worked and what didn't for this specific user."""
+    from app.models import RecEvent
+
+    recent = (
+        db.query(RecEvent)
+        .filter(RecEvent.user_id == user_id, RecEvent.outcome.isnot(None))
+        .order_by(RecEvent.acted_at.desc())
+        .limit(20)
+        .all()
+    )
+    if not recent:
+        return ""
+
+    hits = []
+    misses = []
+    for e in recent:
+        if e.outcome == "dismissed":
+            misses.append(f"  - {e.title} ({e.media_type}) — dismissed")
+        elif e.outcome == "consumed" and e.user_rating and e.user_rating >= 4:
+            hits.append(f"  - {e.title} ({e.media_type}) — rated {e.user_rating}/5")
+        elif e.outcome in ("saved", "started"):
+            hits.append(f"  - {e.title} ({e.media_type}) — {e.outcome}")
+        elif e.outcome == "consumed" and e.user_rating and e.user_rating <= 2:
+            misses.append(f"  - {e.title} ({e.media_type}) — rated {e.user_rating}/5")
+
+    if not hits and not misses:
+        return ""
+
+    lines = ["RECOMMENDATION TRACK RECORD (how past recs landed for this user — calibrate accordingly):"]
+    if hits:
+        lines.append("Recs that hit:")
+        lines.extend(hits[:8])
+    if misses:
+        lines.append("Recs that missed:")
+        lines.extend(misses[:8])
+    return "\n".join(lines) + "\n"
+
+
 @router.get("/trending/{media_type}")
 async def get_trending(media_type: str = "all", limit: int = 10):
     """Get trending movies/TV from TMDB."""
@@ -2095,6 +2135,7 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
         from app.services.tmdb import TIER1_PROVIDERS
         quiz_signals = build_quiz_signals_block(db, user.id)
         resonance_signals = build_resonance_block(db, user.id)
+        rec_feedback = build_rec_feedback_block(db, user.id)
         user_services = load_streaming_services(db, user.id)
         if user_services:
             service_names = [TIER1_PROVIDERS.get(pid, f"Service {pid}") for pid in user_services]
@@ -2127,6 +2168,7 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
 
 {quiz_signals}
 {resonance_signals}
+{rec_feedback}
 USER'S TASTE PROFILE (across all media types):
 {taste_summary}
 {recent_section}
@@ -2552,9 +2594,11 @@ async def best_bet(
 
         type_label = {"movie": "movie", "tv": "TV show", "book": "book", "podcast": "podcast"}[media_type]
         resonance_signals = build_resonance_block(db, user.id)
+        rec_feedback = build_rec_feedback_block(db, user.id)
         prompt = f"""You're picking ONE {type_label} as a hero recommendation. Below are items this user recently rated 4 or 5 out of 5 — your job is to find the strongest thematic bridge from ANY of them (one or two) to a great {type_label} they haven't seen yet.
 
 {resonance_signals}
+{rec_feedback}
 {loved_block}
 {taste_profile_block}
 TASK: Generate 3 candidate {type_label}s. For each, find the deepest connection to ONE or TWO items from the RECENTLY LOVED list above. You choose which loved item(s) to cite — pick whichever create the most interesting, non-obvious bridge to your candidate. Different candidates SHOULD cite different loved items when possible.

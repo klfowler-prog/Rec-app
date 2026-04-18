@@ -14,6 +14,17 @@
         return div.innerHTML;
     }
 
+    function logImpressions(surface, items) {
+        const cleaned = items.filter(i => i && i.title).map(i => ({
+            title: i.title, media_type: i.media_type || '', predicted_rating: i.predicted_rating || null,
+        }));
+        if (!cleaned.length) return;
+        fetch('/api/profile/rec-events/impression', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ surface, items: cleaned }),
+        }).catch(() => {});
+    }
+
     const TYPE_BADGE = {
         movie: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
         tv: 'bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400',
@@ -99,6 +110,8 @@
                 return;
             }
             container.innerHTML = cards.join('');
+            const shownPicks = results.filter(d => d && d.pick).map(d => d.pick);
+            if (shownPicks.length) logImpressions('best_bet', shownPicks);
         } catch {
             container.innerHTML = `<p class="col-span-full text-center text-sm text-txt-muted py-6">Couldn't load best bets right now.</p>`;
         }
@@ -181,6 +194,12 @@
                 return;
             }
             wrap.innerHTML = rendered.join('');
+            for (const slug of THEME_ORDER) {
+                const items = themes[slug];
+                if (Array.isArray(items) && items.length >= 2) {
+                    logImpressions(`theme_${slug}`, items);
+                }
+            }
         } catch {
             wrap.innerHTML = `<p class="text-sm text-txt-muted py-6 text-center">Couldn't load themed picks right now.</p>`;
         }

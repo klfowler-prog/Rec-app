@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_user
 from app.database import get_db
-from app.models import DismissedItem, MediaEntry, User
+from app.models import DismissedItem, MediaEntry, RecEvent, User
 from app.schemas import DismissedItemCreate, DismissedItemResponse, MediaEntryCreate, MediaEntryResponse, MediaEntryUpdate, ProfileStats
 
 router = APIRouter()
@@ -1017,3 +1017,78 @@ async def import_plex(req: PlexImportRequest, user: User = Depends(require_user)
     skipped = sum(1 for r in results if r["status"] == "skipped")
 
     return {"total": len(unique_items), "added": added, "skipped": skipped, "results": results}
+
+
+# ---------------------------------------------------------------------------
+# Recommendation event tracking
+# ---------------------------------------------------------------------------
+
+class RecImpressionBatch(PydanticBaseModel):
+    surface: str
+    items: list[dict]
+
+
+@router.post("/rec-events/impression")
+def log_rec_impressions(
+    batch: RecImpressionBatch,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Log that recommendations were shown to the user. Called once per
+    surface load (e.g., best_bet, home_bundle_top_picks, theme_tonight_binge).
+    Each item in the batch becomes a RecEvent row with outcome=null."""
+    from datetime import datetime as dt
+
+    events = []
+    for item in batch.items[:20]:
+        title = (item.get("title") or "").strip()
+        if not title:
+            continue
+        events.append(RecEvent(
+            user_id=user.id,
+            title=title,
+            media_type=item.get("media_type", ""),
+            surface=batch.surface,
+            predicted_rating=item.get("predicted_rating"),
+            shown_at=dt.utcnow(),
+        ))
+    if events:
+        db.add_all(events)
+        db.commit()
+    return {"logged": len(events)}
+
+
+@router.post("/rec-events/outcome")
+def log_rec_outcome(
+    data: dict,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Record what the user did with a recommendation. Finds the most
+    recent impression matching (user, title) and stamps the outcome.
+    Called by quickAdd, saveForLater, dismissItem, rateItem."""
+    from datetime import datetime as dt
+
+    title = (data.get("title") or "").strip()
+    outcome = data.get("outcome", "")
+    user_rating = data.get("user_rating")
+    if not title or not outcome:
+        return {"updated": False}
+
+    event = (
+        db.query(RecEvent)
+        .filter(
+            RecEvent.user_id == user.id,
+            RecEvent.title == title,
+            RecEvent.outcome.is_(None),
+        )
+        .order_by(RecEvent.shown_at.desc())
+        .first()
+    )
+    if event:
+        event.outcome = outcome
+        event.user_rating = user_rating
+        event.acted_at = dt.utcnow()
+        db.commit()
+        return {"updated": True}
+    return {"updated": False}
