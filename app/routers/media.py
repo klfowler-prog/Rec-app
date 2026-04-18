@@ -677,12 +677,14 @@ async def taste_quiz_movies_items(
         enriched = await _enrich_quiz_items_via_tmdb(FILMS, "movie")
         cache.set("movie_taste_quiz_items_enriched", enriched, ttl_seconds=86400 * 7)
 
-    onboarding = load_onboarding(db, user.id)
-    items = filter_quiz_items_by_onboarding(enriched, onboarding)
-
-    # Filter by age range — younger users get newer, age-appropriate content
     from app.services.taste_quiz_scoring import load_age_range
     age = load_age_range(db, user.id)
+
+    # If age filtering will reduce the pool, let more items through the onboarding filter
+    onboarding = load_onboarding(db, user.id)
+    max_quiz = 50 if age in ("under_18", "over_50") else 25
+    items = filter_quiz_items_by_onboarding(enriched, onboarding, max_items=max_quiz)
+
     if age == "under_18":
         # Block hard R / truly adult content
         _adult_movies = {"tropic thunder", "hereditary", "midsommar",
@@ -760,11 +762,13 @@ async def taste_quiz_tv_items(
         enriched = await _enrich_quiz_items_via_tmdb(SHOWS, "tv")
         cache.set("tv_taste_quiz_items_enriched", enriched, ttl_seconds=86400 * 7)
 
-    onboarding = load_onboarding(db, user.id)
-    items = filter_quiz_items_by_onboarding(enriched, onboarding)
-
     from app.services.taste_quiz_scoring import load_age_range
     age = load_age_range(db, user.id)
+
+    onboarding = load_onboarding(db, user.id)
+    max_quiz = 50 if age in ("under_18", "over_50") else 25
+    items = filter_quiz_items_by_onboarding(enriched, onboarding, max_items=max_quiz)
+
     if age == "under_18":
         # TV items may not have year in source data but enriched items get it from TMDB
         # Also block known TV-MA shows by title
