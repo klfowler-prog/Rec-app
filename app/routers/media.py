@@ -4187,9 +4187,9 @@ User's favorites:
 
 {type_instruction} Each item should be well-known enough that 70%+ of fans of the favorites would recognize it.
 
-Return ONLY valid JSON — a list of objects with "title", "media_type" (movie/tv/book/podcast), and "year". No markdown.
+Return ONLY valid JSON — a list of objects with "title", "media_type" (movie/tv/book/podcast), "year", and "creator" (director, author, or host). No markdown.
 
-[{{"title": "...", "media_type": "movie", "year": 2020}}, ...]"""
+[{{"title": "...", "media_type": "movie", "year": 2020, "creator": "Director Name"}}, ...]"""
 
     try:
         text = (await generate(prompt)).strip()
@@ -4205,14 +4205,31 @@ Return ONLY valid JSON — a list of objects with "title", "media_type" (movie/t
         log.error("mini-quiz generation failed: %s", str(e))
         return {"items": []}
 
-    # Enrich with posters via search
+    # Enrich with posters via search — include creator for precision
     enriched = []
     for item in raw_items[:10]:
         title = item.get("title", "")
+        creator = item.get("creator", "")
         mt = item.get("media_type")
         try:
-            matches = await unified_search(title, mt)
+            # Search with title + creator first, fall back to title only
+            query = f"{title} {creator}" if creator else title
+            matches = await unified_search(query, mt)
+            if not matches and creator:
+                matches = await unified_search(title, mt)
             matches = _rank_by_title_match(title, matches)
+            # Reject matches where the title is wildly different (WHO textbook for "The Selection")
+            if matches:
+                best_title = matches[0].title.lower()
+                orig_title = title.lower()
+                # Accept if the original title is contained in the match or vice versa
+                if orig_title not in best_title and best_title not in orig_title:
+                    # Check word overlap — at least 50% of words should match
+                    orig_words = set(orig_title.split())
+                    best_words = set(best_title.split())
+                    overlap = len(orig_words & best_words)
+                    if overlap < len(orig_words) * 0.5:
+                        matches = []  # reject — too different
             if matches:
                 best = matches[0]
                 enriched.append({
