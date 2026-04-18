@@ -506,10 +506,16 @@ def score_book_responses(responses: list[dict]) -> dict:
         note = "Your nonfiction taste is driving this result — rate more fiction to round this out."
 
     # Cosine similarity against profiles
+    # When fiction-only, exclude profiles that depend on nonfiction_register
+    _nonfiction_profiles = {"narrative_nonfiction", "ideas_first_nonfiction"}
+    eligible_profiles = PROFILES
+    if use_fiction and not use_nonfiction:
+        eligible_profiles = [p for p in PROFILES if p["id"] not in _nonfiction_profiles]
+
     user_vec = [combined[k] for k in AXIS_KEYS]
     norm_u = math.sqrt(sum(v * v for v in user_vec))
     ranked: list[dict] = []
-    for profile in PROFILES:
+    for profile in eligible_profiles:
         profile_vec = [profile["vector"].get(k, 0.0) for k in AXIS_KEYS]
         norm_p = math.sqrt(sum(v * v for v in profile_vec))
         if norm_u == 0 or norm_p == 0:
