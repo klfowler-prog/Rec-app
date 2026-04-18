@@ -1897,7 +1897,7 @@ async def taste_dna(
     try:
         from app.services.gemini import generate
 
-        prompt = f"""You are a taste analyst writing a personalized taste profile for this user. Be insightful and specific — not generic. Reference actual items from their profile.
+        prompt = f"""You're writing a profile of what this person loves about stories — and why. Be insightful and specific — not generic. Reference actual items from their profile.
 
 {profile_summary}
 {recent_summary}
@@ -1920,7 +1920,7 @@ For "avoided": Only describe genuine patterns of avoidance based on consistent l
 Return ONLY valid JSON, no markdown. Each theme MUST include 2-3 example items from their actual profile that exemplify it:
 
 {{
-  "summary": "A 4-5 sentence essay capturing who this person is as a media consumer. Write in second person ('You gravitate to...'). Be specific, reference items across different media types, show cross-medium patterns. If they read both fiction and nonfiction, reflect that. No generic platitudes.",
+  "summary": "A 4-5 sentence essay capturing what this person loves and why. Write in second person ('You love stories that...'). Be specific, reference items across different media types, show connections across different types of media. If they read both fiction and nonfiction, reflect that. No generic platitudes.",
   "themes": [
     {{"name": "specific theme like 'morally complex anti-heroes' or 'systems thinking about human behavior'", "description": "one-sentence explanation", "examples": ["exact item title from profile", "another exact item title", "a third if available"]}},
     ... 4-5 themes total
@@ -2095,7 +2095,7 @@ async def tonight_pick(
         quiz_signals = build_quiz_signals_block(db, user.id)
 
         mood_line = f"\nCURRENT MOOD: {req.mood}" if req.mood else ""
-        prompt = f"""You are NextUp, a cross-medium taste expert. Pick ONE perfect thing — fiction or nonfiction — for this person to consume right now based on their taste, available time, and mood.
+        prompt = f"""You are NextUp — you connect great stories across movies, TV, books, and podcasts. Pick ONE perfect thing — fiction or nonfiction — for this person to consume right now based on their taste, available time, and mood.
 
 {quiz_signals}
 USER'S TASTE PROFILE:
@@ -2108,7 +2108,7 @@ CONTEXT:
 
 NONFICTION IS WELCOME: documentaries, memoirs, idea books, interview/explainer podcasts, narrative nonfiction — all valid. Match the user's fiction/nonfiction balance.
 
-REASON FORMAT: Each "reason" MUST have TWO parts: (1) What it is — a 1-sentence premise so the user knows what they're looking at. (2) Why they'll like it — cite a specific item from their profile and name a concrete connection (theme, tone, idea). Never match on surface features.
+REASON FORMAT: Each "reason" MUST have TWO parts: (1) What it is — a quick sentence about what it actually is. (2) Why they'll like it — explain what connects it to something they already love (theme, mood, idea). Don't just match on surface stuff.
 
 Do NOT recommend any of these titles (already in their library or dismissed): {avoid_str}
 
@@ -2342,7 +2342,7 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
             for (slug, label, _primary, guide) in theme_catalog
         )
 
-        prompt = f"""You are a cross-medium taste expert. Find connections between books, TV, movies, and podcasts — fiction AND nonfiction — that share themes, ideas, tone, subject matter, or emotional register.
+        prompt = f"""You're someone who connects great stories across movies, TV, books, and podcasts — fiction AND nonfiction — finding things that share themes, ideas, mood, subject matter, or feel.
 
 {quiz_signals}
 {resonance_signals}
@@ -2390,12 +2390,12 @@ One or two items in a genre does NOT mean the user is a fan of that genre. Someo
 
 REASON FORMAT — CRITICAL:
 Each "reason" field MUST have TWO parts:
-1. WHAT IT IS: A 1-sentence description of the actual item — what it's about, the premise, the hook. The user has never heard of this and needs to know what they're looking at.
-2. WHY YOU'LL LIKE IT: Why this specific user will enjoy it, citing a concrete connection to a specific item from a DIFFERENT media type in their profile.
+1. WHAT IT IS: A quick sentence about what it actually is — what it's about, the premise, the hook. The user has never heard of this and needs to know what they're looking at.
+2. WHY YOU'LL LIKE IT: Why this specific user will enjoy it — explain what connects it to something they already love, ideally from a different media type in their profile.
 Example: "A sci-fi thriller about a man who wakes up with no memory on a deep-space mission to save Earth. You loved The Martian's problem-solving energy and Severance's identity crisis — this hits both."
 
 CRITICAL RULES:
-- The connection in the reason MUST be CONCRETE — shared theme, idea, emotional beat, narrative approach. Never match on surface features like setting, demographic, or keyword.
+- The connection in the reason MUST be CONCRETE — shared theme, idea, emotional beat, or storytelling approach. Don't just match on surface stuff like setting or genre label — find a real connection.
 - The no-surface-match rule applies to themes too. A shared word in the title is NOT a connection. A shared setting alone is NOT a connection. A shared genre label is NOT a connection. Example of what NOT to do: anchor is "The Florida Project" (a Sean Baker movie about poverty and childhood on the margins of Orlando); picking "Probate and Settle an Estate in Florida" (a legal how-to guide) is a surface match on the word "Florida" — it is NOT a valid theme pick. A valid match would be something like "Random Family" by Adrian Nicole LeBlanc, which shares the concrete themes of marginalized families and structural precarity.
 - DO NOT recommend any of these — the user has already consumed, queued, or dismissed them: {avoid_str}
 - Insights must reference actual items from their profile. Bad: "You like drama". Good: "Your top-rated book (The Road) and your top-rated TV show (The Last of Us) both center on post-apocalyptic parent-child journeys."
@@ -2783,7 +2783,7 @@ async def best_bet(
         else:
             bb_streaming_ctx = ""
 
-        prompt = f"""You're picking ONE {type_label} as a hero recommendation. Below are items this user recently rated 4 or 5 out of 5 — your job is to find the strongest thematic bridge from ANY of them (one or two) to a great {type_label} they haven't seen yet.
+        prompt = f"""You're picking ONE {type_label} as a hero recommendation. Below are items this user recently rated 4 or 5 out of 5 — your job is to find the strongest connection from ANY of them (one or two) to a great {type_label} they haven't seen yet.
 
 {resonance_signals}
 {rec_feedback}
@@ -2792,18 +2792,18 @@ async def best_bet(
 TASK: Generate 3 candidate {type_label}s. For each, find the deepest connection to ONE or TWO items from the RECENTLY LOVED list above. You choose which loved item(s) to cite — pick whichever create the most interesting, non-obvious bridge to your candidate. Different candidates SHOULD cite different loved items when possible.
 
 CRITICAL — NO SURFACE MATCHES:
-A shared word in the title is NOT a connection. A shared setting alone is NOT a connection. A shared genre label is NOT a connection. A shared demographic is NOT a connection. If you cannot articulate the connection without repeating a surface word, you haven't found one.
+Don't just match on surface stuff — a shared word in the title, a shared setting, a genre label, or a shared demographic is NOT a real connection. If you can't explain why these two things actually feel alike without repeating a surface detail, you haven't found a connection.
 
 NEVER recommend practical/self-help/how-to books unless the user's profile explicitly shows they love that category. Stick to entertainment — fiction, narrative nonfiction, stories.
 
 RULES:
 - Each candidate must be a real, findable {type_label} — no invented titles.
 - DO NOT pick anything the user already has in their library: {', '.join(list(known_normalized)[:30]) if known_normalized else 'none'}
-- Each "reason" must have EXACTLY TWO short sentences (total under 40 words): (1) What it is — one punchy premise sentence. (2) Why — "Because you loved [Title], ..." or "Because you loved [Title] and [Title], ..." citing a specific concrete connection. No run-on clauses.
+- Each "reason" must have EXACTLY TWO short sentences (total under 40 words): (1) What it is — one sentence about what it is. (2) Why — "Because you loved [Title], ..." or "Because you loved [Title] and [Title], ..." explaining what connects them. No run-on clauses.
 - Different candidates should cite DIFFERENT items from the loved list when possible — don't anchor everything to the same item.
 - ALWAYS include a "creator" field with the author, director, or creator name.
 - Include "cited" — an array of 1-2 title strings from the loved list that this candidate connects to.
-- Match audience and tonal register. Use the BROADER TASTE PROFILE to calibrate.
+- Make sure it fits the same kind of audience and mood. Use the BROADER TASTE PROFILE to calibrate.
 - Include a "predicted_rating": your honest 1-5 prediction (one decimal). Be ruthless — predict LOW (2-2.5) if the fit is weak. The app drops anything below 3. It is fine for ALL candidates to score below 3.
 - Spread your scores across the range. Don't give all three 4+.
 
@@ -3084,7 +3084,7 @@ async def get_home_right_now(
                 f"  - {e.title} ({e.media_type}, {e.genres or 'unknown genre'})"
                 for e in consuming
             ]
-            prompt = f"""You are writing ONE sentence — warm, specific, insightful — about the intersection of the media this user is currently in the middle of. The goal is to name, in plain words, the through-line across these items: the tonal register, the idea they keep circling, the kind of emotional territory they're walking through right now. Cite at least ONE of the items by name.
+            prompt = f"""You are writing ONE sentence — warm, specific, insightful — about the intersection of the media this user is currently in the middle of. The goal is to name, in plain words, what ties these together — the mood, the ideas, the kind of stories they're drawn to right now. Cite at least ONE of the items by name.
 
 CURRENTLY CONSUMING:
 {chr(10).join(lines)}
@@ -3475,7 +3475,7 @@ async def top_picks(user: User = Depends(require_user), db: Session = Depends(ge
         from app.services.taste_quiz_scoring import build_quiz_signals_block
         quiz_signals = build_quiz_signals_block(db, user.id)
 
-        prompt = f"""You are a cross-medium taste expert. Your specialty is finding specific, real connections between books, TV, movies, and podcasts — fiction AND nonfiction — that share themes, ideas, tone, subject matter, or emotional register.
+        prompt = f"""You're someone who connects great stories across movies, TV, books, and podcasts. Your specialty is finding specific, real connections — fiction AND nonfiction — that share themes, ideas, mood, subject matter, or feel.
 
 {quiz_signals}
 USER'S TASTE PROFILE (across all media types):
@@ -3490,16 +3490,16 @@ NONFICTION IS WELCOME:
 - Podcasts can be interview, science, news, explainer (*Radiolab*, *The Daily*, *Hidden Brain*, *Ezra Klein Show*)
 - Look at the user's profile — if they rate nonfiction or documentaries highly, recommend more of it. If they lean narrative, lean that way.
 
-REASON FORMAT: Each "reason" MUST have TWO parts: (1) What it is — a 1-sentence premise so the user knows what they're looking at. (2) Why they'll like it — cite a specific item from their profile. Good examples:
-- "The atmospheric dread of *Dune* (book) translates directly to this slow-burn sci-fi film."
-- "You loved the careful character work in *The Wire* (TV) — this nonfiction book has the same patient, morally complex portrait of institutional failure."
-- "If *Serial* (podcast) hooked you on ambiguity and moral inquiry, this documentary explores similar unresolved tension."
+REASON FORMAT: Each "reason" MUST have TWO parts: (1) What it is — a quick sentence about what it actually is. (2) Why they'll like it — explain what connects it to something they already love. Good examples:
+- "If *Dune* (book) got you with its slow-building tension and alien world, this sci-fi film has the same feel."
+- "You loved how *The Wire* (TV) showed how broken systems really work — this nonfiction book does the same thing with the same patience and moral weight."
+- "If *Serial* (podcast) hooked you on ambiguity and moral questions, this documentary explores similar unresolved tension."
 - "You gave *Educated* (book) a 5/5 — this film has the same aching quality of a young person finding their own voice against the weight of their family."
 
 Rules:
 - 8 items total: 2 movies, 2 tv, 2 books, 2 podcasts. List your strongest pick first in each pair.
 - Each reason MUST cite an item from a DIFFERENT media type by name
-- The connection must be CONCRETE — cite a shared theme, idea, emotional beat, or narrative approach. Never rely on shared demographic, setting, or keyword.
+- The connection must be CONCRETE — shared theme, idea, emotional beat, or storytelling approach. Don't just match on surface stuff like setting or genre label.
 - If recently rated items suggest a mood shift, lean into that mood
 - Do NOT recommend any of these (already in their library): {avoid_str}
 - Pick bold, specific things they'll love — not generic bestsellers
@@ -3671,7 +3671,7 @@ async def home_suggestions(user: User = Depends(require_user), db: Session = Dep
         from app.services.taste_quiz_scoring import build_quiz_signals_block
         quiz_signals = build_quiz_signals_block(db, user.id)
 
-        prompt = f"""You are a cross-medium taste expert. Find connections between books, TV, movies, and podcasts — fiction AND nonfiction — that share themes, ideas, tone, or emotional register.
+        prompt = f"""You're someone who connects great stories across movies, TV, books, and podcasts — fiction AND nonfiction — finding things that share themes, ideas, mood, or feel.
 
 {quiz_signals}
 USER'S TASTE PROFILE (across all media types):
@@ -3686,9 +3686,9 @@ NONFICTION IS WELCOME:
 - Podcasts include interview, science, explainer, news
 Look at the user's profile and match their fiction/nonfiction balance.
 
-REASON FORMAT: Each "reason" MUST have TWO parts: (1) What it is — a 1-sentence premise so the user knows what they're looking at. (2) Why they'll like it — cite a specific item from their profile and name a concrete shared element. Never match on surface features.
+REASON FORMAT: Each "reason" MUST have TWO parts: (1) What it is — a quick sentence about what it actually is. (2) Why they'll like it — mention something they already love and explain why this is similar. Don't just match on surface stuff.
 
-Good example: "You gave *The Wire* (TV) a 5/5 — this nonfiction book on the war on drugs delivers the same unflinching institutional critique."
+Good example: "If you loved how *The Wire* pulled back the curtain on broken systems, this nonfiction book on the war on drugs does the same thing."
 Bad example: "Both are about cities."
 
 DO NOT recommend any of these titles — the user has already consumed, queued, or dismissed them: {avoid_str}
@@ -3848,7 +3848,7 @@ async def related_items(
         from app.services.taste_quiz_scoring import build_quiz_signals_block
         quiz_signals = build_quiz_signals_block(db, user.id)
 
-        prompt = f"""You are a cross-medium taste expert. Given this media item, suggest 2 items from EACH OTHER media type that share a real, specific connection — theme, tone, subject matter, emotional register, ideas, or storytelling approach — AND are appropriate for the same audience and tonal register.
+        prompt = f"""You're someone who connects great stories across movies, TV, books, and podcasts. Given this media item, suggest 2 items from EACH OTHER media type that share a real, specific connection — theme, mood, subject matter, feel, ideas, or the way they tell their story — AND are appropriate for the same audience and mood.
 
 CURRENT ITEM: {item.title} ({media_type}, {item.year or '?'})
 Genres: {item_genres}
@@ -3880,7 +3880,7 @@ Prestige titles (*Fleabag*, *Succession*, *The Bear*, *The Crown*, *Ted Lasso*, 
 AUDIENCE AND TONE — THIS IS A HARD CONSTRAINT:
 Before you suggest anything, classify the current item along two axes:
   (a) Audience: family/kids, general-audience, or adult.
-  (b) Tonal register: light/comic, warm/hopeful, contemplative, melancholy, grim/dark, intense/horror.
+  (b) Mood: light/comic, warm/hopeful, contemplative, melancholy, grim/dark, intense/horror.
 
 EVERY recommendation MUST match on BOTH axes. Do not cross these lines.
 - If the current item is a family/kids movie (e.g. Genres include "Family" or "Animation", or the description is about children), NEVER recommend R-rated, adult, or grim/dark material — even if you can find a "theme" connection. Recommend other family-appropriate items OR warm contemplative material about the same ideas.
@@ -4429,7 +4429,7 @@ Find 4 movies or TV shows that:
 For each, specify which service it's on.
 
 Return ONLY valid JSON — a list of objects:
-[{{"title": "...", "media_type": "movie|tv", "year": 2020, "available_on": "Service Name", "reason": "One sentence why this fits their taste"}}]
+[{{"title": "...", "media_type": "movie|tv", "year": 2020, "available_on": "Service Name", "reason": "One sentence about why they'd love this"}}]
 """
 
     try:
@@ -4551,7 +4551,7 @@ RULES:
 - If the item's genre/tone/style resembles their disliked items, score it 1.5-2.5.
 - If you don't recognize the item or can't tell, return null.
 - A 5.0 means near-perfect match to their absolute favorites. Extremely rare.
-- The reason should cite a specific item from their profile and name a concrete connection.
+- The reason should mention something they already love and explain why this is similar.
 
 Return ONLY a JSON object:
 {{"predicted_rating": 3.2, "reason": "Your mixed feelings about similar memoirs suggest this would be pleasant but not a standout."}}

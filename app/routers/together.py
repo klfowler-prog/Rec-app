@@ -138,7 +138,7 @@ async def compare(
         together_streaming_ctx = ""
 
     try:
-        prompt = f"""You are a cross-medium taste expert. Find things that BOTH of these people would love — based on their individual profiles.
+        prompt = f"""You're someone who connects great stories across movies, TV, books, and podcasts. Find things that BOTH of these people would love — based on their individual profiles.
 
 {my_summary}
 
@@ -150,12 +150,12 @@ CRITICAL:
 - NEVER recommend anything on this list — these are titles both users already have or have explicitly rejected:
 {avoid_str}
 - Do NOT recommend niche anime, fan-service shows, or obscure titles unless BOTH profiles show strong anime/manga interest
-- The reason should cite specific items from BOTH profiles
+- The reason should mention something each person loves and explain why this works for both of them
 - One of the 5 should be marked as "watch_together_pick": true — the BEST single thing to consume together
 
 Return ONLY valid JSON, no markdown:
 {{
-  "watch_together_pick": {{"title": "...", "media_type": "movie|tv|book|podcast", "year": 2020, "predicted_rating_me": 4.5, "predicted_rating_them": 4.0, "reason": "cross-medium reason citing both profiles"}},
+  "watch_together_pick": {{"title": "...", "media_type": "movie|tv|book|podcast", "year": 2020, "predicted_rating_me": 4.5, "predicted_rating_them": 4.0, "reason": "explain what connects this to something each person loves"}},
   "candidates": [
     {{"title": "...", "media_type": "...", "year": 2020, "predicted_rating_me": 4.0, "predicted_rating_them": 3.5, "reason": "..."}},
     ... 4 more items
