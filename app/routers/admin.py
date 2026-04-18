@@ -96,3 +96,45 @@ async def admin_delete_user(
     db.query(User).filter(User.id == user_id).delete()
     db.commit()
     return RedirectResponse("/admin/users", status_code=303)
+
+
+@router.post("/impersonate")
+async def admin_impersonate(
+    request: Request,
+    user_id: int = Form(...),
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Switch session to another user. Admin only. Stores original user
+    so you can switch back."""
+    if not settings.admin_email or user.email.lower() != settings.admin_email.lower():
+        return RedirectResponse("/")
+    target = db.query(User).filter(User.id == user_id).first()
+    if not target:
+        return RedirectResponse("/admin/users", status_code=303)
+    # Save the real admin ID so we can switch back
+    if "real_user_id" not in request.session:
+        request.session["real_user_id"] = user.id
+    request.session["user_id"] = target.id
+    request.session["user_name"] = target.name
+    request.session["user_picture"] = target.picture
+    return RedirectResponse("/", status_code=303)
+
+
+@router.post("/stop-impersonating")
+async def admin_stop_impersonating(
+    request: Request,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Switch back to the real admin account."""
+    real_id = request.session.pop("real_user_id", None)
+    if not real_id:
+        return RedirectResponse("/")
+    real_user = db.query(User).filter(User.id == real_id).first()
+    if not real_user:
+        return RedirectResponse("/")
+    request.session["user_id"] = real_user.id
+    request.session["user_name"] = real_user.name
+    request.session["user_picture"] = real_user.picture
+    return RedirectResponse("/admin/users", status_code=303)

@@ -51,10 +51,16 @@
                             </div>
                         </div>
                         {% if u.email.lower() != user.email.lower() %}
-                        <form method="POST" action="/admin/users/delete" onsubmit="return confirm('Delete {{ u.name }} and all their data? This cannot be undone.')" class="flex-shrink-0">
-                            <input type="hidden" name="user_id" value="{{ u.id }}" />
-                            <button type="submit" class="text-xs text-txt-muted hover:text-coral transition-base px-2 py-1 rounded hover:bg-coral/10">Delete</button>
-                        </form>
+                        <div class="flex gap-1 flex-shrink-0">
+                            <form method="POST" action="/admin/impersonate">
+                                <input type="hidden" name="user_id" value="{{ u.id }}" />
+                                <button type="submit" class="text-xs text-sage font-medium hover:underline px-2 py-1 rounded hover:bg-sage/10 transition-base">Log in as</button>
+                            </form>
+                            <form method="POST" action="/admin/users/delete" onsubmit="return confirm('Delete {{ u.name }} and all their data? This cannot be undone.')">
+                                <input type="hidden" name="user_id" value="{{ u.id }}" />
+                                <button type="submit" class="text-xs text-txt-muted hover:text-coral transition-base px-2 py-1 rounded hover:bg-coral/10">Delete</button>
+                            </form>
+                        </div>
                         {% endif %}
                     </div>
                     <div class="flex items-center gap-4 mt-2 ml-12 text-[11px] text-txt-muted">

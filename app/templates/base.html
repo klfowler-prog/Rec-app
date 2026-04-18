@@ -188,6 +188,14 @@
 
         <!-- Main content -->
         <main class="flex-1 md:ml-60">
+            {% if request.session.get('real_user_id') %}
+            <div class="bg-coral text-white text-center py-2 text-xs font-medium">
+                Viewing as {{ user.name if user is defined and user else 'another user' }} ·
+                <form method="POST" action="/admin/stop-impersonating" class="inline">
+                    <button type="submit" class="underline font-bold">Switch back to your account</button>
+                </form>
+            </div>
+            {% endif %}
             <div class="max-w-5xl mx-auto px-4 md:px-8 py-4 md:py-8 mt-14 md:mt-0">
                 {% block content %}{% endblock %}
             </div>
