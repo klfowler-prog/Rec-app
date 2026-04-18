@@ -44,13 +44,21 @@
         </div>
     </div>
 
-    <!-- Add more people -->
+    <!-- Add more people — collapsed by default -->
     <div id="add-people-section" class="hidden">
-        <div class="flex items-center justify-between mb-3">
-            <p class="text-[11px] text-txt-muted uppercase tracking-[0.18em] font-bold">Add someone</p>
-            <button onclick="showInviteModal()" class="text-xs text-sage font-medium hover:underline">+ Invite by link</button>
+        <button onclick="toggleAddPeople()" id="add-people-toggle" class="flex items-center gap-2 text-xs text-txt-muted hover:text-sage transition-base mb-3">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            Add more people
+        </button>
+        <div id="add-people-content" class="hidden">
+            <div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <p class="text-xs font-semibold">People on NextUp</p>
+                    <button onclick="showInviteModal()" class="text-[10px] text-sage font-medium hover:underline">Invite by link</button>
+                </div>
+                <div id="unpaired-list" class="flex flex-wrap gap-2"></div>
+            </div>
         </div>
-        <div id="unpaired-list" class="flex flex-wrap gap-3"></div>
     </div>
 
     <!-- Compare results -->
@@ -98,6 +106,11 @@ function escapeHtml(text) { const d = document.createElement('div'); d.textConte
 
 let selectedRelType = 'partner';
 let selectedPartnerId = null;
+
+function toggleAddPeople() {
+    const content = document.getElementById('add-people-content');
+    content.classList.toggle('hidden');
+}
 
 // --- Partners + unpaired users ---
 async function loadPartners() {
@@ -196,33 +209,38 @@ async function selectPartner(partnerId, btn) {
         const themName = data.other_user.name;
         let html = '';
 
-        // Compatibility score
+        // Together DNA
         if (compat && compat.overall !== null) {
             const pct = Math.round(compat.overall);
+            const compatLabel = pct >= 80 ? 'You two are seriously in sync' : pct >= 60 ? 'Solid overlap with room to explore' : pct >= 40 ? 'Different tastes — that makes it interesting' : 'Opposites attract';
             html += `
-                <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-5">
-                    <div class="flex items-center gap-5">
-                        <div class="compat-ring flex-shrink-0" style="--pct: ${pct}%">
-                            <div class="compat-inner bg-surface-light dark:bg-surface-dark">
-                                <span class="text-xl font-bold">${pct}%</span>
+                <div class="rounded-2xl overflow-hidden" style="background: linear-gradient(135deg, #2B3A4E 0%, #1E2A3A 100%);">
+                    <div class="p-6 text-white">
+                        <p class="text-[11px] uppercase tracking-[0.18em] text-white/50 font-bold mb-4">Together DNA</p>
+                        <div class="flex items-center gap-5">
+                            <div class="compat-ring flex-shrink-0" style="--pct: ${pct}%">
+                                <div class="compat-inner bg-[#1E2A3A]">
+                                    <span class="text-2xl font-bold text-white">${pct}%</span>
+                                </div>
                             </div>
-                        </div>
-                        <div class="flex-1">
-                            <p class="text-sm font-bold mb-1">Taste compatibility with ${escapeHtml(themName.split(' ')[0])}</p>
-                            ${compat.by_type ? `<div class="flex gap-3 text-[10px] text-txt-muted">
-                                ${Object.entries(compat.by_type).map(([type, pct]) => `<span>${type}: ${Math.round(pct)}%</span>`).join('')}
-                            </div>` : ''}
+                            <div class="flex-1">
+                                <p class="text-lg font-bold mb-1">${compatLabel}</p>
+                                <p class="text-xs text-white/60">Based on ${compat.shared_count} things you've both rated</p>
+                                ${compat.by_type ? `<div class="flex gap-3 mt-2 text-[10px] text-white/50">
+                                    ${Object.entries(compat.by_type).map(([type, pct]) => `<span class="capitalize">${type}: ${Math.round(pct)}%</span>`).join('')}
+                                </div>` : ''}
+                            </div>
                         </div>
                     </div>
                     ${compat.battles && compat.battles.length ? `
-                        <div class="mt-4 pt-4 border-t border-border-light dark:border-border-dark">
-                            <p class="text-[11px] text-coral uppercase tracking-[0.18em] font-bold mb-2">Where you disagree</p>
+                        <div class="px-6 pb-5 pt-0">
+                            <p class="text-[11px] text-coral uppercase tracking-[0.18em] font-bold mb-3">Where you disagree</p>
                             <div class="space-y-2">
                                 ${compat.battles.map(b => `
-                                    <div class="flex items-center gap-3 text-xs">
+                                    <div class="flex items-center gap-3 text-xs text-white/80">
                                         <span class="flex-1 truncate font-medium">${escapeHtml(b.title)}</span>
-                                        <span class="text-sage font-semibold">${escapeHtml(myName.split(' ')[0])}: ${b.my_rating}/5</span>
-                                        <span class="text-coral font-semibold">${escapeHtml(themName.split(' ')[0])}: ${b.their_rating}/5</span>
+                                        <span class="text-sage font-bold">${escapeHtml(myName.split(' ')[0])}: ${b.my_rating}/5</span>
+                                        <span class="text-coral font-bold">${escapeHtml(themName.split(' ')[0])}: ${b.their_rating}/5</span>
                                     </div>
                                 `).join('')}
                             </div>
