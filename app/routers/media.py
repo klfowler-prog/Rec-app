@@ -694,32 +694,49 @@ async def taste_quiz_movies_items(
         items = [i for i in items
                  if i.get("title", "").lower() not in _adult_movies
                  and (i.get("year") or 0) >= 2005]
-        # Sort by what teens are most likely to know — mainstream first,
-        # then genre, then anime/indie. Ensures a diverse mix early.
-        _tier1 = {  # Mainstream blockbusters, comedies, family — almost every teen knows these
-            "frozen", "coco", "the super mario bros. movie", "five nights at freddy's",
-            "sonic the hedgehog", "the dark knight", "top gun: maverick",
-            "superbad", "bridesmaids", "21 jump street", "mean girls",
-            "knives out", "get out", "crazy rich asians", "the greatest showman",
-            "ratatouille", "bohemian rhapsody", "hidden figures",
+        # Interleave by genre/vibe so every type of teen hits something
+        # diagnostic early. The goal is SIGNAL — different teens should
+        # rate the first 8 items differently. Grouping by popularity
+        # produces items everyone rates the same (no signal).
+        _genre_buckets = {
+            "comedy":    {"superbad", "bridesmaids", "21 jump street", "mean girls", "the proposal"},
+            "family":    {"frozen", "coco", "ratatouille", "the super mario bros. movie", "sonic the hedgehog", "detective pikachu"},
+            "action":    {"the dark knight", "top gun: maverick", "mission: impossible - fallout", "john wick", "creed", "mad max: fury road"},
+            "horror":    {"it", "a quiet place", "nope", "get out", "five nights at freddy's"},
+            "anime":     {"your name", "demon slayer: mugen train", "a silent voice"},
+            "drama":     {"hidden figures", "the greatest showman", "bohemian rhapsody", "la la land", "the blind side", "soul surfer", "the martian"},
+            "romcom":    {"crazy rich asians", "knives out", "the secret life of walter mitty"},
         }
-        _tier2 = {  # Action, horror, drama — most teens have seen these
-            "it", "a quiet place", "nope", "detective pikachu",
-            "the martian", "creed", "la la land", "the blind side",
-            "soul surfer", "mission: impossible - fallout",
-            "parasite", "mad max: fury road", "john wick",
-        }
-        _tier3 = {  # Anime, indie, slower — teens who are into these love them, but not universal
-            "your name", "demon slayer: mugen train", "a silent voice",
-            "train to busan", "boyhood", "the secret life of walter mitty",
-        }
-        def _teen_sort(i):
-            t = i.get("title", "").lower()
-            if t in _tier1: return (0, -(i.get("year") or 0))
-            if t in _tier2: return (1, -(i.get("year") or 0))
-            if t in _tier3: return (2, -(i.get("year") or 0))
-            return (3, -(i.get("year") or 0))
-        items.sort(key=_teen_sort)
+        # Assign each item a genre bucket
+        _title_to_genre = {}
+        for genre, titles in _genre_buckets.items():
+            for t in titles:
+                _title_to_genre[t] = genre
+
+        # Round-robin across genres so the quiz alternates
+        from collections import defaultdict
+        genre_queues = defaultdict(list)
+        ungrouped = []
+        for i in items:
+            genre = _title_to_genre.get(i.get("title", "").lower())
+            if genre:
+                genre_queues[genre].append(i)
+            else:
+                ungrouped.append(i)
+
+        # Interleave: pick one from each genre in rotation
+        genre_order = ["comedy", "action", "family", "horror", "drama", "anime", "romcom"]
+        interleaved = []
+        round_num = 0
+        while any(genre_queues[g] for g in genre_order) or ungrouped:
+            for g in genre_order:
+                if genre_queues[g]:
+                    interleaved.append(genre_queues[g].pop(0))
+            round_num += 1
+            if round_num > 10:
+                break
+        interleaved.extend(ungrouped)
+        items = interleaved
         log.info("movie_quiz [user=%d age=%s]: sorted %d items, first 5: %s",
                  user.id, age, len(items),
                  [i.get("title") for i in items[:5]])
