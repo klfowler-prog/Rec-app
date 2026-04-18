@@ -1,6 +1,6 @@
 """Book taste quiz — two-module (fiction + nonfiction) static data.
 
-Fiction module: 20 titles, 8 axes
+Fiction module: 45 titles, 8 axes
 Nonfiction module: 10 titles, 9 axes (adds nonfiction_register)
 
 Presented as Part 1 / Part 2 in the UI, scored independently, then
@@ -50,7 +50,7 @@ RESPONSE_OPTIONS: list[dict] = [
 RATING_MAP: dict[int, int] = {2: 5, 1: 4, 0: 3, -1: 1}
 
 
-# FICTION MODULE — 25 titles in accessible → challenging order.
+# FICTION MODULE — 45 titles in accessible → challenging order.
 # note_in_ui is shown as a small caveat under the title when present.
 # `generation` and `scenes` are Phase D2 pool tags used by the quiz
 # load filter to match items against the user's saved onboarding.
@@ -159,6 +159,93 @@ FICTION: list[dict] = [
      "weights": {"emotional": 1, "ideas": 1, "prose": 1, "commitment": 1},
      "generation": ["gen_z"],
      "scenes": ["gaming_culture", "romance", "prestige_drama"]},
+    # Mystery / thriller
+    {"order": 26, "title": "The Girl on the Train", "author": "Paula Hawkins", "years": "2015",
+     "weights": {"plot": 2, "darkness": 1, "irony": 1, "prose": -1},
+     "generation": ["millennial", "gen_z"],
+     "scenes": ["suspense_mystery", "true_crime", "prestige_drama"]},
+    {"order": 27, "title": "The Silent Patient", "author": "Alex Michaelides", "years": "2019",
+     "weights": {"plot": 2, "darkness": 1, "moral_ambiguity": 1, "prose": -1},
+     "generation": ["millennial", "gen_z"],
+     "scenes": ["suspense_mystery", "true_crime"]},
+    {"order": 28, "title": "Big Little Lies", "author": "Liane Moriarty", "years": "2014",
+     "weights": {"plot": 1, "irony": 1, "emotional": 1, "darkness": -1},
+     "generation": ["classic", "millennial"],
+     "scenes": ["suspense_mystery", "comedy", "prestige_drama"]},
+    {"order": 29, "title": "The Da Vinci Code", "author": "Dan Brown", "years": "2003",
+     "weights": {"plot": 2, "prose": -2, "commitment": -1},
+     "generation": ["classic", "millennial"],
+     "scenes": ["action_thriller", "suspense_mystery"]},
+    # Romance / women's fiction
+    {"order": 30, "title": "It Ends with Us", "author": "Colleen Hoover", "years": "2016",
+     "weights": {"emotional": 2, "darkness": 1, "plot": 1, "prose": -1},
+     "generation": ["millennial", "gen_z"],
+     "scenes": ["romance", "prestige_drama"]},
+    {"order": 31, "title": "Beach Read", "author": "Emily Henry", "years": "2020",
+     "weights": {"emotional": 1, "plot": 1, "irony": 1, "darkness": -1},
+     "generation": ["millennial", "gen_z"],
+     "scenes": ["romance", "comedy", "feelgood_comfort"]},
+    {"order": 32, "title": "The Notebook", "author": "Nicholas Sparks", "years": "1996",
+     "weights": {"emotional": 2, "plot": 1, "prose": -1, "ideas": -1},
+     "generation": ["classic", "millennial"],
+     "scenes": ["romance", "feelgood_comfort"]},
+    {"order": 33, "title": "Outlander", "author": "Diana Gabaldon", "years": "1991",
+     "weights": {"commitment": 2, "emotional": 1, "plot": 1},
+     "generation": ["classic", "universal"],
+     "scenes": ["romance", "scifi_fantasy", "history_war"]},
+    # Historical fiction
+    {"order": 34, "title": "All the Light We Cannot See", "author": "Anthony Doerr", "years": "2014",
+     "weights": {"prose": 2, "emotional": 1, "darkness": 1},
+     "generation": ["classic", "millennial"],
+     "scenes": ["prestige_drama", "history_war"]},
+    {"order": 35, "title": "The Book Thief", "author": "Markus Zusak", "years": "2005",
+     "weights": {"emotional": 2, "irony": 1, "darkness": 1, "prose": 1},
+     "generation": ["classic", "millennial"],
+     "scenes": ["prestige_drama", "history_war", "kids_family"]},
+    {"order": 36, "title": "The Pillars of the Earth", "author": "Ken Follett", "years": "1989",
+     "weights": {"commitment": 2, "plot": 1, "darkness": 1, "prose": -1},
+     "generation": ["classic", "universal"],
+     "scenes": ["prestige_drama", "history_war"]},
+    # Feel-good / comfort
+    {"order": 37, "title": "A Man Called Ove", "author": "Fredrik Backman", "years": "2012",
+     "weights": {"emotional": 2, "irony": 1, "darkness": -1, "prose": -1},
+     "generation": ["classic", "millennial"],
+     "scenes": ["feelgood_comfort", "comedy"]},
+    {"order": 38, "title": "The Midnight Library", "author": "Matt Haig", "years": "2020",
+     "weights": {"emotional": 1, "ideas": 1, "darkness": -1, "plot": 1},
+     "generation": ["millennial", "gen_z"],
+     "scenes": ["feelgood_comfort", "scifi_fantasy"]},
+    {"order": 39, "title": "Eleanor Oliphant Is Completely Fine", "author": "Gail Honeyman", "years": "2017",
+     "weights": {"emotional": 2, "irony": 1, "darkness": -1},
+     "generation": ["millennial", "gen_z"],
+     "scenes": ["feelgood_comfort", "prestige_drama"]},
+    # YA
+    {"order": 40, "title": "The Fault in Our Stars", "author": "John Green", "years": "2012",
+     "weights": {"emotional": 2, "irony": 1, "darkness": 1, "prose": -1},
+     "generation": ["classic", "millennial"],
+     "scenes": ["romance", "kids_family", "prestige_drama"]},
+    {"order": 41, "title": "Percy Jackson and the Lightning Thief", "author": "Rick Riordan", "years": "2005",
+     "weights": {"plot": 2, "emotional": 1, "darkness": -1, "prose": -1},
+     "generation": ["classic", "millennial", "gen_z", "universal"],
+     "scenes": ["scifi_fantasy", "kids_family", "action_thriller"]},
+    {"order": 42, "title": "Divergent", "author": "Veronica Roth", "years": "2011",
+     "weights": {"plot": 2, "darkness": 1, "emotional": 1, "prose": -1},
+     "generation": ["classic", "millennial"],
+     "scenes": ["scifi_fantasy", "action_thriller", "kids_family"]},
+    # Horror
+    {"order": 43, "title": "The Shining", "author": "Stephen King", "years": "1977",
+     "weights": {"darkness": 2, "plot": 1, "emotional": 1, "moral_ambiguity": 1},
+     "generation": ["classic", "universal"],
+     "scenes": ["horror", "prestige_drama"]},
+    {"order": 44, "title": "Mexican Gothic", "author": "Silvia Moreno-Garcia", "years": "2020",
+     "weights": {"darkness": 2, "prose": 1, "irony": 1},
+     "generation": ["millennial", "gen_z"],
+     "scenes": ["horror", "history_war", "indie_arthouse"]},
+    # Faith / inspirational
+    {"order": 45, "title": "Where the Red Fern Grows", "author": "Wilson Rawls", "years": "1961",
+     "weights": {"emotional": 2, "darkness": -1, "prose": -1, "irony": -1},
+     "generation": ["classic", "millennial", "gen_z", "universal"],
+     "scenes": ["faith_family", "kids_family", "feelgood_comfort"]},
 ]
 
 

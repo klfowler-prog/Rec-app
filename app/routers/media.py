@@ -1032,6 +1032,7 @@ async def taste_quiz_books_items(
         "media_label_plural": "books",
         "verb": "read",
         "total_questions": len(fiction_items) + len(nonfiction_items),
+        "offramp_after": 15,
     }
 
 
@@ -1085,6 +1086,7 @@ async def taste_quiz_books_fiction_items(
         "verb": "read",
         "min_answered": FICTION_MIN,
         "total_questions": len(fiction_items),
+        "offramp_after": 15,
     }
 
 
@@ -1129,6 +1131,7 @@ async def taste_quiz_books_nonfiction_items(
         "verb": "read",
         "min_answered": NONFICTION_MIN,
         "total_questions": len(nonfiction_items),
+        "offramp_after": 10,
     }
 
 
