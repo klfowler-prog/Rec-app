@@ -145,12 +145,12 @@ def mark_profile_changed() -> None:
 def force_refresh() -> None:
     """Clear all recommendation caches (memory + DB)."""
     with _lock:
-        prefixes = ("top_picks", "suggestions_home", "home_bundle", "related_items", "insights", "new_releases", "best_bet")
+        prefixes = ("top_picks", "suggestions_home", "home_bundle", "related_items", "insights", "new_releases", "best_bet", "taste_dna", "taste_fit", "missing")
         keys_to_delete = [k for k in _cache if any(k.startswith(p) for p in prefixes)]
         for k in keys_to_delete:
             _cache.pop(k, None)
     # Also clear from DB
-    for p in ("top_picks", "suggestions_home", "home_bundle", "related_items", "insights", "new_releases", "best_bet"):
+    for p in ("top_picks", "suggestions_home", "home_bundle", "related_items", "insights", "new_releases", "best_bet", "taste_dna", "taste_fit", "missing"):
         _db_invalidate(p)
 
 
