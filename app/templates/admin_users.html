@@ -118,17 +118,8 @@
 {% block scripts %}
 <script>
 function copyNudge(btn, firstName, totalItems, ratedItems) {
-    const url = `${window.location.origin}/welcome`;
-    let msg;
-
-    if (totalItems === 0) {
-        msg = `Hey ${firstName}! I set you up on NextUp — it recommends movies, shows, books, and podcasts based on your taste. Takes about 2 minutes to get started: ${url}`;
-    } else if (ratedItems === 0) {
-        msg = `Hey ${firstName}! You added some stuff to NextUp but haven't rated anything yet — the app needs your ratings to start recommending. Log back in and rate what you've watched, it takes 30 seconds: ${url}`;
-    } else {
-        const need = 5 - ratedItems;
-        msg = `Hey ${firstName}! You're ${need} rating${need === 1 ? '' : 's'} away from unlocking personalized recommendations on NextUp. Log in and rate a few more things — takes a minute: ${url}`;
-    }
+    const url = `${window.location.origin}/onboarding`;
+    const msg = `Hey ${firstName}!\n\nI noticed your profile is incomplete on NextUp — it recommends movies, shows, books, and podcasts based on your taste. It takes about 2 minutes to get started, and your feedback on the app would be a huge help to me! Finish your profile here: ${url}\n\nThanks for beta testing this idea with me! Hope you are well!\n-Leann`;
 
     navigator.clipboard.writeText(msg).then(() => {
         const orig = btn.textContent;
