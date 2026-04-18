@@ -180,19 +180,20 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
     they didn't know they wanted. Everything else (mood browse, themes,
     Mad Lib, chat) lives on /discover."""
 
-    # Gate: if the user has no taste signal at all, send them to onboarding.
-    # This prevents the "dead zone" where someone has items but no ratings
-    # or quizzes, and sees a blank home page with no recommendations.
+    # Gate: redirect to onboarding until the user has enough taste signal
+    # for the AI to produce meaningful recommendations. Minimum: 5 rated
+    # items OR 1 completed quiz (which rates 8-12 items across taste axes).
+    MIN_RATINGS_FOR_RECS = 5
     from app.services.taste_quiz_scoring import load_quiz_results as _lqr
-    _rated = db.query(MediaEntry).filter(
+    _rated_count = db.query(MediaEntry).filter(
         MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None)
-    ).limit(1).first()
+    ).count()
     _quiz = _lqr(db, user.id)
     _has_quiz = any(
         (_quiz or {}).get(t, {}).get("profiles")
         for t in ("movies", "tv", "books")
     )
-    if not _rated and not _has_quiz:
+    if _rated_count < MIN_RATINGS_FOR_RECS and not _has_quiz:
         return RedirectResponse("/onboarding", status_code=302)
 
     total = db.query(MediaEntry).filter(MediaEntry.user_id == user.id).count()
@@ -461,7 +462,7 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
             "request": request,
             "user": user,
             "total": total,
-            "is_new_user": rated_count == 0 and quizzes_done == 0,
+            "is_new_user": rated_count < 5 and quizzes_done == 0,
             "currently": currently,
             "unrated_batch": unrated_batch,
             "unrated_total": unrated_total,
@@ -631,17 +632,17 @@ async def discover_page(
     context: str | None = None,
 ):
     """Single 'find me something' surface."""
-    # Redirect to onboarding if no taste signal
+    # Redirect to onboarding if insufficient taste signal
     from app.services.taste_quiz_scoring import load_quiz_results as _lqr2
     _rated2 = db.query(MediaEntry).filter(
         MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None)
-    ).limit(1).first()
+    ).count()
     _quiz2 = _lqr2(db, user.id)
     _has_quiz2 = any(
         (_quiz2 or {}).get(t, {}).get("profiles")
         for t in ("movies", "tv", "books")
     )
-    if not _rated2 and not _has_quiz2:
+    if _rated2 < 5 and not _has_quiz2:
         return RedirectResponse("/onboarding", status_code=302)
 
     if context and context in _CONTEXT_TO_MOOD:
