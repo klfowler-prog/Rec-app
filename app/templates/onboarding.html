@@ -102,38 +102,35 @@
     </div>
     {% endif %}
 
-    <!-- Step 1: Three things you love -->
+    <!-- Step 1: One favorite per media type -->
     <div class="step step-transition" id="step-1">
-        <h2 class="text-2xl font-bold mb-2">Three things you love</h2>
-        <p class="text-txt-muted mb-4">Pick three favorites — a movie, a show, a book, a podcast, anything. These help us understand your taste instantly.</p>
-
-        <!-- Type filter for search -->
-        <div class="flex gap-2 mb-4" id="fav-type-filter">
-            <button onclick="setFavType('')" class="px-3 py-1 text-xs font-medium rounded-full bg-sage/10 text-sage transition-base" data-fav-type="">All</button>
-            <button onclick="setFavType('movie')" class="px-3 py-1 text-xs font-medium rounded-full text-txt-muted hover:bg-blue-50 transition-base" data-fav-type="movie">Movies</button>
-            <button onclick="setFavType('tv')" class="px-3 py-1 text-xs font-medium rounded-full text-txt-muted hover:bg-purple-50 transition-base" data-fav-type="tv">TV</button>
-            <button onclick="setFavType('book')" class="px-3 py-1 text-xs font-medium rounded-full text-txt-muted hover:bg-amber-50 transition-base" data-fav-type="book">Books</button>
-            <button onclick="setFavType('podcast')" class="px-3 py-1 text-xs font-medium rounded-full text-txt-muted hover:bg-green-50 transition-base" data-fav-type="podcast">Podcasts</button>
-        </div>
+        <h2 class="text-2xl font-bold mb-2">What do you love?</h2>
+        <p class="text-txt-muted mb-6">One favorite from each category. Skip any you're not into.</p>
 
         <div class="space-y-4">
-            {% for i in range(3) %}
+            {% set fav_types = [
+                (0, 'movie', 'A movie you love', 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400', 'Movie'),
+                (1, 'tv', 'A TV show you love', 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400', 'TV Show'),
+                (2, 'book', 'A book you love', 'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400', 'Book'),
+                (3, 'podcast', 'A podcast you love', 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400', 'Podcast'),
+            ] %}
+            {% for idx, mt, placeholder, badge_class, label in fav_types %}
             <div class="relative">
                 <div class="flex items-center gap-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl p-3">
-                    <span class="w-8 h-8 rounded-full bg-sage/10 flex items-center justify-center text-sage text-sm font-bold flex-shrink-0">{{ i + 1 }}</span>
-                    <input type="text" placeholder="{{ ['A movie or show you love', 'A book or podcast you love', 'Anything else you love'][i] }}" autocomplete="off"
+                    <span class="px-2 py-0.5 {{ badge_class }} text-[10px] font-semibold rounded-full flex-shrink-0">{{ label }}</span>
+                    <input type="text" placeholder="{{ placeholder }}" autocomplete="off"
                         class="fav-input flex-1 bg-transparent text-sm focus:outline-none placeholder:text-txt-muted"
-                        data-index="{{ i }}" oninput="searchFavorite(this)">
-                    <div class="fav-selected hidden flex items-center gap-2 flex-1" data-selected="{{ i }}">
+                        data-index="{{ idx }}" data-media-type="{{ mt }}" oninput="searchFavorite(this)">
+                    <div class="fav-selected hidden flex items-center gap-2 flex-1" data-selected="{{ idx }}">
                         <img class="w-8 h-11 object-cover rounded" src="" alt="">
                         <div class="flex-1 min-w-0">
                             <p class="text-sm font-medium truncate"></p>
                             <p class="text-[10px] text-txt-muted"></p>
                         </div>
-                        <button onclick="clearFavorite({{ i }})" class="text-txt-muted hover:text-coral text-xs">✕</button>
+                        <button onclick="clearFavorite({{ idx }})" class="text-txt-muted hover:text-coral text-xs">✕</button>
                     </div>
                 </div>
-                <div class="fav-results hidden absolute left-0 right-0 top-full mt-1 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl shadow-lg z-30 fav-search-results overflow-y-auto" data-results="{{ i }}"></div>
+                <div class="fav-results hidden absolute left-0 right-0 top-full mt-1 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl shadow-lg z-30 fav-search-results overflow-y-auto" data-results="{{ idx }}"></div>
             </div>
             {% endfor %}
         </div>
@@ -311,7 +308,7 @@
 {% block scripts %}
 <script src="/static/js/card_actions.js"></script>
 <script>
-const favorites = [null, null, null];
+const favorites = [null, null, null, null];
 const miniQuizRatings = {};
 let debounceTimers = {};
 let selectedAge = '';
@@ -469,42 +466,28 @@ function cleanQuery(q) {
     return q.replace(/[''""]/g, '').replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-let favTypeFilter = '';
-function setFavType(type) {
-    favTypeFilter = type;
-    document.querySelectorAll('[data-fav-type]').forEach(btn => {
-        const active = btn.getAttribute('data-fav-type') === type;
-        btn.classList.remove('bg-sage/10', 'text-sage', 'text-txt-muted');
-        btn.classList.add(active ? 'bg-sage/10' : 'text-txt-muted');
-        if (active) btn.classList.add('text-sage');
-    });
-    // Re-search the active input if there's text
-    const activeInput = document.querySelector('.fav-input:focus');
-    if (activeInput && activeInput.value.trim().length >= 2) searchFavorite(activeInput);
-}
-
-async function doSearch(q) {
+async function doSearch(q, mediaType) {
     const params = new URLSearchParams({ q });
-    if (favTypeFilter) params.set('media_type', favTypeFilter);
+    if (mediaType) params.set('media_type', mediaType);
     const resp = await fetch(`/api/media/search?${params}`);
     return await resp.json();
 }
 
-async function searchWithRetry(q) {
-    let items = await doSearch(q);
+async function searchWithRetry(q, mediaType) {
+    let items = await doSearch(q, mediaType);
     if (items.length) return items;
 
     const cleaned = cleanQuery(q);
     if (cleaned && cleaned !== q) {
-        items = await doSearch(cleaned);
+        items = await doSearch(cleaned, mediaType);
         if (items.length) return items;
     }
 
     const words = cleaned.split(' ').filter(w => w.length > 2);
     if (words.length > 1) {
-        items = await doSearch(words.join(' '));
+        items = await doSearch(words.join(' '), mediaType);
         if (items.length) return items;
-        items = await doSearch(words[0]);
+        items = await doSearch(words[0], mediaType);
         if (items.length) return items;
     }
 
@@ -524,13 +507,14 @@ function renderSearchItem(item, onclick) {
 // --- Step 1: Favorites search ---
 function searchFavorite(input) {
     const idx = input.dataset.index;
+    const mediaType = input.dataset.mediaType || '';  // scoped to this input's type
     clearTimeout(debounceTimers[`fav-${idx}`]);
     const q = input.value.trim();
     const results = document.querySelector(`[data-results="${idx}"]`);
     if (q.length < 2) { results.classList.add('hidden'); return; }
     debounceTimers[`fav-${idx}`] = setTimeout(async () => {
         try {
-            const items = await searchWithRetry(q);
+            const items = await searchWithRetry(q, mediaType);
             if (!items.length) {
                 results.innerHTML = '<p class="p-3 text-xs text-txt-muted">No results found. Try checking the spelling or using fewer words.</p>';
                 results.classList.remove('hidden');
