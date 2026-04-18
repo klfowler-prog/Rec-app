@@ -684,12 +684,12 @@ async def taste_quiz_movies_items(
     from app.services.taste_quiz_scoring import load_age_range
     age = load_age_range(db, user.id)
     if age == "under_18":
-        _adult_movies = {"get out", "parasite", "mad max: fury road", "no country for old men",
-                         "there will be blood", "john wick", "superbad", "tropic thunder",
-                         "hereditary", "midsommar", "the conjuring", "the babadook",
-                         "gone girl", "shutter island", "the girl on the train",
-                         "bridesmaids", "it", "train to busan", "zodiac", "prisoners",
-                         "hacksaw ridge", "marriage story", "decision to leave"}
+        # Only block hard R / truly adult content — leave PG-13 action/horror
+        _adult_movies = {"superbad", "tropic thunder", "bridesmaids",
+                         "hereditary", "midsommar", "the babadook",
+                         "gone girl", "zodiac", "prisoners",
+                         "there will be blood", "no country for old men",
+                         "marriage story", "decision to leave", "past lives"}
         items = [i for i in items
                  if i.get("title", "").lower() not in _adult_movies
                  and (i.get("year") or 0) >= 2005]
