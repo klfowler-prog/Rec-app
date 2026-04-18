@@ -20,10 +20,24 @@
         <p class="text-txt-muted text-sm">Find things to enjoy with the people you love.</p>
     </div>
 
-    <!-- Partners + all users -->
+    <!-- Invite hero — prominent, always visible -->
+    <div class="relative overflow-hidden rounded-2xl transition-all" style="background: linear-gradient(135deg, #6B5B8A 0%, #524470 100%);">
+        <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-10 translate-x-10"></div>
+        <div class="relative z-10 p-5 flex items-center gap-4">
+            <div class="flex-1 text-white">
+                <p class="text-base font-bold">Know someone who'd love this?</p>
+                <p class="text-xs text-white/70 mt-0.5">Invite them to NextUp and see how your taste compares. It takes 2 minutes.</p>
+            </div>
+            <button onclick="showInviteModal()" class="flex-shrink-0 px-4 py-2 bg-white text-[#524470] rounded-xl text-sm font-semibold hover:bg-cream transition-base">
+                Invite someone
+            </button>
+        </div>
+    </div>
+
+    <!-- Partners -->
     <div id="partners-section">
         <div class="flex items-center justify-between mb-3">
-            <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold">Your people</p>
+            <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold">Pick someone to compare with</p>
         </div>
         <div id="partners-list" class="flex flex-wrap gap-3">
             <div class="text-sm text-txt-muted">Loading...</div>
@@ -104,18 +118,21 @@ async function loadPartners() {
         if (partners.length) {
             list.innerHTML = partners.map(p => {
                 const avatar = p.picture
-                    ? `<img src="${p.picture}" alt="" class="w-10 h-10 rounded-full">`
-                    : `<div class="w-10 h-10 rounded-full bg-sage/20 flex items-center justify-center text-sm font-bold text-sage">${escapeHtml(p.name[0])}</div>`;
+                    ? `<img src="${p.picture}" alt="" class="w-12 h-12 rounded-full border-2 border-border-light dark:border-border-dark">`
+                    : `<div class="w-12 h-12 rounded-full bg-sage/20 flex items-center justify-center text-base font-bold text-sage border-2 border-border-light dark:border-border-dark">${escapeHtml(p.name[0])}</div>`;
                 const typeLabel = {partner: 'Partner', family: 'Family', friend: 'Friend'}[p.relationship_type] || '';
                 return `
-                    <button onclick="selectPartner(${p.id}, this)" class="partner-btn flex flex-col items-center gap-1.5 p-3 rounded-xl border border-border-light dark:border-border-dark hover:border-sage transition-base min-w-[80px]" data-partner-id="${p.id}">
+                    <button onclick="selectPartner(${p.id}, this)" class="partner-btn flex items-center gap-3 px-4 py-3 rounded-xl border border-border-light dark:border-border-dark hover:border-sage hover:shadow-md transition-base" data-partner-id="${p.id}">
                         ${avatar}
-                        <p class="text-xs font-medium truncate max-w-[70px]">${escapeHtml(p.name.split(' ')[0])}</p>
-                        <span class="text-[9px] text-txt-muted">${typeLabel}</span>
+                        <div class="text-left">
+                            <p class="text-sm font-semibold">${escapeHtml(p.name.split(' ')[0])}</p>
+                            <p class="text-[10px] text-txt-muted">${typeLabel} · Tap to compare</p>
+                        </div>
+                        <svg class="w-4 h-4 text-txt-muted ml-auto flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                     </button>`;
             }).join('');
         } else {
-            list.innerHTML = '<p class="text-sm text-txt-muted">No one paired yet. Add someone below to get started.</p>';
+            list.innerHTML = '<p class="text-sm text-txt-muted">No one paired yet. Add someone below or invite a friend.</p>';
         }
 
         // Show unpaired users
