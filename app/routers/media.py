@@ -705,6 +705,9 @@ async def taste_quiz_movies_items(
                           "get out", "crazy rich asians"}
         items.sort(key=lambda i: (0 if i.get("title", "").lower() in _teen_priority else 1,
                                   -(i.get("year") or 0)))
+        log.info("movie_quiz [user=%d age=%s]: sorted %d items, first 5: %s",
+                 user.id, age, len(items),
+                 [i.get("title") for i in items[:5]])
     elif age == "18_35":
         # Newest first — this generation knows 2010s+ best
         items.sort(key=lambda i: -(i.get("year") or 0))
