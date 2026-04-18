@@ -2139,7 +2139,7 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
         user_services = load_streaming_services(db, user.id)
         if user_services:
             service_names = [TIER1_PROVIDERS.get(pid, f"Service {pid}") for pid in user_services]
-            streaming_context = f"\nSTREAMING SERVICES: The user subscribes to: {', '.join(service_names)}. When recommending movies and TV, FAVOR items available on these services. You can still recommend items on other services if they're an exceptional fit, but prefer what the user can actually watch tonight."
+            streaming_context = f"\nSTREAMING SERVICES: The user subscribes to: {', '.join(service_names)}. Strongly prefer items available on these services. Most picks should be watchable tonight. If recommending something on a service they don't have, explicitly note it's available to rent/buy."
         else:
             streaming_context = ""
 
@@ -2595,12 +2595,22 @@ async def best_bet(
         type_label = {"movie": "movie", "tv": "TV show", "book": "book", "podcast": "podcast"}[media_type]
         resonance_signals = build_resonance_block(db, user.id)
         rec_feedback = build_rec_feedback_block(db, user.id)
+
+        from app.services.taste_quiz_scoring import load_streaming_services
+        from app.services.tmdb import TIER1_PROVIDERS
+        bb_user_services = load_streaming_services(db, user.id)
+        if bb_user_services and media_type in ("movie", "tv"):
+            bb_service_names = [TIER1_PROVIDERS.get(pid, f"Service {pid}") for pid in bb_user_services]
+            bb_streaming_ctx = f"\nSTREAMING: The user subscribes to: {', '.join(bb_service_names)}. Strongly prefer items available on these services. If recommending something on a service they don't have, note that it's available to rent/buy — this is acceptable for exceptional fits, but most picks should be streamable tonight.\n"
+        else:
+            bb_streaming_ctx = ""
+
         prompt = f"""You're picking ONE {type_label} as a hero recommendation. Below are items this user recently rated 4 or 5 out of 5 — your job is to find the strongest thematic bridge from ANY of them (one or two) to a great {type_label} they haven't seen yet.
 
 {resonance_signals}
 {rec_feedback}
 {loved_block}
-{taste_profile_block}
+{taste_profile_block}{bb_streaming_ctx}
 TASK: Generate 3 candidate {type_label}s. For each, find the deepest connection to ONE or TWO items from the RECENTLY LOVED list above. You choose which loved item(s) to cite — pick whichever create the most interesting, non-obvious bridge to your candidate. Different candidates SHOULD cite different loved items when possible.
 
 CRITICAL — NO SURFACE MATCHES:
@@ -4128,6 +4138,117 @@ Return ONLY valid JSON — a list of objects with "title", "media_type" (movie/t
             })
 
     return {"items": enriched}
+
+
+@router.get("/what-youre-missing")
+async def what_youre_missing(
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Find great taste matches on services the user doesn't subscribe to."""
+    import json
+
+    from app import cache
+    from app.config import settings
+    from app.models import MediaEntry
+    from app.services.taste_quiz_scoring import load_streaming_services
+    from app.services.tmdb import TIER1_PROVIDERS
+
+    user_services = load_streaming_services(db, user.id)
+    if not user_services or not settings.gemini_api_key:
+        return []
+
+    cache_key = f"missing:{user.id}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    # Build taste summary
+    top_rated = (
+        db.query(MediaEntry)
+        .filter(MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None))
+        .order_by(MediaEntry.rating.desc())
+        .limit(15)
+        .all()
+    )
+    if len(top_rated) < 5:
+        return []
+
+    taste_lines = [f"- {e.title} ({e.media_type}, {e.rating}/5)" for e in top_rated]
+
+    user_service_names = [TIER1_PROVIDERS.get(pid, "") for pid in user_services if pid in TIER1_PROVIDERS]
+    other_services = {pid: name for pid, name in TIER1_PROVIDERS.items() if pid not in user_services and pid not in (38, 103, 380, 21, 385)}
+    other_service_names = list(other_services.values())
+
+    if not other_service_names:
+        return []
+
+    from app.services.gemini import generate
+
+    prompt = f"""You are finding movies and TV shows that are great fits for this user's taste but are ONLY available on services they DON'T currently subscribe to.
+
+USER'S TASTE (top-rated items):
+{chr(10).join(taste_lines)}
+
+SERVICES THEY HAVE: {', '.join(user_service_names)}
+SERVICES THEY DON'T HAVE: {', '.join(other_service_names)}
+
+Find 4 movies or TV shows that:
+1. Are a strong taste match (would rate 4+ based on their profile)
+2. Are available ONLY on services they DON'T have (not on any of their current services)
+3. Are well-known enough to be a genuine draw
+
+For each, specify which service it's on.
+
+Return ONLY valid JSON — a list of objects:
+[{{"title": "...", "media_type": "movie|tv", "year": 2020, "available_on": "Service Name", "reason": "One sentence why this fits their taste"}}]
+"""
+
+    try:
+        text = (await generate(prompt)).strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+            text = text.rsplit("```", 1)[0]
+        first = text.find("[")
+        last = text.rfind("]")
+        if first >= 0 and last > first:
+            text = text[first:last + 1]
+        items = json.loads(text)
+
+        # Enrich with posters
+        from app.services.unified_search import unified_search
+        enriched = []
+        for item in items[:4]:
+            title = item.get("title", "")
+            mt = item.get("media_type", "movie")
+            try:
+                results = await unified_search(f"{title}", mt)
+                if results:
+                    best = results[0]
+                    enriched.append({
+                        "title": best.title,
+                        "media_type": best.media_type,
+                        "year": best.year,
+                        "image_url": best.image_url,
+                        "external_id": best.external_id,
+                        "source": best.source,
+                        "available_on": item.get("available_on", ""),
+                        "reason": item.get("reason", ""),
+                    })
+            except Exception:
+                enriched.append({
+                    "title": title, "media_type": mt,
+                    "year": item.get("year"),
+                    "image_url": None, "external_id": "", "source": "",
+                    "available_on": item.get("available_on", ""),
+                    "reason": item.get("reason", ""),
+                })
+
+        cache.set(cache_key, enriched, ttl_seconds=604800)  # 7 days
+        return enriched
+    except Exception as e:
+        log.error("what-youre-missing failed: %s", str(e))
+        return []
 
 
 @router.get("/taste-fit/{media_type}/{external_id}")

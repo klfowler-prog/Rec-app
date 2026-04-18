@@ -291,6 +291,23 @@
         </div>
     </div>
 
+    <!-- ============================================================
+         5. WHAT YOU'RE MISSING — great fits on services the user
+         doesn't have. Dismissible. Only shows if user has set services.
+         ============================================================ -->
+    {% if user_services %}
+    <div id="missing-section" class="hidden">
+        <div class="flex items-center justify-between mb-3">
+            <div>
+                <p class="text-[11px] text-coral uppercase tracking-[0.18em] font-bold mb-0.5">What you might be missing</p>
+                <p class="text-sm text-txt-muted">Great fits for you on services you don't subscribe to.</p>
+            </div>
+            <button onclick="dismissMissing()" class="text-xs text-txt-muted hover:text-txt px-2 py-1 rounded hover:bg-white/50 dark:hover:bg-white/10 transition-base">Dismiss</button>
+        </div>
+        <div id="missing-cards" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
+    </div>
+    {% endif %}
+
 </div>
 {% endblock %}
 
@@ -468,7 +485,44 @@
     }
     loadDiscoverSignal();
 
+    // "What you're missing" — great fits on other services
+    async function loadMissing() {
+        if (localStorage.getItem('dismiss_missing') === '1') return;
+        const section = document.getElementById('missing-section');
+        const container = document.getElementById('missing-cards');
+        if (!section || !container) return;
+        try {
+            const resp = await fetch('/api/media/what-youre-missing');
+            if (!resp.ok) return;
+            const items = await resp.json();
+            if (!items.length) return;
+            container.innerHTML = items.map(item => {
+                const fit = item.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
+                const image = item.image_url
+                    ? `<div class="poster-frame"><img src="${item.image_url}" alt="" class="${fit}"></div>`
+                    : `<div class="poster-frame"><div class="poster-fallback bg-sage/10"><span class="text-sage text-3xl">${escapeHtml((item.title||'?')[0])}</span></div></div>`;
+                const link = item.external_id ? `/media/${item.media_type}/${item.external_id}?source=${item.source}` : '#';
+                const serviceName = item.available_on || 'another service';
+                return `
+                    <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm" data-rec-card>
+                        <a href="${link}">${image}</a>
+                        <div class="p-2">
+                            <a href="${link}" class="text-[11px] font-semibold leading-tight hover:text-sage transition-base block line-clamp-2">${escapeHtml(item.title)}</a>
+                            <p class="text-[10px] text-coral-light mt-0.5">On ${escapeHtml(serviceName)}</p>
+                            ${item.reason ? `<p class="text-[10px] text-txt-muted mt-0.5 line-clamp-2">${escapeHtml(item.reason)}</p>` : ''}
+                        </div>
+                    </div>`;
+            }).join('');
+            section.classList.remove('hidden');
+        } catch {}
+    }
+    function dismissMissing() {
+        localStorage.setItem('dismiss_missing', '1');
+        const section = document.getElementById('missing-section');
+        if (section) section.classList.add('hidden');
+    }
+
     // Kick off the async sections
-    Promise.all([loadBestBets(), loadThemes()]);
+    Promise.all([loadBestBets(), loadThemes(), loadMissing()]);
 </script>
 {% endblock %}

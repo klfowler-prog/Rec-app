@@ -100,7 +100,7 @@ def _build_profile_context(db: Session, user_id: int) -> str:
         service_names = [TIER1_PROVIDERS.get(pid, f"Service {pid}") for pid in user_services]
         lines.append("")
         lines.append(f"### Streaming Services: {', '.join(service_names)}")
-        lines.append("Favor movies and TV available on these services when possible.")
+        lines.append("Strongly prefer movies and TV available on these services. If recommending something not on their services, mention where it's available and that it can be rented/bought.")
 
     return "\n".join(lines)
 

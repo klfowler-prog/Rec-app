@@ -125,13 +125,25 @@ async def compare(
     # Send ALL avoided titles — truncating caused dismissed items to slip through
     avoid_str = "\n".join(f"- {t}" for t in sorted(avoid)) if avoid else "none"
 
+    from app.services.taste_quiz_scoring import load_streaming_services
+    from app.services.tmdb import TIER1_PROVIDERS
+
+    my_services = load_streaming_services(db, user.id)
+    their_services = load_streaming_services(db, other.id)
+    if my_services or their_services:
+        my_svc_names = ", ".join(TIER1_PROVIDERS.get(pid, f"Service {pid}") for pid in my_services) if my_services else "unknown"
+        their_svc_names = ", ".join(TIER1_PROVIDERS.get(pid, f"Service {pid}") for pid in their_services) if their_services else "unknown"
+        together_streaming_ctx = f"\nSTREAMING: {user.name} subscribes to: {my_svc_names}. {other.name} subscribes to: {their_svc_names}. Strongly prefer items both can access on their shared services.\n"
+    else:
+        together_streaming_ctx = ""
+
     try:
         prompt = f"""You are a cross-medium taste expert. Find things that BOTH of these people would love — based on their individual profiles.
 
 {my_summary}
 
 {their_summary}
-
+{together_streaming_ctx}
 TASK: Recommend 5 cross-medium items (a mix of movies, TV, books, podcasts) that BOTH people would rate ≥4. For each, predict how each person would rate it on a 1-5 scale.
 
 CRITICAL:
