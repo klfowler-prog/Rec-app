@@ -296,6 +296,11 @@
     }
 
     // Expose globals for inline page scripts.
+    function scrollToTheme(slug) {
+        const el = document.getElementById(`theme-row-${slug}`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
     window.escapeHtml = escapeHtml;
     window.prBadge = prBadge;
     window.TYPE_BADGE = TYPE_BADGE;
@@ -304,5 +309,6 @@
     window.ensureHomeBundle = ensureHomeBundle;
     window.loadBestBets = loadBestBets;
     window.loadThemes = loadThemes;
+    window.scrollToTheme = scrollToTheme;
     window.toggleCollapsible = toggleCollapsible;
 })();
