@@ -1920,16 +1920,16 @@ For "avoided": Only describe genuine patterns of avoidance based on consistent l
 Return ONLY valid JSON, no markdown. Each theme MUST include 2-3 example items from their actual profile that exemplify it:
 
 {{
-  "summary": "A 4-5 sentence essay capturing what this person loves and why. Write in second person ('You love stories that...'). Be specific, reference items across different media types, show connections across different types of media. If they read both fiction and nonfiction, reflect that. No generic platitudes.",
+  "summary": "A 4-5 sentence paragraph about what this person loves and why, written like a friend describing them to someone else. Write in second person ('You love stories that...'). Be warm, specific, and conversational — not academic. Reference actual titles across movies, TV, books, and podcasts. If they read both fiction and nonfiction, reflect that. No generic platitudes, no film-school language.",
   "themes": [
     {{"name": "specific theme like 'morally complex anti-heroes' or 'systems thinking about human behavior'", "description": "one-sentence explanation", "examples": ["exact item title from profile", "another exact item title", "a third if available"]}},
     ... 4-5 themes total
   ],
   "by_medium": {{
-    "movie": "One sentence: what their movie taste reveals about them specifically (reference 1-2 movie titles from their profile, note if they lean fiction or documentary). Empty string if no movies.",
-    "tv": "One sentence about their TV taste with example titles. Empty string if no TV.",
-    "book": "One sentence about their book taste with example titles (note the fiction/nonfiction mix explicitly if relevant). Empty string if no books.",
-    "podcast": "One sentence about their podcast taste — note if it's narrative, interview, or explainer-focused. Empty string if no podcasts."
+    "movie": "One warm, conversational sentence about what they love in movies (reference 1-2 titles). Write like you're describing a friend, not analyzing a subject. Empty string if no movies.",
+    "tv": "One warm sentence about what they love in TV (reference 1-2 titles). Conversational, not analytical. Empty string if no TV.",
+    "book": "One warm sentence about what they love to read (reference 1-2 titles, mention fiction/nonfiction mix if relevant). Empty string if no books.",
+    "podcast": "One warm sentence about what they listen to (reference 1-2 titles, note the style — stories, interviews, deep dives). Empty string if no podcasts."
   }},
   "signature_items": ["3-5 exact item titles from their profile that best define them — items you'd point to and say 'this person'"],
   "avoided": "One sentence describing a real, specific pattern they don't engage with — only if genuinely evident. Empty string if nothing clear stands out.",
