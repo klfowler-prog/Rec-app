@@ -68,8 +68,14 @@
                             {% if u.last_login %}Last login: {{ u.last_login.strftime('%b %d, %Y %I:%M %p') }}{% else %}Never logged in{% endif %}
                         </span>
                     </div>
-                    <div class="ml-12 mt-1 text-[10px] text-txt-muted">
-                        Joined {{ u.created_at.strftime('%b %d, %Y') }}
+                    <div class="flex items-center gap-3 ml-12 mt-1">
+                        <span class="text-[10px] text-txt-muted">Joined {{ u.created_at.strftime('%b %d, %Y') }}</span>
+                        {% if u.email.lower() != user.email.lower() and (stats.get('rated', 0) < 5 and stats.get('quizzes', 0) == 0) %}
+                        <button onclick="copyNudge(this, '{{ u.name.split()[0] }}', {{ stats.get('total', 0) }}, {{ stats.get('rated', 0) }})"
+                            class="text-[10px] text-sage font-medium hover:underline transition-base">
+                            Copy nudge message
+                        </button>
+                        {% endif %}
                     </div>
                 </li>
                 {% endfor %}
@@ -106,4 +112,41 @@
         {% endif %}
     </div>
 </div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copyNudge(btn, firstName, totalItems, ratedItems) {
+    const url = `${window.location.origin}/welcome`;
+    let msg;
+
+    if (totalItems === 0) {
+        msg = `Hey ${firstName}! I set you up on NextUp — it recommends movies, shows, books, and podcasts based on your taste. Takes about 2 minutes to get started: ${url}`;
+    } else if (ratedItems === 0) {
+        msg = `Hey ${firstName}! You added some stuff to NextUp but haven't rated anything yet — the app needs your ratings to start recommending. Log back in and rate what you've watched, it takes 30 seconds: ${url}`;
+    } else {
+        const need = 5 - ratedItems;
+        msg = `Hey ${firstName}! You're ${need} rating${need === 1 ? '' : 's'} away from unlocking personalized recommendations on NextUp. Log in and rate a few more things — takes a minute: ${url}`;
+    }
+
+    navigator.clipboard.writeText(msg).then(() => {
+        const orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = orig; }, 2000);
+    }).catch(() => {
+        const ta = document.createElement('textarea');
+        ta.value = msg;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+        const orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = orig; }, 2000);
+    });
+}
+</script>
 {% endblock %}
