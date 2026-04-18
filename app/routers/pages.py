@@ -446,7 +446,7 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
             "request": request,
             "user": user,
             "total": total,
-            "is_new_user": total < 5,
+            "is_new_user": rated_count == 0 and quizzes_done == 0,
             "currently": currently,
             "unrated_batch": unrated_batch,
             "unrated_total": unrated_total,
