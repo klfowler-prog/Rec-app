@@ -363,11 +363,12 @@ async function loadTasteFit() {
 async function loadSendTo() {
     const section = document.getElementById('send-to-section');
     const buttons = document.getElementById('send-to-buttons');
-    if (!section || !buttons || !currentMedia) return;
+    if (!section || !buttons || !currentMedia) { console.log('sendTo: missing elements'); return; }
     try {
         const resp = await fetch('/api/relationships/partners');
-        if (!resp.ok) return;
+        if (!resp.ok) { console.log('sendTo: fetch failed', resp.status); return; }
         const partners = await resp.json();
+        console.log('sendTo: got', partners.length, 'partners');
         if (!partners.length) return;
 
         buttons.innerHTML = `<span class="text-[10px] text-txt-muted">Send to:</span>` +
