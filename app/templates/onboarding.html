@@ -202,8 +202,9 @@
             {% endfor %}
         </div>
 
-        <h3 class="text-lg font-semibold mb-2">What do you subscribe to?</h3>
-        <p class="text-txt-muted text-sm mb-4">We'll tag recommendations with where to watch them.</p>
+        <h3 class="text-lg font-semibold mb-1">Streaming services</h3>
+        <p class="text-txt-muted text-sm mb-2">Where do you watch? We'll show you where each recommendation is available.</p>
+        <p class="text-txt-muted text-xs mb-4">Select your region first so we can show the right services:</p>
 
         <div class="flex flex-wrap gap-2 mb-4" id="region-chips">
             {% set regions = [
@@ -232,10 +233,11 @@
         </div>
     </div>
 
-    <!-- Step 4: What are you into right now? -->
+    <!-- Step 4: What are you into right now? (last step) -->
     <div class="step" id="step-4">
-        <h2 class="text-2xl font-bold mb-2">What are you into right now?</h2>
-        <p class="text-txt-muted mb-6">Anything you're in the middle of? We'll track it and check in when you finish.</p>
+        <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold mb-2">Last step</p>
+        <h2 class="text-2xl font-bold mb-2">What are you watching, reading, or listening to right now?</h2>
+        <p class="text-txt-muted mb-6">The show you're binging, the book on your nightstand, the podcast in your ears — add anything you're in the middle of and we'll track it for you.</p>
 
         <div class="space-y-3">
             {% for label in ['What are you watching?', 'What are you reading or listening to?'] %}
