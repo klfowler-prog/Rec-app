@@ -2,7 +2,6 @@
 // Used by search results and home page recommendation cards.
 
 // Unified rating color scale — sage (5) → gold (3) → coral (1)
-// Matches the app's palette instead of clashing Tailwind defaults.
 function ratingTextColor(r) {
     if (r >= 5) return 'text-sage';
     if (r >= 4) return 'text-sage-light';
@@ -16,6 +15,13 @@ function ratingBgColor(r) {
     if (r >= 3.5) return 'bg-gold';
     if (r >= 3) return 'bg-gold';
     return 'bg-coral-light';
+}
+
+function logRecOutcome(title, outcome, userRating) {
+    fetch('/api/profile/rec-events/outcome', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ title, outcome, user_rating: userRating || null }),
+    }).catch(() => {});
 }
 
 async function quickAdd(btn, data) {
@@ -41,6 +47,7 @@ async function quickAdd(btn, data) {
             } catch {}
         }
 
+        logRecOutcome(data.title, 'consumed');
         const container = btn.parentElement;
         if (entryId) {
             showRatingDots(container, entryId);
@@ -95,6 +102,7 @@ async function startConsuming(btn, data) {
             return;
         }
 
+        logRecOutcome(data.title, 'started');
         const container = btn.parentElement;
         const verb = { movie: "watching", tv: "watching", book: "reading", podcast: "listening" }[data.media_type] || "it";
         container.innerHTML = `<span class="text-xs font-medium text-coral">✓ Started ${verb}</span>`;
@@ -194,6 +202,7 @@ async function saveForLater(btn, data) {
             body: JSON.stringify(data),
         });
         if (resp.ok) {
+            logRecOutcome(data.title, 'saved');
             const container = btn.closest('.quick-add-area');
             if (container) container.innerHTML = '<span class="text-xs font-medium text-sage">✓ Saved to queue</span>';
         } else if (resp.status === 409) {
@@ -219,6 +228,7 @@ async function dismissItem(btn, data) {
             btn.disabled = false;
             return;
         }
+        logRecOutcome(data.title, 'dismissed');
         const card = btn.closest('[data-rec-card]') || btn.closest('.swim-lane-item') || btn.closest('.rounded-lg');
         if (card) {
             card.style.transition = 'opacity 0.4s, transform 0.4s';
