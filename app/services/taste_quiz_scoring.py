@@ -235,7 +235,7 @@ def save_onboarding(db, user_id: int, answers: dict) -> dict:
     echo it back to the client."""
     from app.models import UserPreferences
 
-    VALID_SERVICES = {8, 9, 15, 21, 38, 103, 337, 350, 380, 385, 386, 531, 1899}
+    VALID_SERVICES = {8, 9, 15, 21, 38, 103, 283, 337, 350, 380, 385, 386, 531, 1899}
     VALID_REGIONS = {"us", "uk", "au", "ca", "eu", "asia", "latam", "other"}
 
     cleaned: dict = {

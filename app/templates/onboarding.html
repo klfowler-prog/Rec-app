@@ -680,6 +680,7 @@ const ALL_SERVICES = [
     { pid: 380,  name: 'BritBox',      color: '#2B1E70', icon: 'B',   regions: ['uk','au','ca','us'] },
     { pid: 21,   name: 'Stan',         color: '#002868', icon: 'S',   regions: ['au'] },
     { pid: 385,  name: 'Binge',        color: '#FF6B00', icon: 'B',   regions: ['au'] },
+    { pid: 283,  name: 'Crunchyroll',  color: '#F47521', icon: 'CR',  regions: ['us','uk','au','ca','eu','asia','latam','other'] },
 ];
 
 const selectedRegions = new Set();
@@ -801,7 +802,10 @@ function buildQuizOptions() {
     const quizzes = [];
     if (types.has('movie') || types.size === 0) quizzes.push({href: '/quick-start/movies', label: 'Movies', color: 'gradient-blue', count: '~5 min'});
     if (types.has('tv') || types.size === 0) quizzes.push({href: '/quick-start/tv', label: 'TV Shows', color: 'gradient-purple', count: '~5 min'});
-    if (types.has('book') || types.size === 0) quizzes.push({href: '/quick-start/books/fiction', label: 'Fiction', color: 'gradient-amber', count: '~5 min'});
+    if (types.has('book') || types.size === 0) {
+        quizzes.push({href: '/quick-start/books/fiction', label: 'Fiction Books', color: 'gradient-amber', count: '~5 min'});
+        quizzes.push({href: '/quick-start/books/nonfiction', label: 'Nonfiction Books', color: 'gradient-amber', count: '~5 min'});
+    }
     container.innerHTML = quizzes.map(q => `
         <a href="${q.href}" class="flex items-center gap-2 px-3 py-2.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg text-sm hover:border-sage transition-base">
             <span class="w-2 h-2 rounded ${q.color} flex-shrink-0"></span>

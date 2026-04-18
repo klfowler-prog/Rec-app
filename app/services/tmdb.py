@@ -127,6 +127,7 @@ TIER1_PROVIDERS = {
     103: "All 4",
     380: "BritBox",
     21: "Stan",
+    283: "Crunchyroll",
     385: "Binge",
 }
 # Tier 2: Everything else that's flatrate — "Other streaming" badge

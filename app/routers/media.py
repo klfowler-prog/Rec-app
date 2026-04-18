@@ -4110,12 +4110,28 @@ async def generate_mini_quiz(
 
     fav_text = "\n".join(f"- {f['title']} ({f.get('media_type', 'unknown')})" for f in favorites[:3])
 
+    # Count media types from favorites to weight the quiz
+    type_counts = {}
+    for f in favorites[:3]:
+        mt = f.get('media_type', 'movie')
+        type_counts[mt] = type_counts.get(mt, 0) + 1
+
+    # Build weighting instruction
+    if len(type_counts) == 1:
+        primary_type = list(type_counts.keys())[0]
+        type_instruction = f"At least 7 of the 10 should be {primary_type}s. The rest can be other types the same audience would know."
+    elif len(type_counts) == 2:
+        types = list(type_counts.keys())
+        type_instruction = f"Split roughly evenly between {types[0]}s and {types[1]}s (4-5 each), with 1-2 from other types."
+    else:
+        type_instruction = "Mix across the same media types the user picked."
+
     prompt = f"""Based on these 3 favorites, suggest 10 titles the user has VERY LIKELY already seen/read/listened to. Pick things in the same orbit — similar audiences, similar vibes, same era — that most fans of these titles would know.
 
 User's favorites:
 {fav_text}
 
-Mix media types (movies, TV, books, podcasts) but weight toward the types the user picked. Each item should be well-known enough that 70%+ of fans of the favorites would recognize it.
+{type_instruction} Each item should be well-known enough that 70%+ of fans of the favorites would recognize it.
 
 Return ONLY valid JSON — a list of objects with "title", "media_type" (movie/tv/book/podcast), and "year". No markdown.
 

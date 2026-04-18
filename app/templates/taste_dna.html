@@ -223,7 +223,8 @@
             <div class="flex flex-wrap gap-2" id="streaming-services-grid">
                 {% set services = [
                     (8, 'Netflix'), (15, 'Hulu'), (1899, 'Max'), (337, 'Disney+'),
-                    (9, 'Prime Video'), (350, 'Apple TV+'), (386, 'Peacock'), (531, 'Paramount+')
+                    (9, 'Prime Video'), (350, 'Apple TV+'), (386, 'Peacock'), (531, 'Paramount+'),
+                    (283, 'Crunchyroll')
                 ] %}
                 {% for sid, sname in services %}
                 <button onclick="toggleService(this, {{ sid }})"
