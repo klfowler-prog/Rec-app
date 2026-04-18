@@ -760,6 +760,10 @@ async def taste_quiz_movies_items(
             return (1, -y)    # then newest of the modern stuff
         items.sort(key=_score_over_50)
 
+    # Cap at 20 items — enough to get 8-12 ratings without fatigue
+    MAX_PRESENTED = 20
+    items = items[:MAX_PRESENTED]
+
     return {
         "items": items,
         "options": RESPONSE_OPTIONS,
@@ -832,6 +836,10 @@ async def taste_quiz_tv_items(
         items.sort(key=lambda i: (0 if 1995 <= _tv_year(i) <= 2015 else 1, -_tv_year(i)))
     elif age == "over_50":
         items.sort(key=lambda i: (0 if _tv_year(i) < 2005 else 1, _tv_year(i) if _tv_year(i) < 2005 else -_tv_year(i)))
+
+    # Cap at 20 items — enough to get 8-12 ratings without fatigue
+    MAX_PRESENTED = 20
+    items = items[:MAX_PRESENTED]
 
     result = {
         "items": items,
