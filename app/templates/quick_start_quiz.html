@@ -473,10 +473,16 @@ function resumeQuiz() {
 }
 
 function showOfframp() {
-    const card = document.getElementById('film-card');
     const realAnswered = Object.values(responses).filter(v => v !== null && v !== undefined).length;
-    card.innerHTML = `
-        <div class="text-center py-8 space-y-4">
+    // Hide the quiz card and buttons, show the offramp
+    document.getElementById('film-card').classList.add('hidden');
+    document.getElementById('rating-buttons').classList.add('hidden');
+    document.getElementById('skip-button-wrap').classList.add('hidden');
+
+    const offramp = document.createElement('div');
+    offramp.id = 'offramp-card';
+    offramp.innerHTML = `
+        <div class="text-center py-8 space-y-4 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-2xl p-6">
             <div class="w-14 h-14 bg-sage/10 rounded-full flex items-center justify-center mx-auto">
                 <svg class="w-7 h-7 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
             </div>
@@ -492,28 +498,17 @@ function showOfframp() {
             </div>
         </div>
     `;
+    document.getElementById('film-card').parentNode.insertBefore(offramp, document.getElementById('film-card'));
 }
 
 function continueAfterOfframp() {
+    // Remove the offramp, restore the quiz card
+    const offramp = document.getElementById('offramp-card');
+    if (offramp) offramp.remove();
+    document.getElementById('film-card').classList.remove('hidden');
+    document.getElementById('rating-buttons').classList.remove('hidden');
+    document.getElementById('skip-button-wrap').classList.remove('hidden');
     currentIdx++;
-    const card = document.getElementById('film-card');
-    card.innerHTML = `
-        <div class="space-y-4">
-            <div class="flex items-center gap-3">
-                <div class="poster-frame w-28 md:w-36 flex-shrink-0 rounded-lg overflow-hidden shadow-md">
-                    <div id="poster-img-wrap"></div>
-                </div>
-                <div class="flex-1 min-w-0">
-                    <p class="text-[10px] uppercase tracking-widest text-txt-muted mb-1" id="item-type-label"></p>
-                    <h3 id="item-title" class="text-lg md:text-xl font-bold leading-tight"></h3>
-                    <p id="item-year" class="text-xs text-txt-muted mt-0.5"></p>
-                    <p id="item-creator" class="text-xs text-txt-muted"></p>
-                </div>
-            </div>
-            <div id="response-buttons" class="grid grid-cols-5 gap-2 pt-2"></div>
-        </div>
-    `;
-    renderResponseButtons();
     renderCurrent();
 }
 
