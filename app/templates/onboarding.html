@@ -163,40 +163,12 @@
         </div>
     </div>
 
-    <!-- Step 3: What are you into right now? -->
+    <!-- Step 3: Genres + Streaming (combined) -->
     <div class="step" id="step-3">
-        <h2 class="text-2xl font-bold mb-2">What are you into right now?</h2>
-        <p class="text-txt-muted mb-6">Anything you're in the middle of? We'll track it and check in when you finish.</p>
+        <h2 class="text-2xl font-bold mb-2">Tell us about your taste</h2>
+        <p class="text-txt-muted mb-4">Pick the genres you enjoy — we'll skip the rest in quizzes and recommendations.</p>
 
-        <div class="space-y-3">
-            {% for label in ['What are you watching?', 'What are you reading or listening to?'] %}
-            <div class="relative">
-                <input type="text" placeholder="{{ label }}" autocomplete="off"
-                    class="now-input w-full px-4 py-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sage/40 placeholder:text-txt-muted"
-                    data-now-index="{{ loop.index0 }}" oninput="searchNowItem(this)">
-                <div class="now-results hidden absolute left-0 right-0 top-full mt-1 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl shadow-lg z-30 max-h-48 overflow-y-auto" data-now-results="{{ loop.index0 }}"></div>
-                <div class="now-selected hidden mt-2 flex items-center gap-2 px-3 py-2 bg-sage/5 rounded-lg" data-now-selected="{{ loop.index0 }}">
-                    <span class="text-sm font-medium flex-1 truncate"></span>
-                    <span class="text-[10px] text-sage">Added ✓</span>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-
-        <div class="flex justify-between items-center mt-8">
-            <button onclick="goToStep(2)" class="text-sm text-txt-muted hover:text-txt">← Back</button>
-            <button onclick="goToStep('genres')" class="px-6 py-2.5 bg-sage text-white rounded-xl text-sm font-semibold hover:bg-sage-dark transition-base">
-                Next →
-            </button>
-        </div>
-    </div>
-
-    <!-- Step 3b: Genre / scene preferences (feeds into quiz filtering) -->
-    <div class="step" id="step-genres">
-        <h2 class="text-2xl font-bold mb-2">What are you into?</h2>
-        <p class="text-txt-muted mb-6">Pick everything that appeals to you. We'll use this to personalize your quizzes and recommendations.</p>
-
-        <div class="flex flex-wrap gap-2" id="scene-chips">
+        <div class="flex flex-wrap gap-2 mb-8" id="scene-chips">
             {% set scene_options = [
                 ('feelgood_comfort', 'Feel-good / Comfort'),
                 ('comedy', 'Comedy'),
@@ -230,42 +202,55 @@
             {% endfor %}
         </div>
 
+        <h3 class="text-lg font-semibold mb-2">What do you subscribe to?</h3>
+        <p class="text-txt-muted text-sm mb-4">We'll tag recommendations with where to watch them.</p>
+
+        <div class="flex flex-wrap gap-2 mb-4" id="region-chips">
+            {% set regions = [
+                ('us', '🇺🇸', 'US'),
+                ('uk', '🇬🇧', 'UK'),
+                ('au', '🇦🇺', 'AU'),
+                ('ca', '🇨🇦', 'CA'),
+                ('eu', '🇪🇺', 'EU'),
+                ('asia', '🌏', 'Asia'),
+            ] %}
+            {% for code, flag, label in regions %}
+            <button type="button" data-region="{{ code }}" onclick="toggleRegion(this)"
+                class="region-chip px-3 py-1.5 rounded-full border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark text-xs font-medium hover:border-sage transition-base">
+                {{ flag }} {{ label }}
+            </button>
+            {% endfor %}
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3" id="streaming-grid"></div>
+
         <div class="flex justify-between items-center mt-8">
-            <button onclick="goToStep(3)" class="text-sm text-txt-muted hover:text-txt">← Back</button>
+            <button onclick="goToStep(2)" class="text-sm text-txt-muted hover:text-txt">← Back</button>
             <button onclick="goToStep(4)" class="px-6 py-2.5 bg-sage text-white rounded-xl text-sm font-semibold hover:bg-sage-dark transition-base">
                 Next →
             </button>
         </div>
     </div>
 
-    <!-- Step 4: Regions + Streaming services -->
+    <!-- Step 4: What are you into right now? -->
     <div class="step" id="step-4">
-        <h2 class="text-2xl font-bold mb-2">Where have you lived?</h2>
-        <p class="text-txt-muted mb-6">This helps us recommend things from the cultures you know. Tap all that apply.</p>
+        <h2 class="text-2xl font-bold mb-2">What are you into right now?</h2>
+        <p class="text-txt-muted mb-6">Anything you're in the middle of? We'll track it and check in when you finish.</p>
 
-        <div class="flex flex-wrap gap-2 mb-8" id="region-chips">
-            {% set regions = [
-                ('us', '🇺🇸', 'United States'),
-                ('uk', '🇬🇧', 'United Kingdom'),
-                ('au', '🇦🇺', 'Australia'),
-                ('ca', '🇨🇦', 'Canada'),
-                ('eu', '🇪🇺', 'Europe'),
-                ('asia', '🌏', 'Asia'),
-                ('latam', '🌎', 'Latin America'),
-                ('other', '🌍', 'Other'),
-            ] %}
-            {% for code, flag, label in regions %}
-            <button type="button" data-region="{{ code }}" onclick="toggleRegion(this)"
-                class="region-chip px-4 py-2 rounded-full border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark text-sm font-medium hover:border-sage transition-base">
-                {{ flag }} {{ label }}
-            </button>
+        <div class="space-y-3">
+            {% for label in ['What are you watching?', 'What are you reading or listening to?'] %}
+            <div class="relative">
+                <input type="text" placeholder="{{ label }}" autocomplete="off"
+                    class="now-input w-full px-4 py-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sage/40 placeholder:text-txt-muted"
+                    data-now-index="{{ loop.index0 }}" oninput="searchNowItem(this)">
+                <div class="now-results hidden absolute left-0 right-0 top-full mt-1 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl shadow-lg z-30 max-h-48 overflow-y-auto" data-now-results="{{ loop.index0 }}"></div>
+                <div class="now-selected hidden mt-2 flex items-center gap-2 px-3 py-2 bg-sage/5 rounded-lg" data-now-selected="{{ loop.index0 }}">
+                    <span class="text-sm font-medium flex-1 truncate"></span>
+                    <span class="text-[10px] text-sage">Added ✓</span>
+                </div>
+            </div>
             {% endfor %}
         </div>
-
-        <h3 class="text-lg font-semibold mb-2">What do you subscribe to?</h3>
-        <p class="text-txt-muted text-sm mb-4">We'll tag recommendations with where to watch them.</p>
-
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3" id="streaming-grid"></div>
 
         <div class="flex justify-between items-center mt-8">
             <button onclick="goToStep(3)" class="text-sm text-txt-muted hover:text-txt">← Back</button>
