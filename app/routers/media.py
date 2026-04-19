@@ -31,11 +31,19 @@ async def _smart_search(title: str, media_type: str | None = None, creator: str 
     # Reject matches where the title is wildly different
     best_title = matches[0].title.lower()
     orig_title = title.lower()
-    if orig_title not in best_title and best_title not in orig_title:
-        orig_words = set(orig_title.split())
-        best_words = set(best_title.split())
+    # Strip common subtitles for comparison
+    for sep in [": ", " - ", " – "]:
+        if sep in best_title:
+            best_title_short = best_title.split(sep)[0]
+        else:
+            best_title_short = best_title
+    if orig_title not in best_title and best_title_short not in orig_title and orig_title not in best_title_short:
+        orig_words = set(orig_title.split()) - {"the", "a", "an", "of", "and", "in", "to", "for"}
+        best_words = set(best_title.split()) - {"the", "a", "an", "of", "and", "in", "to", "for"}
+        if not orig_words:
+            return matches
         overlap = len(orig_words & best_words)
-        if overlap < max(1, len(orig_words) * 0.4):
+        if overlap < max(1, len(orig_words) * 0.5):
             return []
 
     return matches
@@ -2309,11 +2317,26 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
     bundle_onboarding = load_onboarding(db, user.id)
     bundle_scenes = set((bundle_onboarding or {}).get("scenes", []))
     genre_exclusion_ctx = ""
+    # If user set scenes, exclude dealbreakers they didn't pick.
+    # If no scenes set, check their library — if they have zero anime/k-content rated,
+    # exclude those genres since there's no signal they want them.
+    _deal = {"anime": "anime or manga", "k_content": "K-drama or K-pop"}
     if bundle_scenes:
-        _deal = {"anime": "anime or manga", "k_content": "K-drama or K-pop", "horror": "horror"}
         excl = [label for key, label in _deal.items() if key not in bundle_scenes]
-        if excl:
-            genre_exclusion_ctx = f"\nGENRE EXCLUSIONS: Do NOT recommend {', '.join(excl)}. The user has not selected these genres."
+    else:
+        # No scenes set — check library for evidence of interest
+        excl = []
+        for genre_key, genre_label in _deal.items():
+            genre_search = "anime" if genre_key == "anime" else "k-drama"
+            has_genre = db.query(MediaEntry).filter(
+                MediaEntry.user_id == user.id,
+                MediaEntry.genres.ilike(f"%{genre_search}%"),
+                MediaEntry.rating >= 3,
+            ).limit(1).first()
+            if not has_genre:
+                excl.append(genre_label)
+    if excl:
+        genre_exclusion_ctx = f"\nGENRE EXCLUSIONS: Do NOT recommend {', '.join(excl)}. The user has shown no interest in these genres."
 
     # Avoid list — pack as many titles as fit in the budget.
     avoid_titles: list[str] = []
@@ -4424,12 +4447,21 @@ async def because_you_loved(
 
     onboarding = load_onboarding(db, user.id)
     user_scenes = set((onboarding or {}).get("scenes", []))
-    genre_exclusions = ""
+    _deal2 = {"anime": "anime or manga", "k_content": "K-drama or K-pop"}
     if user_scenes:
-        _dealbreakers = {"anime": "anime or manga", "k_content": "K-drama or K-pop", "horror": "horror"}
-        excluded = [label for key, label in _dealbreakers.items() if key not in user_scenes]
-        if excluded:
-            genre_exclusions = f"\nDO NOT recommend: {', '.join(excluded)}. The user has explicitly not selected these genres."
+        excluded = [label for key, label in _deal2.items() if key not in user_scenes]
+    else:
+        excluded = []
+        for gk, gl in _deal2.items():
+            gs = "anime" if gk == "anime" else "k-drama"
+            has = db.query(MediaEntry).filter(
+                MediaEntry.user_id == user.id, MediaEntry.genres.ilike(f"%{gs}%"), MediaEntry.rating >= 3
+            ).limit(1).first()
+            if not has:
+                excluded.append(gl)
+    genre_exclusions = ""
+    if excluded:
+        genre_exclusions = f"\nDO NOT recommend: {', '.join(excluded)}. The user has shown no interest in these genres."
 
     prompt = f"""For each anchor title below, suggest 10 items the user hasn't seen that share a real connection — same feel, themes, ideas, or storytelling approach. Mix media types (movies, TV, books, podcasts).
 {genre_exclusions}
