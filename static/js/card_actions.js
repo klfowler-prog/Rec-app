@@ -95,11 +95,23 @@ async function quickAdd(btn, data) {
         }
 
         logRecOutcome(data.title, 'consumed');
-        const container = btn.parentElement;
-        if (entryId) {
-            showRatingDots(container, entryId);
+        closePosterMenus();
+        const card = btn.closest('[data-rec-card]');
+        if (card && entryId) {
+            // Show rating dots in the card's text area, below the title
+            const textArea = card.querySelector('.p-2') || card.querySelector('div:last-child');
+            if (textArea) {
+                // Replace text content with compact rating
+                textArea.innerHTML = `<p class="text-[10px] text-sage font-medium mb-1">✓ Rate it:</p><div class="rate-slot"></div>`;
+                showRatingDots(textArea.querySelector('.rate-slot'), entryId);
+            }
         } else {
-            container.innerHTML = '<span class="text-xs font-medium text-sage">✓ Added — rate from profile</span>';
+            const container = btn.parentElement;
+            if (entryId) {
+                showRatingDots(container, entryId);
+            } else {
+                container.innerHTML = '<span class="text-xs font-medium text-sage">✓ Added</span>';
+            }
         }
     } catch {
         btn.innerHTML = originalHTML;
@@ -248,13 +260,23 @@ async function saveForLater(btn, data) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
         });
-        if (resp.ok) {
+        if (resp.ok || resp.status === 409) {
             logRecOutcome(data.title, 'saved');
-            const container = btn.closest('.quick-add-area');
-            if (container) container.innerHTML = '<span class="text-xs font-medium text-sage">✓ Saved to queue</span>';
-        } else if (resp.status === 409) {
-            const container = btn.closest('.quick-add-area');
-            if (container) container.innerHTML = '<span class="text-xs font-medium text-sage">✓ In profile</span>';
+            const card = btn.closest('[data-rec-card]');
+            if (card) {
+                const poster = card.querySelector('.poster-frame');
+                if (poster) {
+                    const overlay = document.createElement('div');
+                    overlay.className = 'absolute inset-0 bg-sage/80 flex items-center justify-center z-10 rounded';
+                    overlay.innerHTML = `<span class="text-white text-xs font-bold">✓ Saved</span>`;
+                    poster.appendChild(overlay);
+                    setTimeout(() => overlay.remove(), 2000);
+                }
+                closePosterMenus();
+            } else {
+                const container = btn.closest('.quick-add-area');
+                if (container) container.innerHTML = '<span class="text-xs font-medium text-sage">✓ Saved</span>';
+            }
         } else {
             btn.disabled = false;
         }
