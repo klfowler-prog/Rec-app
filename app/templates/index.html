@@ -239,7 +239,7 @@
                 </a>
                 <div class="p-2">
                     <p class="text-[11px] font-semibold leading-tight line-clamp-2 mb-2">{{ item.title }}</p>
-                    <div class="flex flex-col gap-1" id="progress-actions-{{ item.id }}">
+                    <div class="flex flex-col gap-1 quick-add-area" id="progress-actions-{{ item.id }}">
                         <button onclick="startFinishFlow({{ item.id }}, '{{ item.title|e }}', '{{ item.media_type }}')" class="w-full px-2 py-1 bg-sage/10 hover:bg-sage hover:text-white text-sage text-[10px] font-semibold rounded-md transition-base">
                             Finished
                         </button>
