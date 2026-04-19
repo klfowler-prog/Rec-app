@@ -1210,7 +1210,13 @@ async function loadBecauseYouLoved() {
                     <div class="flex-shrink-0 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm transition-base" style="width: 150px; scroll-snap-align: start;" data-rec-card>
                         <a href="${link}" class="block">${image}</a>
                         <div class="p-2">
-                            <a href="${link}" class="block"><p class="text-[11px] font-semibold leading-tight line-clamp-2 hover:text-sage transition-base">${escapeHtml(item.title)}</p></a>
+                            <span class="px-1.5 py-0.5 text-[8px] font-semibold rounded capitalize ${
+                                item.media_type === 'tv' ? 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400' :
+                                item.media_type === 'book' ? 'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400' :
+                                item.media_type === 'podcast' ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' :
+                                'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
+                            }">${item.media_type}</span>
+                            <a href="${link}" class="block mt-1"><p class="text-[11px] font-semibold leading-tight line-clamp-2 hover:text-sage transition-base">${escapeHtml(item.title)}</p></a>
                             ${item.reason ? `<p class="text-[10px] text-txt-muted leading-snug mt-0.5 line-clamp-2">${escapeHtml(item.reason)}</p>` : ''}
                             <div class="quick-add-area mt-1.5">${actions}</div>
                         </div>
