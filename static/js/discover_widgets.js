@@ -165,17 +165,16 @@
             </div>`;
     }
 
-    // ---- For Your Day themes ----------------------------------------
+    // ---- Vibe-based swim lanes ----------------------------------------
     const THEME_META = {
-        walking_the_dog:  { label: "While walking the dog",     blurb: "Podcasts you can drop in and out of.",                accent: 'text-green-500' },
-        tonight_binge:    { label: "Tonight's binge",           blurb: "TV that actually earns the next episode.",            accent: 'text-purple-500' },
-        wind_down:        { label: "Wind down before bed",      blurb: "Low-stakes, slow your pulse.",                        accent: 'text-gold' },
-        background_work:  { label: "Background while you work", blurb: "Familiar and conversational, half-attention-safe.",   accent: 'text-sky-500' },
-        weekend_binge:    { label: "Lose the weekend",          blurb: "Binge it. Fall in. Look up and it's dark outside.",   accent: 'text-coral' },
-        quick_escape:     { label: "Quick escape",              blurb: "15-90 minutes, out of your own head.",                accent: 'text-rose-500' },
+        walking_the_dog:  { label: "Good for a walk or commute", blurb: "Podcasts and audiobooks you can drop in and out of.",  accent: 'text-green-500' },
+        tonight_binge:    { label: "Can't-stop-watching",        blurb: "Shows that earn the next episode.",                    accent: 'text-purple-500' },
+        wind_down:        { label: "Comfort zone",               blurb: "Cozy, low-stakes, feels like a warm blanket.",        accent: 'text-gold' },
+        background_work:  { label: "Easy listening",             blurb: "Half-attention-safe — great while you multitask.",     accent: 'text-sky-500' },
+        weekend_binge:    { label: "Deep dive",                  blurb: "Clear your schedule. This one's worth it.",           accent: 'text-coral' },
+        quick_escape:     { label: "Quick escape",               blurb: "Under 90 minutes. Get out of your own head.",         accent: 'text-rose-500' },
     };
-    // Morning → daytime → evening → weekend
-    const THEME_ORDER = ['walking_the_dog', 'background_work', 'quick_escape', 'tonight_binge', 'wind_down', 'weekend_binge'];
+    const THEME_ORDER = ['tonight_binge', 'quick_escape', 'wind_down', 'weekend_binge', 'walking_the_dog', 'background_work'];
 
     async function loadThemes() {
         const wrap = document.getElementById('themes-wrap');
@@ -217,7 +216,7 @@
                         <p class="text-xs text-txt-muted">${escapeHtml(meta.blurb)}</p>
                     </div>
                 </div>
-                <div id="${containerId}" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div id="${containerId}" class="swim-lane flex gap-3 overflow-x-auto pb-2" style="scroll-snap-type: x mandatory;">
                     ${cards}
                 </div>
             </div>`;
@@ -226,7 +225,6 @@
     function renderThemeCard(item) {
         const mt = item.media_type || 'movie';
         const accent = TYPE_ACCENT[mt] || TYPE_ACCENT.movie;
-        const badge = TYPE_BADGE[mt] || TYPE_BADGE.movie;
         const fit = mt === 'podcast' ? 'poster-contain' : 'poster-cover';
         const pr = typeof item.predicted_rating === 'number' ? prBadge(item.predicted_rating) : '';
         const imageInner = item.image_url
@@ -235,33 +233,15 @@
         const image = `<div class="poster-frame relative">${imageInner}${pr}</div>`;
         const reasonParam = item.reason ? `&reason=${encodeURIComponent(item.reason)}` : '';
         const link = item.external_id ? `/media/${mt}/${item.external_id}?source=${item.source}${reasonParam}` : '#';
-        const itemForCard = {
-            external_id: item.external_id || '',
-            source: item.source || '',
-            title: item.title,
-            media_type: mt,
-            image_url: item.image_url || null,
-            year: item.year || null,
-            creator: item.creator || null,
-            genres: Array.isArray(item.genres) ? item.genres.join(', ') : (item.genres || null),
-            description: item.description || null,
-        };
-        const actions = typeof buildActionBar === 'function' ? buildActionBar(itemForCard, 'sm') : '';
         const themeProviderIds = (item.watch_providers || []).map(p => p.provider_id).filter(Boolean).join(',');
         return `
-            <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm" data-rec-card data-provider-ids="${themeProviderIds}">
-                <a href="${link}">${image}</a>
+            <a href="${link}" class="flex-shrink-0 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm card-hover transition-base block" style="width: 150px; scroll-snap-align: start;" data-rec-card data-provider-ids="${themeProviderIds}">
+                ${image}
                 <div class="p-2">
-                    <div class="flex items-center gap-1.5 mb-1">
-                        <span class="px-1.5 py-0.5 ${badge} text-[10px] font-semibold rounded-full capitalize">${mt}</span>
-                        ${item.year ? `<span class="text-[10px] text-txt-muted">${item.year}</span>` : ''}
-                    </div>
-                    <a href="${link}" class="text-[11px] font-semibold leading-tight hover:text-sage transition-base block line-clamp-2">${escapeHtml(item.title)}</a>
-                    ${typeof renderProviderBadges === 'function' && item.watch_providers ? renderProviderBadges(item.watch_providers) : ''}
-                    ${item.reason ? `<p class="text-[11px] text-txt-muted leading-snug mt-1">${escapeHtml(item.reason)}</p>` : ''}
-                    <div class="mt-2 quick-add-area">${actions}</div>
+                    <p class="text-[11px] font-semibold leading-tight line-clamp-2">${escapeHtml(item.title)}</p>
+                    ${item.reason ? `<p class="text-[10px] text-txt-muted leading-snug mt-0.5 line-clamp-2">${escapeHtml(item.reason)}</p>` : ''}
                 </div>
-            </div>`;
+            </a>`;
     }
 
     function applyCollapsible(container, visibleCount) {
