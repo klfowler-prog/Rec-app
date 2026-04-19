@@ -357,53 +357,48 @@
     {% endif %}
 
     <!-- ============================================================
-         Up next — queue with poster grid
+         Up next — per-format swim lanes
          ============================================================ -->
     {% if up_next %}
+    {% set queue_types = {'movie': 'Movies', 'tv': 'TV Shows', 'book': 'Books', 'podcast': 'Podcasts'} %}
+    {% for mt, mt_label in queue_types.items() %}
+    {% set type_items = up_next | selectattr('media_type', 'equalto', mt) | list %}
+    {% if type_items %}
     <div>
-        <div class="flex items-center justify-between mb-3 gap-2">
-            <p class="text-[11px] text-navy dark:text-txt-light uppercase tracking-[0.18em] font-bold">Up next</p>
-            <div class="flex items-center gap-2">
-                <div class="flex gap-1" id="queue-type-filter">
-                    <button onclick="filterQueue('')" class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-sage/10 text-sage transition-base" data-queue-filter="">All</button>
-                    <button onclick="filterQueue('movie')" class="px-2 py-0.5 text-[10px] font-medium rounded-full text-txt-muted hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-base" data-queue-filter="movie">Movies</button>
-                    <button onclick="filterQueue('tv')" class="px-2 py-0.5 text-[10px] font-medium rounded-full text-txt-muted hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-base" data-queue-filter="tv">TV</button>
-                    <button onclick="filterQueue('book')" class="px-2 py-0.5 text-[10px] font-medium rounded-full text-txt-muted hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-base" data-queue-filter="book">Books</button>
-                    <button onclick="filterQueue('podcast')" class="px-2 py-0.5 text-[10px] font-medium rounded-full text-txt-muted hover:bg-green-50 dark:hover:bg-green-900/20 transition-base" data-queue-filter="podcast">Pods</button>
-                </div>
-                <select id="queue-sort" onchange="window.location.href='/?queue_sort='+this.value" class="px-2 py-1 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-[10px] text-txt-muted">
-                    <option value="predicted" {% if request.query_params.get('queue_sort', 'predicted') == 'predicted' %}selected{% endif %}>Best match</option>
-                    <option value="recent" {% if request.query_params.get('queue_sort') == 'recent' %}selected{% endif %}>Recently added</option>
-                    <option value="title" {% if request.query_params.get('queue_sort') == 'title' %}selected{% endif %}>Title A-Z</option>
-                </select>
-                <a href="/profile" class="text-xs text-sage hover:underline">See all &rarr;</a>
-            </div>
+        <div class="flex items-center justify-between mb-2">
+            <p class="text-[11px] text-navy dark:text-txt-light uppercase tracking-[0.18em] font-bold">Up next: {{ mt_label }}</p>
+            <a href="/profile/{{ mt }}s" class="text-[10px] text-sage hover:underline">See all &rarr;</a>
         </div>
-        <div class="grid grid-cols-3 md:grid-cols-6 gap-3" id="queue-grid">
-            {% for item in up_next %}
-            <a href="{% if item.external_id %}/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}{% else %}/profile{% endif %}"
-               class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm card-hover transition-base block{% if loop.index > 12 %} hidden{% endif %}" data-media-type="{{ item.media_type }}" data-queue-idx="{{ loop.index }}">
-                <div class="poster-frame relative">
-                    {% if item.image_url %}
-                        <img src="{{ item.image_url }}" alt="" class="{% if item.media_type == 'podcast' %}poster-contain{% else %}poster-cover{% endif %}">
-                    {% else %}
-                        <div class="poster-fallback {% if item.media_type == 'tv' %}gradient-purple{% elif item.media_type == 'book' %}gradient-amber{% elif item.media_type == 'podcast' %}bg-green-500{% else %}gradient-blue{% endif %}">
-                            <span class="text-white text-3xl font-bold">{{ (item.title or '?')[0] }}</span>
+        <div class="swim-lane flex gap-3 overflow-x-auto pb-2 -mx-4 px-4" style="scroll-snap-type: x mandatory; flex-wrap: nowrap;">
+            {% for item in type_items %}
+            <div class="flex-shrink-0 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm transition-base" style="width: 130px; scroll-snap-align: start;" data-rec-card>
+                <div class="relative">
+                    <a href="{% if item.external_id %}/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}{% else %}/profile{% endif %}" class="block">
+                        <div class="poster-frame relative">
+                            {% if item.image_url %}
+                                <img src="{{ item.image_url }}" alt="" class="{% if item.media_type == 'podcast' %}poster-contain{% else %}poster-cover{% endif %}">
+                            {% else %}
+                                <div class="poster-fallback {% if item.media_type == 'tv' %}gradient-purple{% elif item.media_type == 'book' %}gradient-amber{% elif item.media_type == 'podcast' %}bg-green-500{% else %}gradient-blue{% endif %}">
+                                    <span class="text-white text-3xl font-bold">{{ (item.title or '?')[0] }}</span>
+                                </div>
+                            {% endif %}
+                            {% if item.predicted_rating and item.predicted_rating >= 3 %}
+                            <div class="absolute top-1.5 right-1.5 px-1.5 py-0.5 {% if item.predicted_rating >= 4.5 %}bg-sage{% elif item.predicted_rating >= 4 %}bg-sage-light{% elif item.predicted_rating >= 3.5 %}bg-gold{% else %}bg-gold{% endif %} rounded-full shadow">
+                                <span class="text-[9px] font-bold text-white">{{ "%.1f"|format(item.predicted_rating) }}</span>
+                            </div>
+                            {% endif %}
                         </div>
-                    {% endif %}
-                    {% if item.predicted_rating and item.predicted_rating >= 3 %}
-                    <div class="absolute top-1.5 right-1.5 px-1.5 py-0.5 {% if item.predicted_rating >= 4.5 %}bg-sage{% elif item.predicted_rating >= 4 %}bg-sage-light{% elif item.predicted_rating >= 3.5 %}bg-gold{% else %}bg-gold{% endif %} rounded-full shadow">
-                        <span class="text-[9px] font-bold text-white">{{ "%.1f"|format(item.predicted_rating) }}</span>
-                    </div>
-                    {% endif %}
+                    </a>
                 </div>
                 <div class="p-2">
                     <p class="text-[11px] font-semibold leading-tight line-clamp-2">{{ item.title }}</p>
                 </div>
-            </a>
+            </div>
             {% endfor %}
         </div>
     </div>
+    {% endif %}
+    {% endfor %}
     {% endif %}
 
     <!-- ============================================================

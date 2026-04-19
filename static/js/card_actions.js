@@ -410,14 +410,16 @@ function buildActionBar(item, size = 'md') {
         external_id: item.external_id || '', source: item.source || '',
         title: item.title, media_type: item.media_type,
     }));
-    const doneVerb = {movie:'Watched',tv:'Watched',book:'Read',podcast:'Listened'}[item.media_type] || 'Done';
+    const mt = item.media_type || 'movie';
+    const nowVerb = {movie:'Watch',tv:'Watch',book:'Read now',podcast:'Listen'}[mt] || 'Start';
+    const doneVerb = {movie:'Seen it',tv:'Seen it',book:'Read it',podcast:'Heard it'}[mt] || 'Done';
 
     const btnSize = size === 'sm' ? 'px-2 py-1 text-[10px]' : 'px-2.5 py-1.5 text-xs';
 
     return `
         <div class="flex items-center gap-1.5 flex-wrap">
-            <button onclick="saveForLater(this, ${saveData})" class="${btnSize} bg-sage/10 hover:bg-sage hover:text-white text-sage font-medium rounded-lg transition-base">Later</button>
-            <button onclick="startConsuming(this, ${consumingData})" class="${btnSize} bg-coral/10 hover:bg-coral hover:text-white text-coral font-medium rounded-lg transition-base">Now</button>
+            <button onclick="saveForLater(this, ${saveData})" class="${btnSize} bg-sage/10 hover:bg-sage hover:text-white text-sage font-medium rounded-lg transition-base">Save</button>
+            <button onclick="startConsuming(this, ${consumingData})" class="${btnSize} bg-coral/10 hover:bg-coral hover:text-white text-coral font-medium rounded-lg transition-base">${nowVerb}</button>
             <button onclick="quickAdd(this, ${consumeData})" class="${btnSize} bg-sage/10 hover:bg-sage hover:text-white text-sage font-medium rounded-lg transition-base">${doneVerb}</button>
             <button onclick="dismissItem(this, ${dismissData})" class="${btnSize} bg-gray-100 dark:bg-gray-800 hover:bg-coral hover:text-white text-txt-muted font-medium rounded-lg transition-base">Skip</button>
         </div>
@@ -441,7 +443,9 @@ function buildPosterAction(item) {
         external_id: item.external_id || '', source: item.source || '',
         title: item.title, media_type: item.media_type,
     }));
-    const doneVerb = {movie:'Watched',tv:'Watched',book:'Read',podcast:'Listened'}[item.media_type] || 'Done';
+    const mt = item.media_type || 'movie';
+    const nowVerb = {movie:'Watch',tv:'Watch',book:'Read now',podcast:'Listen'}[mt] || 'Start';
+    const doneVerb = {movie:'Seen it',tv:'Seen it',book:'Read it',podcast:'Heard it'}[mt] || 'Done';
     const uid = Math.random().toString(36).slice(2, 8);
 
     return `
@@ -449,8 +453,8 @@ function buildPosterAction(item) {
             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
         </button>
         <div class="poster-action-menu" id="pam-${uid}">
-            <button onclick="saveForLater(this.closest('[data-rec-card]').querySelector('.poster-action-trigger'), ${saveData});closePosterMenus()">Later</button>
-            <button onclick="startConsuming(this.closest('[data-rec-card]').querySelector('.poster-action-trigger'), ${consumingData});closePosterMenus()">Now</button>
+            <button onclick="saveForLater(this.closest('[data-rec-card]').querySelector('.poster-action-trigger'), ${saveData});closePosterMenus()">Save</button>
+            <button onclick="startConsuming(this.closest('[data-rec-card]').querySelector('.poster-action-trigger'), ${consumingData});closePosterMenus()">${nowVerb}</button>
             <button onclick="quickAdd(this.closest('[data-rec-card]').querySelector('.poster-action-trigger'), ${consumeData});closePosterMenus()">${doneVerb}</button>
             <button onclick="dismissItem(this.closest('[data-rec-card]').querySelector('.poster-action-trigger'), ${dismissData});closePosterMenus()">Skip</button>
         </div>`;
