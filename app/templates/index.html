@@ -1205,10 +1205,12 @@ async function loadBecauseYouLoved() {
                     image_url: item.image_url || null, year: item.year || null,
                     creator: item.creator || null, description: item.description || null,
                 };
-                const actions = typeof buildActionBar === 'function' ? buildActionBar(itemData, 'sm') : '';
+                const posterAction = typeof buildPosterAction === 'function' ? buildPosterAction(itemData) : '';
+                // Inject the + button into the poster frame
+                const imageWithAction = image.replace('</div>', posterAction + '</div>');
                 return `
                     <div class="flex-shrink-0 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm transition-base" style="width: 130px; scroll-snap-align: start;" data-rec-card>
-                        <a href="${link}" class="block">${image}</a>
+                        <a href="${link}" class="block">${imageWithAction}</a>
                         <div class="p-2">
                             <span class="px-1.5 py-0.5 text-[8px] font-semibold rounded capitalize ${
                                 item.media_type === 'tv' ? 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400' :
@@ -1218,7 +1220,6 @@ async function loadBecauseYouLoved() {
                             }">${item.media_type}</span>
                             <a href="${link}" class="block mt-1"><p class="text-[11px] font-semibold leading-tight line-clamp-2 hover:text-sage transition-base">${escapeHtml(item.title)}</p></a>
                             ${item.reason ? `<p class="text-[10px] text-txt-muted leading-snug mt-0.5 line-clamp-2">${escapeHtml(item.reason)}</p>` : ''}
-                            <div class="quick-add-area mt-1.5">${actions}</div>
                         </div>
                     </div>`;
             }).join('');

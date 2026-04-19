@@ -424,6 +424,56 @@ function buildActionBar(item, size = 'md') {
     `;
 }
 
+// Build a floating + button for poster overlays. Returns HTML to insert
+// inside a .poster-frame (must have position: relative).
+function buildPosterAction(item) {
+    const baseData = {
+        external_id: item.external_id || '', source: item.source || '', title: item.title,
+        media_type: item.media_type, image_url: item.image_url || null, year: item.year || null,
+        creator: item.creator || null,
+        genres: (item.genres && Array.isArray(item.genres)) ? item.genres.join(', ') : (item.genres || null),
+        description: item.description || null,
+    };
+    const consumeData = escapeAttr(JSON.stringify({ ...baseData, status: 'consumed' }));
+    const consumingData = escapeAttr(JSON.stringify({ ...baseData, status: 'consuming' }));
+    const saveData = escapeAttr(JSON.stringify({ ...baseData, status: 'want_to_consume' }));
+    const dismissData = escapeAttr(JSON.stringify({
+        external_id: item.external_id || '', source: item.source || '',
+        title: item.title, media_type: item.media_type,
+    }));
+    const doneVerb = {movie:'Watched',tv:'Watched',book:'Read',podcast:'Listened'}[item.media_type] || 'Done';
+    const uid = Math.random().toString(36).slice(2, 8);
+
+    return `
+        <button class="poster-action-trigger" onclick="event.preventDefault();event.stopPropagation();togglePosterMenu('pam-${uid}')">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+        </button>
+        <div class="poster-action-menu" id="pam-${uid}">
+            <button onclick="saveForLater(this.closest('[data-rec-card]').querySelector('.poster-action-trigger'), ${saveData});closePosterMenus()">Later</button>
+            <button onclick="startConsuming(this.closest('[data-rec-card]').querySelector('.poster-action-trigger'), ${consumingData});closePosterMenus()">Now</button>
+            <button onclick="quickAdd(this.closest('[data-rec-card]').querySelector('.poster-action-trigger'), ${consumeData});closePosterMenus()">${doneVerb}</button>
+            <button onclick="dismissItem(this.closest('[data-rec-card]').querySelector('.poster-action-trigger'), ${dismissData});closePosterMenus()">Skip</button>
+        </div>`;
+}
+
+function togglePosterMenu(id) {
+    const menu = document.getElementById(id);
+    const wasOpen = menu && menu.classList.contains('open');
+    closePosterMenus();
+    if (menu && !wasOpen) menu.classList.add('open');
+}
+
+function closePosterMenus() {
+    document.querySelectorAll('.poster-action-menu.open').forEach(m => m.classList.remove('open'));
+}
+
+// Close menus when clicking elsewhere
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.poster-action-trigger') && !e.target.closest('.poster-action-menu')) {
+        closePosterMenus();
+    }
+});
+
 // ---------------------------------------------------------------------------
 // Global poster fallback. A lot of the image URLs we surface come from
 // OpenLibrary cover IDs that return zero-byte responses or placeholder GIFs,
