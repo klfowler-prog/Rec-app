@@ -272,8 +272,10 @@
     {% endif %}
 
     <!-- ============================================================
-         Your best bet — one big visual pick, loaded async
+         Because you loved — personalized anchor lanes
          ============================================================ -->
+    <div id="because-loved-section" class="hidden space-y-5"></div>
+
     <!-- ============================================================
          Discover — best bet + three ways to find something new
          ============================================================ -->
@@ -1176,6 +1178,48 @@ wireRatingSlots();
 loadRightNow();
 loadBestBet();
 loadSignalStrength();
+loadBecauseYouLoved();
+
+async function loadBecauseYouLoved() {
+    const section = document.getElementById('because-loved-section');
+    if (!section) return;
+    try {
+        const resp = await fetch('/api/media/because-you-loved');
+        if (!resp.ok) return;
+        const lanes = await resp.json();
+        if (!lanes.length) return;
+
+        section.innerHTML = lanes.map(lane => {
+            const cards = lane.items.map(item => {
+                const fit = item.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
+                const pr = item.predicted_rating;
+                const prColor = pr >= 4 ? 'bg-sage' : pr >= 3 ? 'bg-gold' : 'bg-coral-light';
+                const prBadge = pr ? `<div class="absolute top-1.5 right-1.5 px-1.5 py-0.5 ${prColor} rounded-full shadow"><span class="text-[9px] font-bold text-white">${pr}</span></div>` : '';
+                const image = item.image_url
+                    ? `<div class="poster-frame relative"><img src="${item.image_url}" alt="" class="${fit}">${prBadge}</div>`
+                    : `<div class="poster-frame relative"><div class="poster-fallback bg-sage/10"><span class="text-sage text-2xl font-bold">${escapeHtml((item.title||'?')[0])}</span></div>${prBadge}</div>`;
+                const link = item.external_id ? `/media/${item.media_type}/${item.external_id}?source=${item.source}` : '#';
+                return `
+                    <a href="${link}" class="flex-shrink-0 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm card-hover transition-base block" style="width: 140px; scroll-snap-align: start;">
+                        ${image}
+                        <div class="p-2">
+                            <p class="text-[11px] font-semibold leading-tight line-clamp-2">${escapeHtml(item.title)}</p>
+                            ${item.reason ? `<p class="text-[10px] text-txt-muted leading-snug mt-0.5 line-clamp-2">${escapeHtml(item.reason)}</p>` : ''}
+                        </div>
+                    </a>`;
+            }).join('');
+
+            return `
+                <div>
+                    <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold mb-2">Because you loved ${escapeHtml(lane.anchor_title)}</p>
+                    <div class="swim-lane flex gap-3 overflow-x-auto pb-2" style="scroll-snap-type: x mandatory;">
+                        ${cards}
+                    </div>
+                </div>`;
+        }).join('');
+        section.classList.remove('hidden');
+    } catch {}
+}
 {% endif %}
 </script>
 {% endblock %}

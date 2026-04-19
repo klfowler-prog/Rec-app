@@ -4368,6 +4368,154 @@ Return ONLY valid JSON — a list of objects with "title", "media_type" (movie/t
     return {"items": enriched}
 
 
+@router.get("/because-you-loved")
+async def because_you_loved(
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Generate 2-3 'Because you loved [title]' lanes, each with 6-8
+    related items across media types. Anchored off the user's most
+    recent 5/5 ratings. Cached 7 days."""
+    import json
+
+    from app import cache
+    from app.config import settings
+    from app.models import MediaEntry
+    from app.services.unified_search import unified_search
+
+    cache_key = f"because_loved:{user.id}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    # Pick 3 recent 5/5 ratings as anchors (diverse media types preferred)
+    top_fives = (
+        db.query(MediaEntry)
+        .filter(MediaEntry.user_id == user.id, MediaEntry.rating == 5)
+        .order_by(MediaEntry.rated_at.desc().nullslast(), MediaEntry.updated_at.desc())
+        .limit(10)
+        .all()
+    )
+
+    if not top_fives or not settings.gemini_api_key:
+        return []
+
+    # Pick up to 3 anchors, preferring different media types
+    anchors = []
+    seen_types = set()
+    for e in top_fives:
+        if e.media_type not in seen_types:
+            anchors.append(e)
+            seen_types.add(e.media_type)
+        if len(anchors) >= 3:
+            break
+    # Fill remaining slots if we don't have 3 different types
+    if len(anchors) < 3:
+        for e in top_fives:
+            if e not in anchors:
+                anchors.append(e)
+            if len(anchors) >= 3:
+                break
+
+    if not anchors:
+        return []
+
+    # Build taste context for scoring
+    top_rated = (
+        db.query(MediaEntry)
+        .filter(MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None))
+        .order_by(MediaEntry.rating.desc())
+        .limit(15)
+        .all()
+    )
+    taste_lines = "\n".join(f"- {e.title} ({e.media_type}, {e.rating}/5)" for e in top_rated)
+
+    # Known titles to avoid
+    known = set(
+        t.lower() for (t,) in
+        db.query(MediaEntry.title).filter(MediaEntry.user_id == user.id).all()
+    )
+
+    anchor_text = "\n".join(
+        f"ANCHOR {i+1}: \"{a.title}\" ({a.media_type}, {a.year or '?'}) — rated 5/5"
+        for i, a in enumerate(anchors)
+    )
+
+    from app.services.gemini import generate
+
+    prompt = f"""For each anchor title below, suggest 6 items the user hasn't seen that share a real connection — same feel, themes, ideas, or storytelling approach. Mix media types (movies, TV, books, podcasts).
+
+USER'S TASTE (for fit scoring):
+{taste_lines}
+
+{anchor_text}
+
+For each item, predict how much this user would enjoy it (1-5 scale).
+
+Return ONLY valid JSON — an object with anchor titles as keys, each containing a list:
+{{
+  "{anchors[0].title}": [
+    {{"title": "...", "media_type": "movie|tv|book|podcast", "year": 2020, "creator": "...", "predicted_rating": 4.2, "reason": "One sentence about why — mention the anchor title"}}
+  ],
+  ...
+}}"""
+
+    try:
+        text = (await generate(prompt, temperature=0)).strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+            text = text.rsplit("```", 1)[0]
+        first = text.find("{")
+        last = text.rfind("}")
+        if first >= 0 and last > first:
+            text = text[first:last + 1]
+        raw = json.loads(text)
+    except Exception as e:
+        log.error("because_you_loved failed: %s", str(e))
+        return []
+
+    # Enrich and filter
+    lanes = []
+    for anchor in anchors:
+        items_raw = raw.get(anchor.title, [])
+        enriched = []
+        for item in items_raw[:8]:
+            title = item.get("title", "")
+            if title.lower() in known:
+                continue
+            mt = item.get("media_type")
+            creator = item.get("creator", "")
+            try:
+                query = f"{title} {creator}" if creator else title
+                matches = await unified_search(query, mt)
+                if not matches and creator:
+                    matches = await unified_search(title, mt)
+                if matches:
+                    best = matches[0]
+                    enriched.append({
+                        "title": best.title,
+                        "media_type": best.media_type,
+                        "year": best.year,
+                        "image_url": best.image_url,
+                        "external_id": best.external_id,
+                        "source": best.source,
+                        "predicted_rating": item.get("predicted_rating"),
+                        "reason": item.get("reason", ""),
+                    })
+            except Exception:
+                pass
+        if enriched:
+            lanes.append({
+                "anchor_title": anchor.title,
+                "anchor_media_type": anchor.media_type,
+                "anchor_image_url": anchor.image_url,
+                "items": enriched,
+            })
+
+    cache.set(cache_key, lanes, ttl_seconds=604800)
+    return lanes
+
+
 @router.get("/what-youre-missing")
 async def what_youre_missing(
     user: User = Depends(require_user),
