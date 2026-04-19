@@ -1206,11 +1206,12 @@ async function loadBecauseYouLoved() {
                     creator: item.creator || null, description: item.description || null,
                 };
                 const posterAction = typeof buildPosterAction === 'function' ? buildPosterAction(itemData) : '';
-                // Inject the + button into the poster frame
-                const imageWithAction = image.replace('</div>', posterAction + '</div>');
                 return `
                     <div class="flex-shrink-0 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm transition-base" style="width: 130px; scroll-snap-align: start;" data-rec-card>
-                        <a href="${link}" class="block">${imageWithAction}</a>
+                        <div class="relative">
+                            <a href="${link}" class="block">${image}</a>
+                            ${posterAction}
+                        </div>
                         <div class="p-2">
                             <span class="px-1.5 py-0.5 text-[8px] font-semibold rounded capitalize ${
                                 item.media_type === 'tv' ? 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400' :
