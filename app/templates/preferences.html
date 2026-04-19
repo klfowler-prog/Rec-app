@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}Preferences{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl space-y-8">
+    <div>
+        <h2 class="text-2xl font-semibold mb-1">Preferences</h2>
+        <p class="text-txt-muted text-sm">These shape your quizzes and recommendations.</p>
+    </div>
+
+    <!-- Age range -->
+    <div>
+        <h3 class="text-sm font-semibold mb-3">Age range</h3>
+        <div class="flex flex-wrap gap-2" id="age-buttons">
+            {% set ages = [('under_18', "I'm under 18"), ('18_35', "I'm 18 – 35"), ('35_50', "I'm 35 – 50"), ('over_50', "I'm over 50")] %}
+            {% for code, label in ages %}
+            <button onclick="saveAge('{{ code }}')" data-age="{{ code }}"
+                class="px-4 py-2 rounded-xl text-sm font-medium border transition-base
+                {% if saved_age == code %}border-sage bg-sage/10 text-sage{% else %}border-border-light dark:border-border-dark text-txt-muted hover:border-sage{% endif %}">
+                {{ label }}
+            </button>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Genres -->
+    <div>
+        <h3 class="text-sm font-semibold mb-1">Genres you enjoy</h3>
+        <p class="text-xs text-txt-muted mb-3">We'll skip genres you don't pick in quizzes and recommendations.</p>
+        <div class="flex flex-wrap gap-2" id="scene-chips">
+            {% set scene_options = [
+                ('feelgood_comfort', 'Feel-good / Comfort'),
+                ('comedy', 'Comedy'),
+                ('romance', 'Romance'),
+                ('action_thriller', 'Action / Thriller'),
+                ('suspense_mystery', 'Suspense / Mystery'),
+                ('horror', 'Horror'),
+                ('scifi_fantasy', 'Sci-Fi / Fantasy'),
+                ('prestige_drama', 'Prestige Drama'),
+                ('true_crime', 'True Crime'),
+                ('history_war', 'History / War'),
+                ('docs_nonfiction', 'Documentaries'),
+                ('sports', 'Sports'),
+                ('anime', 'Anime / Manga'),
+                ('k_content', 'K-Drama / K-Pop'),
+                ('reality_tv', 'Reality TV'),
+                ('kids_family', 'Family / Animated'),
+                ('indie_arthouse', 'Indie / Arthouse'),
+                ('cooking_food', 'Food / Cooking'),
+                ('music', 'Music'),
+                ('self_improvement', 'Self-improvement'),
+                ('faith_family', 'Faith / Inspirational'),
+                ('gaming_culture', 'Gaming Culture'),
+            ] %}
+            {% for code, label in scene_options %}
+            <button type="button" data-scene="{{ code }}" onclick="toggleScene(this)"
+                class="scene-chip px-3 py-2 rounded-full border text-sm font-medium transition-base
+                {% if code in saved_scenes %}bg-sage/15 border-sage/30 text-sage{% else %}border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark text-txt-muted hover:border-sage{% endif %}">
+                {{ label }}
+            </button>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Streaming services -->
+    <div>
+        <h3 class="text-sm font-semibold mb-1">Streaming services</h3>
+        <p class="text-xs text-txt-muted mb-3">We'll show where each recommendation is available.</p>
+        <div class="flex flex-wrap gap-2" id="service-chips">
+            {% set services = [
+                (8, 'Netflix'), (15, 'Hulu'), (1899, 'Max'), (337, 'Disney+'),
+                (9, 'Prime Video'), (350, 'Apple TV+'), (386, 'Peacock'), (531, 'Paramount+'),
+                (283, 'Crunchyroll')
+            ] %}
+            {% for sid, sname in services %}
+            <button onclick="toggleService(this, {{ sid }})" data-service-id="{{ sid }}"
+                class="px-3 py-2 rounded-full border text-sm font-medium transition-base
+                {% if sid in saved_services %}bg-sage/15 border-sage/30 text-sage{% else %}border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark text-txt-muted hover:border-sage{% endif %}">
+                {{ sname }}
+            </button>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div id="save-status" class="hidden text-sm text-sage font-medium"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const selectedScenes = new Set([{% for s in saved_scenes %}'{{ s }}',{% endfor %}]);
+
+function toggleScene(btn) {
+    const scene = btn.dataset.scene;
+    if (selectedScenes.has(scene)) {
+        selectedScenes.delete(scene);
+        btn.classList.remove('bg-sage/15', 'border-sage/30', 'text-sage');
+        btn.classList.add('border-border-light', 'dark:border-border-dark', 'text-txt-muted');
+    } else {
+        selectedScenes.add(scene);
+        btn.classList.add('bg-sage/15', 'border-sage/30', 'text-sage');
+        btn.classList.remove('border-border-light', 'dark:border-border-dark', 'text-txt-muted');
+    }
+    savePrefs();
+}
+
+function toggleService(btn, serviceId) {
+    const isActive = btn.classList.contains('text-sage');
+    if (isActive) {
+        btn.classList.remove('bg-sage/15', 'border-sage/30', 'text-sage');
+        btn.classList.add('border-border-light', 'dark:border-border-dark', 'text-txt-muted');
+    } else {
+        btn.classList.add('bg-sage/15', 'border-sage/30', 'text-sage');
+        btn.classList.remove('border-border-light', 'dark:border-border-dark', 'text-txt-muted');
+    }
+    saveServices();
+}
+
+async function saveAge(age) {
+    document.querySelectorAll('[data-age]').forEach(b => {
+        const active = b.dataset.age === age;
+        b.classList.toggle('border-sage', active);
+        b.classList.toggle('bg-sage/10', active);
+        b.classList.toggle('text-sage', active);
+        b.classList.toggle('border-border-light', !active);
+        b.classList.toggle('dark:border-border-dark', !active);
+        b.classList.toggle('text-txt-muted', !active);
+    });
+    // Save via onboarding endpoint with just the age
+    await fetch('/api/media/onboarding', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ age_range: age, scenes: [...selectedScenes], streaming_services: getSelectedServices() }),
+    });
+    showSaved();
+}
+
+async function savePrefs() {
+    await fetch('/api/media/onboarding', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ scenes: [...selectedScenes], streaming_services: getSelectedServices() }),
+    });
+    showSaved();
+}
+
+async function saveServices() {
+    await fetch('/api/media/streaming-services', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ streaming_services: getSelectedServices() }),
+    });
+    showSaved();
+}
+
+function getSelectedServices() {
+    return [...document.querySelectorAll('[data-service-id]')]
+        .filter(b => b.classList.contains('text-sage'))
+        .map(b => parseInt(b.dataset.serviceId));
+}
+
+function showSaved() {
+    const el = document.getElementById('save-status');
+    el.textContent = 'Saved!';
+    el.classList.remove('hidden');
+    setTimeout(() => el.classList.add('hidden'), 2000);
+}
+</script>
+{% endblock %}

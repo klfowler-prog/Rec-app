@@ -771,6 +771,25 @@ async def quick_start_page(request: Request, user: User = Depends(require_user),
     return templates.TemplateResponse("quick_start.html", {"request": request, "user": user})
 
 
+@router.get("/settings/preferences")
+async def preferences_page(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """Edit genre preferences, streaming services, and age range
+    without redoing the full onboarding flow."""
+    from app.services.taste_quiz_scoring import load_onboarding, load_streaming_services, load_age_range
+
+    saved = load_onboarding(db, user.id) or {}
+    return templates.TemplateResponse(
+        "preferences.html",
+        {
+            "request": request,
+            "user": user,
+            "saved_scenes": saved.get("scenes", []),
+            "saved_services": load_streaming_services(db, user.id),
+            "saved_age": load_age_range(db, user.id),
+        },
+    )
+
+
 @router.get("/onboarding")
 async def onboarding_page(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
     """4-step taste-profile onboarding wizard."""
