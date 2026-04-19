@@ -162,11 +162,11 @@ async function startConsuming(btn, data) {
 function showRatingDots(container, entryId) {
     container.innerHTML = `
         <div class="flex items-center gap-1 flex-wrap">
-            <button onclick="rateItem(this,${entryId},1)" class="w-7 h-7 rounded-full bg-border-light dark:bg-border-dark hover:bg-coral transition-base text-xs font-bold text-transparent hover:text-white" title="1/5">1</button>
-            <button onclick="rateItem(this,${entryId},2)" class="w-7 h-7 rounded-full bg-border-light dark:bg-border-dark hover:bg-coral-light transition-base text-xs font-bold text-transparent hover:text-white" title="2/5">2</button>
-            <button onclick="rateItem(this,${entryId},3)" class="w-7 h-7 rounded-full bg-border-light dark:bg-border-dark hover:bg-gold transition-base text-xs font-bold text-transparent hover:text-white" title="3/5">3</button>
-            <button onclick="rateItem(this,${entryId},4)" class="w-7 h-7 rounded-full bg-border-light dark:bg-border-dark hover:bg-sage-light transition-base text-xs font-bold text-transparent hover:text-white" title="4/5">4</button>
-            <button onclick="rateItem(this,${entryId},5)" class="w-7 h-7 rounded-full bg-border-light dark:bg-border-dark hover:bg-sage transition-base text-xs font-bold text-transparent hover:text-white" title="5/5">5</button>
+            <button onclick="rateItem(this,${entryId},1)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-coral transition-base text-[9px] font-bold text-transparent hover:text-white" title="1/5">1</button>
+            <button onclick="rateItem(this,${entryId},2)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-coral-light transition-base text-[9px] font-bold text-transparent hover:text-white" title="2/5">2</button>
+            <button onclick="rateItem(this,${entryId},3)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-gold transition-base text-[9px] font-bold text-transparent hover:text-white" title="3/5">3</button>
+            <button onclick="rateItem(this,${entryId},4)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-sage-light transition-base text-[9px] font-bold text-transparent hover:text-white" title="4/5">4</button>
+            <button onclick="rateItem(this,${entryId},5)" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-sage transition-base text-[9px] font-bold text-transparent hover:text-white" title="5/5">5</button>
         </div>
     `;
 }
@@ -219,7 +219,7 @@ function toggleInlineRate(el, entryId, currentRating) {
                     : n <= 3 ? (active ? 'bg-gold' : 'bg-border-light dark:bg-border-dark')
                     : (active ? 'bg-sage' : 'bg-border-light dark:bg-border-dark');
         const dot = document.createElement('button');
-        dot.className = `w-7 h-7 rounded-full ${color} hover:bg-sage transition-base text-xs font-bold ${active ? 'text-white' : 'text-transparent hover:text-white'}`;
+        dot.className = `w-5 h-5 rounded-full ${color} hover:bg-sage transition-base text-[9px] font-bold ${active ? 'text-white' : 'text-transparent hover:text-white'}`;
         dot.textContent = n;
         dot.title = `${n}/5`;
         dot.onclick = async (e) => {
