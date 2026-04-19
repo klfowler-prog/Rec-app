@@ -1491,6 +1491,71 @@ async def update_streaming_services(
     return {"streaming_services": cleaned}
 
 
+@router.post("/scenes")
+async def update_scenes(
+    payload: dict,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Update just the user's scene/genre preferences without touching other onboarding data."""
+    import json
+    from app.models import UserPreferences
+    from app.services.taste_quiz_scoring import ONBOARDING_SCENES
+
+    scenes = [s for s in (payload.get("scenes") or []) if s in ONBOARDING_SCENES]
+
+    prefs = db.query(UserPreferences).filter(UserPreferences.user_id == user.id).first()
+    if not prefs:
+        prefs = UserPreferences(user_id=user.id)
+        db.add(prefs)
+
+    try:
+        existing = json.loads(prefs.quiz_results) if prefs.quiz_results else {}
+    except (json.JSONDecodeError, TypeError):
+        existing = {}
+
+    onboarding = existing.get("onboarding", {})
+    onboarding["scenes"] = scenes
+    existing["onboarding"] = onboarding
+    prefs.quiz_results = json.dumps(existing)
+    db.commit()
+
+    return {"scenes": scenes}
+
+
+@router.post("/age-range")
+async def update_age_range(
+    payload: dict,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Update just the user's age range without touching other onboarding data."""
+    import json
+    from app.models import UserPreferences
+
+    age = payload.get("age_range", "")
+    if age not in ("under_18", "18_35", "35_50", "over_50", ""):
+        age = ""
+
+    prefs = db.query(UserPreferences).filter(UserPreferences.user_id == user.id).first()
+    if not prefs:
+        prefs = UserPreferences(user_id=user.id)
+        db.add(prefs)
+
+    try:
+        existing = json.loads(prefs.quiz_results) if prefs.quiz_results else {}
+    except (json.JSONDecodeError, TypeError):
+        existing = {}
+
+    onboarding = existing.get("onboarding", {})
+    onboarding["age_range"] = age
+    existing["onboarding"] = onboarding
+    prefs.quiz_results = json.dumps(existing)
+    db.commit()
+
+    return {"age_range": age}
+
+
 @router.get("/taste-test")
 async def taste_test():
     """Return contrasting taste-axis pools. Each axis has two LABELED

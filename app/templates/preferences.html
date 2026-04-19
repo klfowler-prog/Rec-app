@@ -131,18 +131,17 @@ async function saveAge(age) {
         b.classList.toggle('dark:border-border-dark', !active);
         b.classList.toggle('text-txt-muted', !active);
     });
-    // Save via onboarding endpoint with just the age
-    await fetch('/api/media/onboarding', {
+    await fetch('/api/media/age-range', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ age_range: age, scenes: [...selectedScenes], streaming_services: getSelectedServices() }),
+        body: JSON.stringify({ age_range: age }),
     });
     showSaved();
 }
 
 async function savePrefs() {
-    await fetch('/api/media/onboarding', {
+    await fetch('/api/media/scenes', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ scenes: [...selectedScenes], streaming_services: getSelectedServices() }),
+        body: JSON.stringify({ scenes: [...selectedScenes] }),
     });
     showSaved();
 }
