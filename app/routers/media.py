@@ -2305,6 +2305,16 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
     elif bundle_age == "over_50":
         age_context = "\nAGE: Over 50. Include classics alongside newer content. Respect their depth of experience."
 
+    # Genre exclusions based on user's scene preferences
+    bundle_onboarding = load_onboarding(db, user.id)
+    bundle_scenes = set((bundle_onboarding or {}).get("scenes", []))
+    genre_exclusion_ctx = ""
+    if bundle_scenes:
+        _deal = {"anime": "anime or manga", "k_content": "K-drama or K-pop", "horror": "horror"}
+        excl = [label for key, label in _deal.items() if key not in bundle_scenes]
+        if excl:
+            genre_exclusion_ctx = f"\nGENRE EXCLUSIONS: Do NOT recommend {', '.join(excl)}. The user has not selected these genres."
+
     # Avoid list — pack as many titles as fit in the budget.
     avoid_titles: list[str] = []
     char_budget = 6000
@@ -2374,7 +2384,7 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
 USER'S TASTE PROFILE (across all media types):
 {taste_summary}
 {recent_section}
-{streaming_context}{age_context}
+{streaming_context}{age_context}{genre_exclusion_ctx}
 
 THIN PROFILE GUIDANCE:
 If the user has fewer than 15 rated items, you have limited signal. In this case:
@@ -4408,9 +4418,21 @@ async def because_you_loved(
         for i, a in enumerate(anchors)
     )
 
+    # Load user preferences to exclude genres they didn't pick
+    from app.services.taste_quiz_scoring import load_onboarding
     from app.services.gemini import generate
 
+    onboarding = load_onboarding(db, user.id)
+    user_scenes = set((onboarding or {}).get("scenes", []))
+    genre_exclusions = ""
+    if user_scenes:
+        _dealbreakers = {"anime": "anime or manga", "k_content": "K-drama or K-pop", "horror": "horror"}
+        excluded = [label for key, label in _dealbreakers.items() if key not in user_scenes]
+        if excluded:
+            genre_exclusions = f"\nDO NOT recommend: {', '.join(excluded)}. The user has explicitly not selected these genres."
+
     prompt = f"""For each anchor title below, suggest 10 items the user hasn't seen that share a real connection — same feel, themes, ideas, or storytelling approach. Mix media types (movies, TV, books, podcasts).
+{genre_exclusions}
 
 USER'S TASTE (for fit scoring):
 {taste_lines}
