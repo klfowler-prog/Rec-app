@@ -1199,20 +1199,28 @@ async function loadBecauseYouLoved() {
                     ? `<div class="poster-frame relative"><img src="${item.image_url}" alt="" class="${fit}">${prBadge}</div>`
                     : `<div class="poster-frame relative"><div class="poster-fallback bg-sage/10"><span class="text-sage text-2xl font-bold">${escapeHtml((item.title||'?')[0])}</span></div>${prBadge}</div>`;
                 const link = item.external_id ? `/media/${item.media_type}/${item.external_id}?source=${item.source}` : '#';
+                const itemData = {
+                    external_id: item.external_id || '', source: item.source || '',
+                    title: item.title, media_type: item.media_type,
+                    image_url: item.image_url || null, year: item.year || null,
+                    creator: item.creator || null, description: item.description || null,
+                };
+                const actions = typeof buildActionBar === 'function' ? buildActionBar(itemData, 'sm') : '';
                 return `
-                    <a href="${link}" class="flex-shrink-0 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm card-hover transition-base block" style="width: 140px; scroll-snap-align: start;">
-                        ${image}
+                    <div class="flex-shrink-0 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm transition-base" style="width: 150px; scroll-snap-align: start;" data-rec-card>
+                        <a href="${link}" class="block">${image}</a>
                         <div class="p-2">
-                            <p class="text-[11px] font-semibold leading-tight line-clamp-2">${escapeHtml(item.title)}</p>
+                            <a href="${link}" class="block"><p class="text-[11px] font-semibold leading-tight line-clamp-2 hover:text-sage transition-base">${escapeHtml(item.title)}</p></a>
                             ${item.reason ? `<p class="text-[10px] text-txt-muted leading-snug mt-0.5 line-clamp-2">${escapeHtml(item.reason)}</p>` : ''}
+                            <div class="quick-add-area mt-1.5">${actions}</div>
                         </div>
-                    </a>`;
+                    </div>`;
             }).join('');
 
             return `
                 <div>
                     <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold mb-2">Because you loved ${escapeHtml(lane.anchor_title)}</p>
-                    <div class="swim-lane flex gap-3 overflow-x-auto pb-2" style="scroll-snap-type: x mandatory;">
+                    <div class="swim-lane flex gap-3 pb-2" style="scroll-snap-type: x mandatory; flex-wrap: nowrap;">
                         ${cards}
                     </div>
                 </div>`;
