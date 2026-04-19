@@ -14,6 +14,33 @@ from app.schemas import MediaResult
 router = APIRouter()
 
 
+async def _smart_search(title: str, media_type: str | None = None, creator: str = "") -> list[MediaResult]:
+    """Shared enrichment search with creator awareness and title similarity check.
+    Used by all endpoints that need to find the right item from an AI-suggested title."""
+    from app.services.unified_search import unified_search
+
+    # Search with title + creator first for precision
+    query = f"{title} {creator}".strip() if creator else title
+    matches = await unified_search(query, media_type)
+    if not matches and creator:
+        matches = await unified_search(title, media_type)
+
+    if not matches:
+        return []
+
+    # Reject matches where the title is wildly different
+    best_title = matches[0].title.lower()
+    orig_title = title.lower()
+    if orig_title not in best_title and best_title not in orig_title:
+        orig_words = set(orig_title.split())
+        best_words = set(best_title.split())
+        overlap = len(orig_words & best_words)
+        if overlap < max(1, len(orig_words) * 0.4):
+            return []
+
+    return matches
+
+
 @router.get("/search", response_model=list[MediaResult])
 async def search_media(q: str = Query(..., min_length=1), media_type: str | None = None, user: User = Depends(require_user)):
     """Search across all media APIs."""
@@ -2024,7 +2051,6 @@ async def tonight_pick(
     from app import cache
     from app.config import settings
     from app.models import DismissedItem, MediaEntry
-    from app.services.unified_search import unified_search
 
     import hashlib
     mood_hash = hashlib.md5((req.mood or "").encode()).hexdigest()[:8]
@@ -2131,8 +2157,7 @@ Return ONLY valid JSON, no markdown:
             raise HTTPException(status_code=503, detail="AI suggested an item you already have; try again.")
 
         # Enrich with poster
-        matches = await unified_search(pick.get("title", ""), pick.get("media_type"))
-        matches = _rank_by_title_match(pick.get("title", ""), matches)
+        matches = await _smart_search(pick.get("title", ""), pick.get("media_type"), pick.get("creator", ""))
         if matches and not _is_known(matches[0].title, known_normalized):
             best = matches[0]
             result = {
@@ -2188,7 +2213,6 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
     from app import cache
     from app.config import settings
     from app.models import MediaEntry
-    from app.services.unified_search import unified_search
 
     cache_key = f"home_bundle:{user.id}"
     cached = cache.get(cache_key)
@@ -2459,18 +2483,10 @@ Return ONLY valid JSON, no markdown:
             creator = pick.get("creator") or pick.get("author") or ""
             pr = _coerce_pr(pick.get("predicted_rating"))
             # Search with creator for accuracy, fall back to title-only if no results
-            matches = []
-            if creator:
-                try:
-                    matches = await unified_search(f"{title} {creator}", mt)
-                except Exception:
-                    pass
-            if not matches:
-                try:
-                    matches = await unified_search(title, mt)
-                except Exception:
-                    matches = []
-            matches = _rank_by_title_match(title, matches, prefer_type=mt)
+            try:
+                matches = await _smart_search(title, mt, creator)
+            except Exception:
+                matches = []
             if matches:
                 best = matches[0]
                 if not allow_known and _is_known(best.title, known_normalized):
@@ -2504,18 +2520,10 @@ Return ONLY valid JSON, no markdown:
             title = item.get("title", "")
             creator = item.get("creator") or item.get("author") or ""
             pr = item.get("predicted_rating")
-            matches = []
-            if creator:
-                try:
-                    matches = await unified_search(f"{title} {creator}", media_type)
-                except Exception:
-                    pass
-            if not matches:
-                try:
-                    matches = await unified_search(title, media_type)
-                except Exception:
-                    matches = []
-            matches = _rank_by_title_match(title, matches, prefer_type=media_type)
+            try:
+                matches = await _smart_search(title, media_type, creator)
+            except Exception:
+                matches = []
             if matches:
                 best = matches[0]
                 if _is_known(best.title, known_normalized):
@@ -2675,7 +2683,6 @@ async def best_bet(
     from app import cache
     from app.config import settings
     from app.models import MediaEntry
-    from app.services.unified_search import unified_search
 
     if media_type not in ("movie", "tv", "book", "podcast"):
         raise HTTPException(status_code=400, detail="Invalid media type")
@@ -2902,20 +2909,12 @@ Return ONLY valid JSON, no markdown:
         pr = chosen["predicted_rating"]
         cited_titles = chosen.get("cited") or []
 
-        # Enrich via search — try with creator first, fall back to title-only
+        # Enrich via search
         creator = chosen.get("creator") or ""
-        matches = []
-        if creator:
-            try:
-                matches = await unified_search(f"{title} {creator}", media_type)
-            except Exception:
-                pass
-        if not matches:
-            try:
-                matches = await unified_search(title, media_type)
-            except Exception:
-                matches = []
-        matches = _rank_by_title_match(title, matches, prefer_type=media_type)
+        try:
+            matches = await _smart_search(title, media_type, creator)
+        except Exception:
+            matches = []
         enriched_pick: dict | None = None
         if matches:
             best = matches[0]
@@ -3408,7 +3407,6 @@ async def top_picks(user: User = Depends(require_user), db: Session = Depends(ge
     from app import cache
     from app.config import settings
     from app.models import MediaEntry
-    from app.services.unified_search import unified_search
 
     cache_key = f"top_picks:{user.id}"
     cached = cache.get(cache_key)
@@ -3527,8 +3525,7 @@ Return ONLY valid JSON, no markdown — an array of 8 items:
         async def search_pick(pick):
             title = pick.get("title", "")
             mt = pick.get("media_type", None)
-            matches = await unified_search(title, mt)
-            matches = _rank_by_title_match(title, matches)
+            matches = await _smart_search(title, mt, pick.get("creator", ""))
             if matches:
                 best = matches[0]
                 return {
@@ -3712,13 +3709,10 @@ Only include categories from this list: {', '.join(missing_types)}"""
         # Search for poster images in parallel
         import asyncio
 
-        from app.services.unified_search import unified_search
-
         async def enrich(item, media_type):
             title = item.get("title", "")
             pr = item.get("predicted_rating")
-            matches = await unified_search(title, media_type)
-            matches = _rank_by_title_match(title, matches)
+            matches = await _smart_search(title, media_type, item.get("creator") or item.get("author") or "")
             if matches:
                 best = matches[0]
                 return {
@@ -3934,18 +3928,10 @@ Return ONLY valid JSON, no markdown:
         async def enrich(rel_item, rel_type):
             title = rel_item.get("title", "")
             creator = rel_item.get("creator") or rel_item.get("author") or ""
-            matches = []
-            if creator:
-                try:
-                    matches = await unified_search(f"{title} {creator}", rel_type)
-                except Exception:
-                    pass
-            if not matches:
-                try:
-                    matches = await unified_search(title, rel_type)
-                except Exception:
-                    matches = []
-            matches = _rank_by_title_match(title, matches, prefer_type=rel_type)
+            try:
+                matches = await _smart_search(title, rel_type, creator)
+            except Exception:
+                matches = []
             if matches:
                 best = matches[0]
                 return {
@@ -4247,7 +4233,6 @@ async def generate_mini_quiz(
 
     from app.config import settings
     from app.services.gemini import generate
-    from app.services.unified_search import unified_search
 
     body = await request.json()
     favorites = body.get("favorites", [])
@@ -4319,24 +4304,7 @@ Return ONLY valid JSON — a list of objects with "title", "media_type" (movie/t
         creator = item.get("creator", "")
         mt = item.get("media_type")
         try:
-            # Search with title + creator first, fall back to title only
-            query = f"{title} {creator}" if creator else title
-            matches = await unified_search(query, mt)
-            if not matches and creator:
-                matches = await unified_search(title, mt)
-            matches = _rank_by_title_match(title, matches)
-            # Reject matches where the title is wildly different (WHO textbook for "The Selection")
-            if matches:
-                best_title = matches[0].title.lower()
-                orig_title = title.lower()
-                # Accept if the original title is contained in the match or vice versa
-                if orig_title not in best_title and best_title not in orig_title:
-                    # Check word overlap — at least 50% of words should match
-                    orig_words = set(orig_title.split())
-                    best_words = set(best_title.split())
-                    overlap = len(orig_words & best_words)
-                    if overlap < len(orig_words) * 0.5:
-                        matches = []  # reject — too different
+            matches = await _smart_search(title, mt, creator)
             if matches:
                 best = matches[0]
                 enriched.append({
@@ -4381,7 +4349,6 @@ async def because_you_loved(
     from app import cache
     from app.config import settings
     from app.models import MediaEntry
-    from app.services.unified_search import unified_search
 
     cache_key = f"because_loved:{user.id}"
     cached = cache.get(cache_key)
@@ -4486,10 +4453,7 @@ Return ONLY valid JSON — an object with anchor titles as keys, each containing
             mt = item.get("media_type")
             creator = item.get("creator", "")
             try:
-                query = f"{title} {creator}" if creator else title
-                matches = await unified_search(query, mt)
-                if not matches and creator:
-                    matches = await unified_search(title, mt)
+                matches = await _smart_search(title, mt, creator)
                 if matches:
                     best = matches[0]
                     enriched.append({
