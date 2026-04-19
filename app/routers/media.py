@@ -4443,7 +4443,7 @@ async def because_you_loved(
 
     from app.services.gemini import generate
 
-    prompt = f"""For each anchor title below, suggest 6 items the user hasn't seen that share a real connection — same feel, themes, ideas, or storytelling approach. Mix media types (movies, TV, books, podcasts).
+    prompt = f"""For each anchor title below, suggest 10 items the user hasn't seen that share a real connection — same feel, themes, ideas, or storytelling approach. Mix media types (movies, TV, books, podcasts).
 
 USER'S TASTE (for fit scoring):
 {taste_lines}
@@ -4479,7 +4479,7 @@ Return ONLY valid JSON — an object with anchor titles as keys, each containing
     for anchor in anchors:
         items_raw = raw.get(anchor.title, [])
         enriched = []
-        for item in items_raw[:8]:
+        for item in items_raw[:10]:
             title = item.get("title", "")
             if title.lower() in known:
                 continue
