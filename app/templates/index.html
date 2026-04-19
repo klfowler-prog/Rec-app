@@ -1220,7 +1220,7 @@ async function loadBecauseYouLoved() {
             return `
                 <div>
                     <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold mb-2">Because you loved ${escapeHtml(lane.anchor_title)}</p>
-                    <div class="swim-lane flex gap-3 pb-2" style="scroll-snap-type: x mandatory; flex-wrap: nowrap;">
+                    <div class="swim-lane flex gap-3 overflow-x-auto pb-2 -mx-4 px-4" style="scroll-snap-type: x mandatory; flex-wrap: nowrap; -webkit-overflow-scrolling: touch;">
                         ${cards}
                     </div>
                 </div>`;
