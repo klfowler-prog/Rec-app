@@ -223,31 +223,33 @@
     {% if currently %}
     <div>
         <p class="text-[11px] text-coral uppercase tracking-[0.18em] font-bold mb-3">Currently into</p>
-        <div class="grid grid-cols-3 md:grid-cols-6 gap-3">
+        <div class="swim-lane flex gap-3 overflow-x-auto pb-2 -mx-4 px-4" style="scroll-snap-type: x mandatory; flex-wrap: nowrap;">
             {% for item in currently %}
-            <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm transition-base" data-entry-id="{{ item.id }}" id="progress-{{ item.id }}" data-rec-card>
-                <a href="{% if item.external_id %}/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}{% else %}/profile{% endif %}" class="block">
-                    <div class="poster-frame relative">
-                        {% if item.image_url %}
-                            <img src="{{ item.image_url }}" alt="" class="{% if item.media_type == 'podcast' %}poster-contain{% else %}poster-cover{% endif %}">
-                        {% else %}
-                            <div class="poster-fallback {% if item.media_type == 'tv' %}gradient-purple{% elif item.media_type == 'book' %}gradient-amber{% elif item.media_type == 'podcast' %}bg-green-500{% else %}gradient-blue{% endif %}">
-                                <span class="text-white text-3xl font-bold">{{ (item.title or '?')[0] }}</span>
-                            </div>
-                        {% endif %}
-                    </div>
-                </a>
-                <div class="p-2">
-                    <p class="text-[11px] font-semibold leading-tight line-clamp-2 mb-2">{{ item.title }}</p>
-                    <div class="flex flex-col gap-1 quick-add-area" id="progress-actions-{{ item.id }}">
-                        <button onclick="startFinishFlow({{ item.id }}, '{{ item.title|e }}', '{{ item.media_type }}')" class="w-full px-2 py-1 bg-sage/10 hover:bg-sage hover:text-white text-sage text-[10px] font-semibold rounded-md transition-base">
-                            Finished
-                        </button>
-                        <div class="flex gap-1">
-                            <button onclick="showNotNowConfirm({{ item.id }})" class="flex-1 px-1 py-0.5 text-[9px] text-txt-muted hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-base">Pause</button>
-                            <button onclick="homeQuickStatus({{ item.id }}, 'abandoned', this)" class="flex-1 px-1 py-0.5 text-[9px] text-txt-muted hover:bg-coral/10 hover:text-coral rounded transition-base">Drop</button>
+            <div class="flex-shrink-0 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm transition-base" style="width: 130px; scroll-snap-align: start;" data-entry-id="{{ item.id }}" id="progress-{{ item.id }}" data-rec-card>
+                <div class="relative">
+                    <a href="{% if item.external_id %}/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}{% else %}/profile{% endif %}" class="block">
+                        <div class="poster-frame relative">
+                            {% if item.image_url %}
+                                <img src="{{ item.image_url }}" alt="" class="{% if item.media_type == 'podcast' %}poster-contain{% else %}poster-cover{% endif %}">
+                            {% else %}
+                                <div class="poster-fallback {% if item.media_type == 'tv' %}gradient-purple{% elif item.media_type == 'book' %}gradient-amber{% elif item.media_type == 'podcast' %}bg-green-500{% else %}gradient-blue{% endif %}">
+                                    <span class="text-white text-3xl font-bold">{{ (item.title or '?')[0] }}</span>
+                                </div>
+                            {% endif %}
                         </div>
+                    </a>
+                    <!-- Floating action trigger -->
+                    <button class="poster-action-trigger" onclick="event.preventDefault();event.stopPropagation();toggleProgressMenu('pm-{{ item.id }}')">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 12h.01M12 12h.01M19 12h.01"/></svg>
+                    </button>
+                    <div class="poster-action-menu" id="pm-{{ item.id }}">
+                        <button onclick="startFinishFlow({{ item.id }}, '{{ item.title|e }}', '{{ item.media_type }}');closePosterMenus()">{{ {'movie':'Finished watching','tv':'Finished watching','book':'Finished reading','podcast':'Finished listening'}.get(item.media_type, 'Finished') }}</button>
+                        <button onclick="showNotNowConfirm({{ item.id }});closePosterMenus()">Pause</button>
+                        <button onclick="homeQuickStatus({{ item.id }}, 'abandoned', this);closePosterMenus()">Drop</button>
                     </div>
+                </div>
+                <div class="p-2">
+                    <p class="text-[11px] font-semibold leading-tight line-clamp-2">{{ item.title }}</p>
                     <div id="finish-flow-{{ item.id }}" class="hidden mt-1"></div>
                 </div>
             </div>
@@ -1168,6 +1170,13 @@ async function loadWeekdayPick() {
 }
 loadWeekdayPick();
 {% endif %}
+
+function toggleProgressMenu(id) {
+    const menu = document.getElementById(id);
+    const wasOpen = menu && menu.classList.contains('open');
+    if (typeof closePosterMenus === 'function') closePosterMenus();
+    if (menu && !wasOpen) menu.classList.add('open');
+}
 
 wireRatingSlots();
 loadRightNow();
