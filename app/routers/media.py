@@ -2518,6 +2518,7 @@ Example: "A sci-fi thriller about a man who wakes up with no memory on a deep-sp
 
 CRITICAL RULES:
 - The connection in the reason MUST be CONCRETE — shared theme, idea, emotional beat, or storytelling approach. Don't just match on surface stuff like setting or genre label — find a real connection.
+- NEVER make negative judgments about real people. Describe what makes the content appealing, not the character of creators/hosts/authors.
 - The no-surface-match rule applies to themes too. A shared word in the title is NOT a connection. A shared setting alone is NOT a connection. A shared genre label is NOT a connection. Example of what NOT to do: anchor is "The Florida Project" (a Sean Baker movie about poverty and childhood on the margins of Orlando); picking "Probate and Settle an Estate in Florida" (a legal how-to guide) is a surface match on the word "Florida" — it is NOT a valid theme pick. A valid match would be something like "Random Family" by Adrian Nicole LeBlanc, which shares the concrete themes of marginalized families and structural precarity.
 - DO NOT recommend any of these — the user has already consumed, queued, or dismissed them: {avoid_str}
 - Insights must reference actual items from their profile. Bad: "You like drama". Good: "Your top-rated book (The Road) and your top-rated TV show (The Last of Us) both center on post-apocalyptic parent-child journeys."
