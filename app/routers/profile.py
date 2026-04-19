@@ -422,6 +422,18 @@ Return ONLY valid JSON — a list of objects with "id" (the number after "id:") 
     return {"predicted": total_predicted}
 
 
+@router.get("/queue-titles")
+def queue_titles(user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """Lightweight list of queue item titles for badge overlays."""
+    titles = [
+        t for (t,) in
+        db.query(MediaEntry.title)
+        .filter(MediaEntry.user_id == user.id, MediaEntry.status == "want_to_consume")
+        .all()
+    ]
+    return titles
+
+
 @router.post("/dismiss", response_model=DismissedItemResponse)
 def dismiss_item(item: DismissedItemCreate, user: User = Depends(require_user), db: Session = Depends(get_db)):
     from app import cache

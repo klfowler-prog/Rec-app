@@ -199,6 +199,7 @@
                     logImpressions(`theme_${slug}`, items);
                 }
             }
+            if (typeof overlayQueueBadges === 'function') overlayQueueBadges(wrap);
         } catch {
             wrap.innerHTML = `<p class="text-sm text-txt-muted py-6 text-center">Couldn't load themed picks right now.</p>`;
         }

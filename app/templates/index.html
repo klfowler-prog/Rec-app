@@ -1218,6 +1218,7 @@ async function loadBecauseYouLoved() {
                 </div>`;
         }).join('');
         section.classList.remove('hidden');
+        if (typeof overlayQueueBadges === 'function') overlayQueueBadges(section);
     } catch {}
 }
 {% endif %}

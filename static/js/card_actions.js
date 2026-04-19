@@ -17,6 +17,53 @@ function ratingBgColor(r) {
     return 'bg-coral-light';
 }
 
+// Queue awareness — load once, overlay badges everywhere
+let _queueTitles = null;
+async function loadQueueTitles() {
+    if (_queueTitles !== null) return _queueTitles;
+    try {
+        const resp = await fetch('/api/profile/queue-titles');
+        if (resp.ok) {
+            const titles = await resp.json();
+            _queueTitles = new Set(titles.map(t => t.toLowerCase()));
+        } else {
+            _queueTitles = new Set();
+        }
+    } catch {
+        _queueTitles = new Set();
+    }
+    return _queueTitles;
+}
+
+function isInQueue(title) {
+    return _queueTitles && _queueTitles.has((title || '').toLowerCase());
+}
+
+// Call after any swim lane renders to overlay queue badges
+async function overlayQueueBadges(container) {
+    const queue = await loadQueueTitles();
+    if (!queue.size) return;
+    const cards = (container || document).querySelectorAll('[data-rec-card], .swim-lane a');
+    cards.forEach(card => {
+        // Find the title text in the card
+        const titleEl = card.querySelector('.font-semibold, .font-medium');
+        if (!titleEl) return;
+        const title = titleEl.textContent.trim();
+        if (!isInQueue(title)) return;
+        // Don't add duplicate badges
+        if (card.querySelector('.queue-badge')) return;
+        // Add badge to the poster frame
+        const poster = card.querySelector('.poster-frame');
+        if (poster) {
+            poster.style.position = 'relative';
+            const badge = document.createElement('div');
+            badge.className = 'queue-badge absolute bottom-1.5 left-1.5 px-1.5 py-0.5 bg-sage/90 rounded text-[8px] font-bold text-white shadow';
+            badge.textContent = 'In your queue';
+            poster.appendChild(badge);
+        }
+    });
+}
+
 function logRecOutcome(title, outcome, userRating) {
     fetch('/api/profile/rec-events/outcome', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
