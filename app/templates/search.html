@@ -1,6 +1,13 @@
 {% extends "base.html" %}
 {% block title %}Search{% endblock %}
 
+{% block head %}
+<style>
+    /* On search, the + button is always visible — users come here to add things */
+    .poster-action-trigger { opacity: 0.85 !important; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="space-y-6">
     <div>
@@ -59,8 +66,8 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/card_actions.js?v=4"></script>
-<script src="/static/js/search.js?v=4"></script>
+<script src="/static/js/card_actions.js?v=7"></script>
+<script src="/static/js/search.js?v=7"></script>
 <script>
 function setSearchType(type) {
     document.getElementById('type-filter').value = type;

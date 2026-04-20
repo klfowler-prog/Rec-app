@@ -1,6 +1,11 @@
 // Shared card actions: quick-add (consumed + rate), save-for-later, dismiss, inline rating dots.
 // Used by search results and home page recommendation cards.
 
+// GA4 event helper — safe no-op if gtag isn't loaded
+function trackEvent(name, params) {
+    if (typeof gtag === 'function') gtag('event', name, params || {});
+}
+
 // Unified rating color scale — sage (5) → gold (3) → coral (1)
 function ratingTextColor(r) {
     if (r >= 5) return 'text-sage';
@@ -95,6 +100,7 @@ async function quickAdd(btn, data) {
         }
 
         logRecOutcome(data.title, 'consumed');
+        trackEvent('item_added', { method: 'consumed', media_type: data.media_type, title: data.title });
         closePosterMenus();
         const card = btn.closest('[data-rec-card]');
         if (card && entryId) {
@@ -162,6 +168,7 @@ async function startConsuming(btn, data) {
         }
 
         logRecOutcome(data.title, 'started');
+        trackEvent('item_added', { method: 'started', media_type: data.media_type, title: data.title });
         const container = btn.parentElement;
         const verb = { movie: "watching", tv: "watching", book: "reading", podcast: "listening" }[data.media_type] || "it";
         container.innerHTML = `<span class="text-xs font-medium text-coral">✓ Started ${verb}</span>`;
@@ -199,6 +206,7 @@ async function rateItem(btn, entryId, rating) {
         btn.disabled = false;
         return;
     }
+    trackEvent('item_rated', { rating: rating });
     const container = btn.parentElement;
     const ratingColor = ratingTextColor(rating);
     container.innerHTML = `<span class="text-xs font-semibold ${ratingColor}">${rating}/5 ✓</span>`;
@@ -262,6 +270,7 @@ async function saveForLater(btn, data) {
         });
         if (resp.ok || resp.status === 409) {
             logRecOutcome(data.title, 'saved');
+            trackEvent('item_saved', { media_type: data.media_type, title: data.title });
             const card = btn.closest('[data-rec-card]');
             if (card) {
                 const poster = card.querySelector('.poster-frame');
@@ -472,7 +481,7 @@ function buildPosterAction(item) {
 
     return `
         <button class="poster-action-trigger" onclick="event.preventDefault();event.stopPropagation();togglePosterMenu('pam-${uid}')">
-            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
         </button>
         <div class="poster-action-menu" id="pam-${uid}">
             <button onclick="saveForLater(this.closest('[data-rec-card]').querySelector('.poster-action-trigger'), ${saveData});closePosterMenus()">Save</button>
@@ -497,6 +506,14 @@ function closePosterMenus() {
 document.addEventListener('click', (e) => {
     if (!e.target.closest('.poster-action-trigger') && !e.target.closest('.poster-action-menu')) {
         closePosterMenus();
+    }
+    // Track rec card clicks to detail pages
+    const link = e.target.closest('[data-rec-card] a[href*="/media/"]');
+    if (link) {
+        const card = link.closest('[data-rec-card]');
+        const title = card ? (card.querySelector('.font-semibold, .font-bold') || {}).textContent : '';
+        const surface = card ? (card.closest('.swim-lane') ? 'swim_lane' : card.closest('#best-bets') ? 'best_bet' : 'card') : 'unknown';
+        trackEvent('rec_clicked', { title: (title || '').trim().slice(0, 60), surface: surface });
     }
 });
 

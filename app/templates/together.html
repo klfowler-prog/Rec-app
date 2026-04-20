@@ -34,13 +34,10 @@
         </div>
     </div>
 
-    <!-- Partners -->
+    <!-- Partners — compact pill selector -->
     <div id="partners-section">
-        <div class="flex items-center justify-between mb-3">
-            <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold">Pick someone to compare with</p>
-        </div>
-        <div id="partners-list" class="flex flex-wrap gap-3">
-            <div class="text-sm text-txt-muted">Loading...</div>
+        <div id="partners-list" class="flex gap-2 flex-wrap">
+            <span class="text-sm text-txt-muted">Loading...</span>
         </div>
     </div>
 
@@ -95,7 +92,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/card_actions.js?v=4"></script>
+<script src="/static/js/card_actions.js?v=7"></script>
 <script>
 function escapeHtml(text) { const d = document.createElement('div'); d.textContent = text; return d.innerHTML; }
 
@@ -126,19 +123,18 @@ async function loadPartners() {
         if (partners.length) {
             list.innerHTML = partners.map(p => {
                 const avatar = p.picture
-                    ? `<img src="${p.picture}" alt="" class="w-12 h-12 rounded-full border-2 border-border-light dark:border-border-dark">`
-                    : `<div class="w-12 h-12 rounded-full bg-sage/20 flex items-center justify-center text-base font-bold text-sage border-2 border-border-light dark:border-border-dark">${escapeHtml(p.name[0])}</div>`;
-                const typeLabel = {partner: 'Partner', family: 'Family', friend: 'Friend'}[p.relationship_type] || '';
+                    ? `<img src="${p.picture}" alt="" class="w-7 h-7 rounded-full">`
+                    : `<span class="w-7 h-7 rounded-full bg-sage/20 flex items-center justify-center text-xs font-bold text-sage">${escapeHtml(p.name[0])}</span>`;
                 return `
-                    <button onclick="selectPartner(${p.id}, this)" class="partner-btn flex items-center gap-3 px-4 py-3 rounded-xl border border-border-light dark:border-border-dark hover:border-sage hover:shadow-md transition-base" data-partner-id="${p.id}">
-                        ${avatar}
-                        <div class="text-left">
-                            <p class="text-sm font-semibold">${escapeHtml(p.name.split(' ')[0])}</p>
-                            <p class="text-[10px] text-txt-muted">${typeLabel} · Tap to compare</p>
-                        </div>
-                        <svg class="w-4 h-4 text-txt-muted ml-auto flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    <button onclick="selectPartner(${p.id}, this)" class="partner-btn flex items-center gap-2 px-3 py-2 rounded-full border border-border-light dark:border-border-dark hover:border-sage transition-base text-sm font-medium" data-partner-id="${p.id}">
+                        ${avatar} ${escapeHtml(p.name.split(' ')[0])}
                     </button>`;
             }).join('');
+            // Auto-select the first partner
+            const firstBtn = list.querySelector('.partner-btn');
+            if (firstBtn) {
+                setTimeout(() => firstBtn.click(), 100);
+            }
         } else {
             list.innerHTML = '<p class="text-sm text-txt-muted">No one paired yet. Add someone below or invite a friend.</p>';
         }
@@ -170,6 +166,7 @@ async function quickPair(userId, relType) {
     try {
         const resp = await fetch(`/api/relationships/quick-pair/${userId}?relationship_type=${relType}`, { method: 'POST' });
         if (resp.ok) {
+            if (typeof trackEvent === 'function') trackEvent('together_paired', { method: 'quick_pair', relationship: relType });
             const el = document.getElementById(`unpaired-${userId}`);
             if (el) {
                 el.innerHTML = `<span class="text-xs text-sage">Added!</span>`;
@@ -245,41 +242,60 @@ async function selectPartner(partnerId, btn) {
                 </div>`;
         }
 
-        // (Hero pick merged into "Three picks for tonight" below)
-
-        // All picks as equals — hero + candidates merged into one set of 3
-        const allPicks = [];
-        if (data.watch_together) allPicks.push(data.watch_together);
-        if (data.candidates) allPicks.push(...data.candidates);
-        const topPicks = allPicks.slice(0, 3);
-
-        if (topPicks.length) {
+        // Watch together — data-driven picks (they loved / you loved / queue)
+        const watchData = data.watch_from_data || [];
+        if (watchData.length) {
             html += `
                 <div>
-                    <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold mb-3">Three picks for tonight</p>
-                    <div class="space-y-3">
-                        ${topPicks.map(c => togetherPickCard(c, myName, themName)).join('')}
+                    <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold mb-3">Watch together</p>
+                    <p class="text-xs text-txt-muted mb-3">From each other's favorites and queues</p>
+                    <div class="grid grid-cols-3 md:grid-cols-5 gap-3">
+                        ${watchData.map(c => togetherCard(c, myName, themName)).join('')}
                     </div>
                 </div>`;
         }
 
-        // Remaining picks
-        const morePicks = allPicks.slice(3);
-        if (morePicks.length) {
+        // AI fresh discoveries
+        const watchAI = data.watch_from_ai || [];
+        if (watchAI.length) {
             html += `
                 <div>
-                    <p class="text-[11px] text-txt-muted uppercase tracking-[0.18em] font-bold mb-3">More ideas</p>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        ${morePicks.map(c => candidateCard(c, myName, themName)).join('')}
+                    <p class="text-[11px] text-purple-500 uppercase tracking-[0.18em] font-bold mb-3">Fresh discoveries</p>
+                    <p class="text-xs text-txt-muted mb-3">Things neither of you has seen</p>
+                    <div class="grid grid-cols-3 md:grid-cols-5 gap-3">
+                        ${watchAI.map(c => togetherCard(c, myName, themName)).join('')}
                     </div>
                 </div>`;
         }
 
-        // Shared loved
+        // Read together
+        if (data.read_together && data.read_together.length) {
+            html += `
+                <div>
+                    <p class="text-[11px] text-amber-600 dark:text-amber-400 uppercase tracking-[0.18em] font-bold mb-3">Read together</p>
+                    <div class="grid grid-cols-3 md:grid-cols-5 gap-3">
+                        ${data.read_together.map(c => togetherCard(c, myName, themName)).join('')}
+                    </div>
+                </div>`;
+        }
+
+        // Listen together
+        if (data.listen_together && data.listen_together.length) {
+            html += `
+                <div>
+                    <p class="text-[11px] text-green-600 dark:text-green-400 uppercase tracking-[0.18em] font-bold mb-3">Listen together</p>
+                    <div class="grid grid-cols-3 md:grid-cols-5 gap-3">
+                        ${data.listen_together.map(c => togetherCard(c, myName, themName)).join('')}
+                    </div>
+                </div>`;
+        }
+
+        // Shared loved — rewatch together
         if (data.shared_loved && data.shared_loved.length) {
             html += `
                 <div>
-                    <p class="text-[11px] text-navy dark:text-txt-light uppercase tracking-[0.18em] font-bold mb-3">You both love</p>
+                    <p class="text-[11px] text-navy dark:text-txt-light uppercase tracking-[0.18em] font-bold mb-3">Rewatch together</p>
+                    <p class="text-xs text-txt-muted mb-3">You both loved these</p>
                     <div class="grid grid-cols-3 md:grid-cols-6 gap-3">
                         ${data.shared_loved.slice(0, 12).map(item => sharedCard(item, myName, themName)).join('')}
                     </div>
@@ -299,58 +315,36 @@ async function selectPartner(partnerId, btn) {
     }
 }
 
-function togetherPickCard(c, myName, themName) {
-    const badge = {movie:'bg-blue-50 text-blue-600',tv:'bg-purple-50 text-purple-600',book:'bg-amber-50 text-amber-600',podcast:'bg-green-50 text-green-600'}[c.media_type] || '';
-    const link = c.external_id ? `/media/${c.media_type}/${c.external_id}?source=${c.source}` : '#';
+function togetherCard(c, myName, themName) {
     const fit = c.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
-    const image = c.image_url
-        ? `<a href="${link}" class="flex-shrink-0 w-24 md:w-32"><div class="poster-frame rounded-xl shadow-md"><img src="${c.image_url}" alt="" class="${fit}"></div></a>`
-        : '';
-    const rc = r => typeof ratingTextColor === 'function' ? ratingTextColor(r) : 'text-sage';
-    const snoozeData = escapeHtml(JSON.stringify({title: c.title, media_type: c.media_type, external_id: c.external_id || '', source: c.source || ''}));
-    const dismissData = escapeHtml(JSON.stringify({title: c.title, media_type: c.media_type, external_id: c.external_id || '', source: c.source || ''}));
-    return `
-        <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark p-4 flex gap-4" data-rec-card>
-            ${image}
-            <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-1.5 mb-1">
-                    <span class="px-1.5 py-0.5 ${badge} text-[9px] font-semibold rounded capitalize">${c.media_type}</span>
-                    ${c.year ? `<span class="text-[10px] text-txt-muted">${c.year}</span>` : ''}
-                </div>
-                <a href="${link}" class="text-sm font-bold block hover:text-sage transition-base">${escapeHtml(c.title)}</a>
-                <div class="flex gap-3 mt-1 text-[10px]">
-                    <span class="text-txt-muted">${escapeHtml(myName.split(' ')[0])}: <strong class="${rc(c.predicted_rating_me)}">${c.predicted_rating_me || '—'}/5</strong></span>
-                    <span class="text-txt-muted">${escapeHtml(themName.split(' ')[0])}: <strong class="${rc(c.predicted_rating_them)}">${c.predicted_rating_them || '—'}/5</strong></span>
-                </div>
-                ${c.reason ? `<p class="text-xs text-txt-muted leading-snug mt-1.5">${escapeHtml(c.reason)}</p>` : ''}
-                <div class="flex gap-2 mt-3">
-                    ${typeof buildActionBar === 'function' ? `<div class="quick-add-area flex-1">${buildActionBar(c, 'sm')}</div>` : ''}
-                    <button onclick="snoozeItem(this, ${snoozeData})" class="px-2 py-1 text-[10px] text-txt-muted hover:text-gold border border-border-light dark:border-border-dark rounded transition-base" title="Hide for 7 days">Maybe later</button>
-                </div>
-            </div>
-        </div>`;
-}
-
-function candidateCard(c, myName, themName) {
     const badge = {movie:'bg-blue-50 text-blue-600',tv:'bg-purple-50 text-purple-600',book:'bg-amber-50 text-amber-600',podcast:'bg-green-50 text-green-600'}[c.media_type] || '';
     const link = c.external_id ? `/media/${c.media_type}/${c.external_id}?source=${c.source}` : '#';
-    const image = c.image_url
-        ? `<img src="${c.image_url}" alt="" class="w-16 h-24 object-cover rounded flex-shrink-0">`
-        : `<div class="w-16 h-24 bg-sage/10 rounded flex items-center justify-center flex-shrink-0"><span class="text-sage text-xl">${escapeHtml((c.title||'?')[0])}</span></div>`;
+    const posterAction = typeof buildPosterAction === 'function' ? buildPosterAction(c) : '';
+    const imageInner = c.image_url
+        ? `<img src="${c.image_url}" alt="" class="${fit}">`
+        : `<div class="poster-fallback bg-sage/10"><span class="text-sage text-2xl">${escapeHtml((c.title||'?')[0])}</span></div>`;
     const rc = r => !r ? 'text-txt-muted' : typeof ratingTextColor === 'function' ? ratingTextColor(r) : 'text-sage';
+    const prMe = c.predicted_rating_me || c.their_rating;
+    const prThem = c.predicted_rating_them || c.their_rating;
+    const wtData = escapeHtml(JSON.stringify({partner_id: selectedPartnerId, title: c.title, media_type: c.media_type, external_id: c.external_id || '', source: c.source || '', image_url: c.image_url || ''}));
     return `
-        <div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl p-3 flex gap-3" data-rec-card>
-            <a href="${link}" class="flex-shrink-0">${image}</a>
-            <div class="flex-1 min-w-0">
-                <span class="px-1.5 py-0.5 ${badge} text-[9px] font-semibold rounded capitalize">${c.media_type}</span>
-                <a href="${link}" class="text-[11px] font-semibold block truncate hover:text-sage transition-base mt-0.5">${escapeHtml(c.title)}</a>
-                <div class="flex gap-3 text-[10px] mt-1">
-                    <span class="${rc(c.predicted_rating_me)}">${escapeHtml(myName.split(' ')[0])}: ${c.predicted_rating_me || '—'}</span>
-                    <span class="${rc(c.predicted_rating_them)}">${escapeHtml(themName.split(' ')[0])}: ${c.predicted_rating_them || '—'}</span>
-                </div>
-                ${c.reason ? `<p class="text-[10px] text-txt-muted leading-snug mt-1 line-clamp-2">${escapeHtml(c.reason)}</p>` : ''}
-                ${typeof buildActionBar === 'function' ? `<div class="quick-add-area mt-2">${buildActionBar(c, 'sm')}</div>` : ''}
+        <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm card-hover transition-base" data-rec-card>
+            <div class="poster-frame relative">
+                <a href="${link}" class="block">${imageInner}</a>
             </div>
+            <div class="p-2">
+                <div class="flex items-center gap-1 mb-0.5">
+                    <span class="px-1.5 py-0.5 ${badge} text-[9px] font-semibold rounded capitalize">${c.media_type}</span>
+                </div>
+                <a href="${link}" class="text-[11px] font-semibold leading-tight line-clamp-2 hover:text-sage transition-base block">${escapeHtml(c.title)}</a>
+                <div class="flex justify-between text-[9px] mt-0.5">
+                    <span class="${rc(prMe)}">${escapeHtml(myName.split(' ')[0])}: ${prMe || '—'}</span>
+                    <span class="${rc(prThem)}">${escapeHtml(themName.split(' ')[0])}: ${prThem || '—'}</span>
+                </div>
+                ${c.label ? `<p class="text-[8px] text-sage mt-0.5 truncate">${escapeHtml(c.label)}</p>` : ''}
+                <button onclick="addToWatchTogether(this, '${wtData}')" class="mt-1 w-full px-2 py-1 bg-sage/10 text-sage text-[9px] font-medium rounded hover:bg-sage hover:text-white transition-base">Watch together</button>
+            </div>
+            ${posterAction}
         </div>`;
 }
 
@@ -408,8 +402,35 @@ async function loadPending() {
     } catch {}
 }
 
+async function addToWatchTogether(btn, data) {
+    btn.disabled = true;
+    try {
+        // data may be an HTML-escaped JSON string from the onclick attribute
+        let payload = data;
+        if (typeof data === 'string') {
+            const d = document.createElement('div');
+            d.innerHTML = data;
+            payload = JSON.parse(d.textContent);
+        }
+        const resp = await fetch('/api/relationships/watch-together', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload),
+        });
+        if (resp.ok) {
+            btn.innerHTML = 'Added!';
+            btn.classList.remove('bg-sage/10', 'text-sage');
+            btn.classList.add('bg-sage/50', 'text-white');
+            if (typeof trackEvent === 'function') trackEvent('watch_together', { title: payload.title });
+        }
+    } catch {
+        btn.disabled = false;
+    }
+}
+
 async function acceptInvite(code) {
     await fetch(`/api/relationships/accept/${code}`, { method: 'POST' });
+    if (typeof trackEvent === 'function') trackEvent('together_paired', { method: 'invite_accept' });
     location.reload();
 }
 

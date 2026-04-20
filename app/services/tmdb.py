@@ -73,7 +73,7 @@ async def get_details(media_type: str, tmdb_id: str) -> MediaResult | None:
         resp = await client.get(
             f"{BASE_URL}/{media_type}/{tmdb_id}",
             headers=_headers(),
-            params={"append_to_response": "credits"},
+            params={"append_to_response": "credits,watch/providers"},
         )
         if resp.status_code == 404:
             return None
@@ -95,7 +95,19 @@ async def get_details(media_type: str, tmdb_id: str) -> MediaResult | None:
         created_by = item.get("created_by", [])
         creator = ", ".join(c["name"] for c in created_by[:2]) if created_by else None
 
-    watch_providers = await get_watch_providers(media_type, tmdb_id)
+    # Extract watch providers from appended response (avoids a second API call)
+    watch_providers = _parse_watch_providers(item.get("watch/providers", {}))
+
+    # Runtime: movies have `runtime`, TV has `episode_run_time` (list)
+    if media_type == "movie":
+        runtime = item.get("runtime")
+    else:
+        ert = item.get("episode_run_time") or []
+        runtime = round(sum(ert) / len(ert)) if ert else None
+
+    # Primary network for TV shows
+    networks = item.get("networks") or []
+    network = networks[0]["name"] if networks else None
 
     return MediaResult(
         external_id=str(item["id"]),
@@ -109,6 +121,14 @@ async def get_details(media_type: str, tmdb_id: str) -> MediaResult | None:
         description=item.get("overview"),
         external_url=f"https://www.themoviedb.org/{media_type}/{item['id']}",
         watch_providers=watch_providers,
+        audience_score=item.get("vote_average"),
+        audience_count=item.get("vote_count"),
+        popularity=item.get("popularity"),
+        runtime=runtime,
+        status=item.get("status"),
+        seasons=item.get("number_of_seasons"),
+        episodes=item.get("number_of_episodes"),
+        network=network,
     )
 
 
@@ -141,6 +161,41 @@ TIER3_PROVIDERS = {
     7: "Vudu",
     192: "YouTube",
 }
+
+
+def _parse_watch_providers(wp_data: dict, region: str = "US") -> list[dict]:
+    """Parse watch/providers from an appended TMDB detail response."""
+    region_data = wp_data.get("results", {}).get(region, {})
+    providers = []
+    seen: set[int] = set()
+
+    for provider_type in ["flatrate", "rent", "buy"]:
+        for p in region_data.get(provider_type, []):
+            pid = p["provider_id"]
+            if pid in seen:
+                continue
+            seen.add(pid)
+            logo = f"{LOGO_BASE}{p['logo_path']}" if p.get("logo_path") else None
+
+            if provider_type == "flatrate" and pid in TIER1_PROVIDERS:
+                tier = "major"
+            elif provider_type == "flatrate":
+                tier = "other"
+            else:
+                tier = "rental"
+
+            providers.append(
+                {
+                    "provider_id": pid,
+                    "name": p["provider_name"],
+                    "logo_url": logo,
+                    "type": provider_type,
+                    "tier": tier,
+                }
+            )
+    tier_order = {"major": 0, "other": 1, "rental": 2}
+    providers.sort(key=lambda p: tier_order.get(p["tier"], 9))
+    return providers
 
 
 async def get_watch_providers(media_type: str, tmdb_id: str, region: str = "US") -> list[dict]:

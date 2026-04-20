@@ -116,6 +116,11 @@ async def auth_callback(request: Request, code: str = "", state: str = "", db: S
     user.last_login = datetime.utcnow()
     db.commit()
 
+    # Refresh "Because you loved" lanes on each login so returning
+    # users see fresh content rather than stale week-old picks.
+    from app import cache
+    cache.invalidate(f"because_loved:{user.id}")
+
     # Set session
     request.session["user_id"] = user.id
     request.session["user_name"] = user.name
@@ -128,9 +133,9 @@ async def auth_callback(request: Request, code: str = "", state: str = "", db: S
 
     # Brand new users go straight to onboarding — no chance to skip
     if is_brand_new:
-        return RedirectResponse("/onboarding")
+        return RedirectResponse("/onboarding?event=signup")
 
-    return RedirectResponse("/")
+    return RedirectResponse("/?event=login")
 
 
 @router.get("/logout")

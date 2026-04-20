@@ -151,7 +151,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/card_actions.js?v=4"></script>
+<script src="/static/js/card_actions.js?v=7"></script>
 <script>
 const MEDIA_TYPE = "{{ media_type }}";
 const TYPE_LABEL = "{{ type_label }}";
@@ -165,24 +165,27 @@ function escapeHtml(text) {
 function newReleaseCard(item) {
     const fit = MEDIA_TYPE === 'podcast' ? 'poster-contain' : 'poster-cover';
     const link = item.external_id ? `/media/${item.media_type || MEDIA_TYPE}/${item.external_id}?source=${item.source}` : '#';
-    const image = item.image_url
-        ? `<div class="poster-frame"><img src="${item.image_url}" alt="" class="${fit}" loading="lazy"></div>`
-        : `<div class="poster-frame"><div class="poster-fallback bg-sage/10"><span class="text-sage text-xl">${escapeHtml((item.title || '?')[0])}</span></div></div>`;
+    const imageInner = item.image_url
+        ? `<img src="${item.image_url}" alt="" class="${fit}" loading="lazy">`
+        : `<div class="poster-fallback bg-sage/10"><span class="text-sage text-xl">${escapeHtml((item.title || '?')[0])}</span></div>`;
     const pr = item.predicted_rating;
     const prBadge = pr ? `<div class="absolute top-2 right-2 px-1.5 py-0.5 ${pr >= 4 ? 'bg-sage' : pr >= 3 ? 'bg-gold' : pr >= 2 ? 'bg-coral-light' : 'bg-coral'} rounded-full"><span class="text-[10px] font-bold text-white">${pr}</span></div>` : '';
 
     const cardItem = {...item, media_type: item.media_type || MEDIA_TYPE};
-
+    const posterAction = typeof buildPosterAction === 'function' ? buildPosterAction(cardItem) : '';
     return `
         <div class="swim-lane-item flex-shrink-0 w-40" data-rec-card>
             <div class="rounded-lg overflow-hidden shadow-sm border border-border-light dark:border-border-dark">
-                <a href="${link}" class="relative block">${image}${prBadge}</a>
+                <div class="poster-frame relative">
+                    <a href="${link}" class="block">${imageInner}</a>
+                    ${prBadge}
+                </div>
                 <div class="bg-surface-light dark:bg-surface-dark p-2.5">
                     <p class="text-xs font-medium truncate">${escapeHtml(item.title)}</p>
                     ${item.year ? `<p class="text-[10px] text-txt-muted">${item.year}</p>` : ''}
                     <div class="provider-slot" data-mt="${item.media_type || MEDIA_TYPE}" data-eid="${item.external_id || ''}" data-src="${item.source || ''}"></div>
-                    <div class="mt-1.5 quick-add-area">${typeof buildActionBar === 'function' ? buildActionBar(cardItem, 'sm') : ''}</div>
                 </div>
+                ${posterAction}
             </div>
         </div>
     `;
@@ -326,21 +329,24 @@ async function loadBestBet() {
         const pick = data.pick;
         const anchor = data.anchor;
         const fit = pick.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
-        const image = pick.image_url
-            ? `<div class="poster-frame"><img src="${pick.image_url}" alt="" class="${fit}" loading="lazy"></div>`
-            : `<div class="poster-frame"><div class="poster-fallback bg-sage/10"><span class="text-sage text-3xl">${escapeHtml((pick.title || '?')[0])}</span></div></div>`;
+        const imageInner = pick.image_url
+            ? `<img src="${pick.image_url}" alt="" class="${fit}" loading="lazy">`
+            : `<div class="poster-fallback bg-sage/10"><span class="text-sage text-3xl">${escapeHtml((pick.title || '?')[0])}</span></div>`;
         const link = pick.external_id ? `/media/${pick.media_type}/${pick.external_id}?source=${pick.source}` : '#';
+        const bbPosterAction = typeof buildPosterAction === 'function' ? buildPosterAction(pick) : '';
 
         card.innerHTML = `
-            <div class="flex flex-col sm:flex-row gap-5 p-5 md:p-6">
-                <a href="${link}" class="block w-32 md:w-40 flex-shrink-0 self-center sm:self-start">${image}</a>
+            <div class="flex flex-col sm:flex-row gap-5 p-5 md:p-6" data-rec-card>
+                <div class="poster-frame relative w-32 md:w-40 flex-shrink-0 self-center sm:self-start">
+                    <a href="${link}" class="block">${imageInner}</a>
+                </div>
                 <div class="flex-1 min-w-0">
                     <p class="text-[10px] text-txt-muted uppercase tracking-widest font-semibold mb-1">Because you loved <span class="text-txt font-bold">${escapeHtml(anchor.title)}</span></p>
                     <h4 class="text-xl md:text-2xl font-bold leading-tight mb-1">${escapeHtml(pick.title)}</h4>
                     ${pick.year || pick.creator ? `<p class="text-xs text-txt-muted mb-3">${[pick.year, pick.creator].filter(Boolean).join(' · ')}</p>` : ''}
                     <p class="text-sm text-txt leading-relaxed mb-4">${escapeHtml(pick.reason || '')}</p>
-                    <div class="quick-add-area">${typeof buildActionBar === 'function' ? buildActionBar(pick, 'md') : ''}</div>
                 </div>
+                ${bbPosterAction}
             </div>
         `;
         section.classList.remove('hidden');

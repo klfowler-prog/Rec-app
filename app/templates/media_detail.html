@@ -32,6 +32,9 @@
 
             <div id="detail-genres" class="flex gap-2 flex-wrap"></div>
 
+            <!-- Compact metadata row: runtime, audience score, status, seasons -->
+            <div id="detail-meta-row" class="hidden flex items-center gap-3 flex-wrap text-xs text-txt-muted"></div>
+
             <!-- Taste fit — predicted rating + reason, loaded async -->
             <div id="taste-fit-section" class="hidden">
                 <div id="taste-fit-card" class="bg-sage/5 border border-sage/20 rounded-lg px-4 py-3"></div>
@@ -56,20 +59,32 @@
                 </button>
             </div>
 
-            <!-- Watch providers -->
+            <!-- Watch providers — scoped to user's services -->
             <div id="watch-providers-section" class="hidden">
-                <h3 class="text-sm font-medium mb-2 text-txt-muted">Where to watch</h3>
-                <div id="watch-providers" class="flex gap-3 flex-wrap"></div>
+                <div id="watch-on-mine" class="hidden">
+                    <h3 class="text-sm font-medium mb-2 text-sage">Watch on your services</h3>
+                    <div id="watch-mine-providers" class="flex gap-2 flex-wrap"></div>
+                </div>
+                <div id="watch-on-other" class="hidden mt-3">
+                    <h3 class="text-xs font-medium mb-1.5 text-txt-muted">Also available on</h3>
+                    <div id="watch-other-providers" class="flex gap-2 flex-wrap"></div>
+                </div>
+                <div id="watch-no-services" class="hidden">
+                    <p class="text-xs text-txt-muted">
+                        <a href="/settings/preferences" class="text-sage hover:underline">Set your streaming services</a> to see where you can watch this.
+                    </p>
+                </div>
             </div>
 
-            <!-- Send to partner -->
-            <div id="send-to-section" class="hidden">
-                <div class="flex items-center gap-2 flex-wrap" id="send-to-buttons"></div>
+            <!-- Partner fit — "Josh would enjoy this too" -->
+            <div id="partner-fit-section" class="hidden">
+                <h3 class="text-sm font-medium mb-2 text-txt-muted">Friends who'd enjoy this</h3>
+                <div id="partner-fit-cards" class="space-y-2"></div>
             </div>
 
             <!-- Actions -->
             <div class="pt-2 flex flex-col gap-3">
-                <div id="detail-action-bar" class="quick-add-area"></div>
+                <div id="detail-action-bar"></div>
                 <a id="detail-external-link" href="" target="_blank" class="hidden self-start px-4 py-2 border border-border-light dark:border-border-dark rounded-lg text-sm text-txt-muted hover:text-txt transition-base flex items-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                     View on source
@@ -127,7 +142,8 @@
     const MEDIA_TYPE = "{{ media_type }}";
     const EXTERNAL_ID = "{{ external_id }}";
     const SOURCE = new URLSearchParams(window.location.search).get('source') || '';
+    const USER_SERVICES = new Set({{ user_services | default([]) | tojson }});
 </script>
-<script src="/static/js/card_actions.js?v=4"></script>
-<script src="/static/js/media_detail.js?v=4"></script>
+<script src="/static/js/card_actions.js?v=8"></script>
+<script src="/static/js/media_detail.js?v=8"></script>
 {% endblock %}

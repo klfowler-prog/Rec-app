@@ -400,8 +400,10 @@ async function pickResponse(valueStr) {
     // Auto-advance to the next question
     setTimeout(() => {
         const offrampAt = QUIZ.offramp_after || 999;
-        if (currentIdx + 1 === offrampAt && currentIdx < FLAT_ITEMS.length - 1) {
-            // Show offramp
+        const minAnswered = QUIZ.min_answered || 5;
+        const realAnswered = Object.values(responses).filter(v => v !== null && v !== undefined).length;
+        if (currentIdx + 1 === offrampAt && currentIdx < FLAT_ITEMS.length - 1 && realAnswered >= minAnswered) {
+            // Show offramp only if user has rated enough items
             showOfframp();
         } else if (currentIdx < FLAT_ITEMS.length - 1) {
             currentIdx++;
@@ -544,8 +546,22 @@ async function finishQuiz() {
         document.getElementById('quiz-loading').classList.add('hidden');
 
         if (!data.has_enough_data) {
-            document.getElementById('answered-short').textContent = data.answered_count || 0;
-            document.getElementById('not-enough').classList.remove('hidden');
+            // Remove offramp if it's showing
+            const offramp = document.getElementById('offramp-card');
+            if (offramp) offramp.remove();
+            const minNeeded = QUIZ.min_answered || 5;
+            const answered = data.answered_count || 0;
+            document.getElementById('answered-short').textContent = answered;
+            // Update the message to be clearer about what's needed
+            const notEnough = document.getElementById('not-enough');
+            notEnough.classList.remove('hidden');
+            const noteEl = notEnough.querySelector('p');
+            if (noteEl) noteEl.textContent = `You've rated ${answered} so far — we need at least ${minNeeded} to build your profile. Keep going!`;
+            // Show the quiz card again so they can continue
+            document.getElementById('film-card').classList.remove('hidden');
+            document.getElementById('rating-buttons').classList.remove('hidden');
+            // Auto-hide the message after a moment
+            setTimeout(() => notEnough.classList.add('hidden'), 4000);
             return;
         }
 

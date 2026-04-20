@@ -325,20 +325,16 @@ function chatRecCard(item) {
     const badgeClass = typeBadgeColors[item.media_type] || typeBadgeColors.movie;
     const link = item.external_id ? `/media/${item.media_type}/${item.external_id}?source=${item.source}` : '#';
     const safeTitle = item.title || 'Untitled';
-    const image = item.image_url
-        ? `<img src="${item.image_url}" alt="" class="w-14 h-20 object-cover rounded flex-shrink-0">`
-        : `<div class="w-14 h-20 bg-sage/10 rounded flex-shrink-0 flex items-center justify-center"><span class="text-sage text-lg">${escapeHtml(safeTitle[0] || '?')}</span></div>`;
-
-    let actions;
-    if (typeof buildActionBar === 'function') {
-        actions = `<div class="quick-add-area mt-1.5">${buildActionBar(item, 'sm')}</div>`;
-    } else {
-        actions = '';
-    }
+    const imageInner = item.image_url
+        ? `<img src="${item.image_url}" alt="" class="w-14 h-20 object-cover rounded">`
+        : `<div class="w-14 h-20 bg-sage/10 rounded flex items-center justify-center"><span class="text-sage text-lg">${escapeHtml(safeTitle[0] || '?')}</span></div>`;
+    const actions = typeof buildPosterAction === 'function' ? buildPosterAction(item) : '';
 
     return `
         <div class="bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg p-2.5 flex gap-2.5" data-rec-card>
-            <a href="${link}" class="flex-shrink-0">${image}</a>
+            <div class="poster-frame relative flex-shrink-0">
+                <a href="${link}" class="block">${imageInner}</a>
+            </div>
             <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-1.5 mb-0.5">
                     <span class="px-1.5 py-0.5 ${badgeClass} text-[9px] font-semibold rounded capitalize">${item.media_type}</span>
@@ -347,8 +343,8 @@ function chatRecCard(item) {
                 <a href="${link}" class="text-xs font-semibold block truncate hover:text-sage transition-base">${escapeHtml(safeTitle)}</a>
                 <div class="provider-lazy"></div>
                 <p class="text-[10px] text-txt-muted line-clamp-2 leading-tight mt-0.5">${escapeHtml(item.reason || '')}</p>
-                ${actions}
             </div>
+            ${actions}
         </div>
     `;
 }

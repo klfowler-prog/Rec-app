@@ -149,29 +149,11 @@ async function loadDetail() {
             link.classList.remove('hidden');
         }
 
-        // Watch providers
-        if (currentMedia.watch_providers && currentMedia.watch_providers.length) {
-            const section = document.getElementById('watch-providers-section');
-            const container = document.getElementById('watch-providers');
-            section.classList.remove('hidden');
+        // Metadata row — runtime, audience score, status, seasons
+        renderMetaRow(currentMedia);
 
-            // Group by type for a clean layout
-            const typeLabels = { flatrate: 'Stream', rent: 'Rent', buy: 'Buy' };
-            const grouped = {};
-            for (const p of currentMedia.watch_providers) {
-                const label = typeLabels[p.type] || p.type;
-                if (!grouped[label]) grouped[label] = [];
-                grouped[label].push(p);
-            }
-            container.innerHTML = Object.entries(grouped).map(([label, providers]) => `
-                <div class="flex items-center gap-2">
-                    <span class="text-[10px] text-txt-muted font-medium">${label}</span>
-                    <div class="flex gap-1.5">
-                        ${providers.map(p => p.logo_url ? `<img src="${p.logo_url}" alt="${escapeHtml(p.name)}" title="${escapeHtml(p.name)}" class="provider-logo">` : `<span class="text-[10px] text-txt-muted">${escapeHtml(p.name)}</span>`).join('')}
-                    </div>
-                </div>
-            `).join('');
-        }
+        // Watch providers — scoped to user's services
+        renderWatchProviders(currentMedia);
 
         // Inject the shared action bar (save / verb / dismiss)
         const actionBar = document.getElementById('detail-action-bar');
@@ -199,9 +181,9 @@ async function loadDetail() {
             loadTasteFit();
         }
 
-        // Load cross-medium related items + send-to partners
+        // Load cross-medium related items + partner fit
         loadRelated();
-        loadSendTo();
+        loadPartnerFit();
     } catch (err) {
         detailLoading.innerHTML = `
             <div class="text-center space-y-3">
@@ -303,7 +285,7 @@ function relatedCard(item, fallbackType) {
             <div class="flex-1 min-w-0">
                 <p class="text-sm font-semibold truncate">${escapeHtml(safeTitle)}</p>
                 ${item.year ? `<p class="text-[10px] text-txt-muted mb-1">${item.year}</p>` : ''}
-                <p class="text-xs text-txt-muted leading-snug">${escapeHtml(item.reason || '')}</p>
+                <p class="text-xs text-txt-muted leading-snug line-clamp-4">${escapeHtml(item.description || '')}</p>
             </div>
         </a>
     `;
@@ -338,13 +320,21 @@ async function loadTasteFit() {
     const card = document.getElementById('taste-fit-card');
     if (!section || !card || !currentMedia) return;
     try {
-        const params = new URLSearchParams({ title: currentMedia.title, source: currentMedia.source || SOURCE });
-        if (currentMedia.description) params.set('description', currentMedia.description.slice(0, 500));
-        if (currentMedia.creator) params.set('creator', currentMedia.creator);
-        if (currentMedia.genres && currentMedia.genres.length) params.set('genres', currentMedia.genres.join(', '));
-        const resp = await fetch(`/api/media/taste-fit/${MEDIA_TYPE}/${EXTERNAL_ID}?${params}`);
-        if (!resp.ok) return;
-        const data = await resp.json();
+        // If the card that linked here already had a predicted rating, use it
+        // for consistency — don't generate a second, potentially different score.
+        const urlPr = new URLSearchParams(window.location.search).get('pr');
+        let data;
+        if (urlPr && !isNaN(parseFloat(urlPr))) {
+            data = { predicted_rating: parseFloat(urlPr), reason: null };
+        } else {
+            const params = new URLSearchParams({ title: currentMedia.title, source: currentMedia.source || SOURCE });
+            if (currentMedia.description) params.set('description', currentMedia.description.slice(0, 500));
+            if (currentMedia.creator) params.set('creator', currentMedia.creator);
+            if (currentMedia.genres && currentMedia.genres.length) params.set('genres', currentMedia.genres.join(', '));
+            const resp = await fetch(`/api/media/taste-fit/${MEDIA_TYPE}/${EXTERNAL_ID}?${params}`);
+            if (!resp.ok) return;
+            data = await resp.json();
+        }
         if (!data.predicted_rating && !data.reason) return;
 
         const pr = data.predicted_rating;
@@ -361,31 +351,163 @@ async function loadTasteFit() {
     } catch {}
 }
 
-async function loadSendTo() {
-    const section = document.getElementById('send-to-section');
-    const buttons = document.getElementById('send-to-buttons');
-    if (!section || !buttons || !currentMedia) { console.log('sendTo: missing elements'); return; }
-    try {
-        const resp = await fetch('/api/relationships/partners');
-        if (!resp.ok) { console.log('sendTo: fetch failed', resp.status); return; }
-        const partners = await resp.json();
-        console.log('sendTo: got', partners.length, 'partners');
-        if (!partners.length) return;
+// Metadata row — compact line of runtime, audience score, status, seasons
+function renderMetaRow(media) {
+    const row = document.getElementById('detail-meta-row');
+    if (!row) return;
+    const parts = [];
+    if (media.runtime) {
+        const h = Math.floor(media.runtime / 60);
+        const m = media.runtime % 60;
+        parts.push(h > 0 ? `${h}h ${m}m` : `${m}m`);
+    }
+    if (media.audience_score) {
+        const pct = Math.round(media.audience_score * 10);
+        const color = pct >= 70 ? 'text-sage' : pct >= 50 ? 'text-gold' : 'text-coral';
+        const countStr = media.audience_count ? ` (${media.audience_count.toLocaleString()})` : '';
+        parts.push(`<span class="${color} font-semibold">${pct}%</span> audience${countStr}`);
+    }
+    if (media.network) parts.push(escapeHtml(media.network));
+    if (media.status && media.media_type === 'tv') {
+        const statusLabel = media.status === 'Returning Series' ? 'Returning' : media.status;
+        parts.push(statusLabel);
+    }
+    if (media.seasons && media.media_type === 'tv') {
+        parts.push(`${media.seasons} season${media.seasons > 1 ? 's' : ''}`);
+    }
+    if (parts.length) {
+        row.innerHTML = parts.join('<span class="text-border-light dark:text-border-dark">·</span>');
+        row.classList.remove('hidden');
+    }
+}
 
-        buttons.innerHTML = `<span class="text-[10px] text-txt-muted">Send to:</span>` +
-            partners.map(p => {
-                const avatar = p.picture
-                    ? `<img src="${p.picture}" alt="" class="w-5 h-5 rounded-full">`
-                    : `<span class="w-5 h-5 rounded-full bg-sage/20 inline-flex items-center justify-center text-[9px] font-bold text-sage">${(p.name||'?')[0]}</span>`;
-                return `<button onclick="sendToPartner(${p.id}, '${escapeHtml(p.name.split(' ')[0])}')" class="send-to-btn flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border-light dark:border-border-dark text-xs hover:border-sage hover:text-sage transition-base">
-                    ${avatar} ${escapeHtml(p.name.split(' ')[0])}
-                </button>`;
-            }).join('');
+// Watch providers — scoped to user's services
+function renderWatchProviders(media) {
+    const section = document.getElementById('watch-providers-section');
+    if (!section || !media.watch_providers || !media.watch_providers.length) {
+        // No providers at all — check if we should prompt to set services
+        if (section && typeof USER_SERVICES !== 'undefined' && USER_SERVICES.size === 0 && ['movie', 'tv'].includes(media.media_type)) {
+            document.getElementById('watch-no-services').classList.remove('hidden');
+            section.classList.remove('hidden');
+        }
+        return;
+    }
+    section.classList.remove('hidden');
+
+    const hasUserServices = typeof USER_SERVICES !== 'undefined' && USER_SERVICES.size > 0;
+    const mine = [];
+    const other = [];
+
+    for (const p of media.watch_providers) {
+        if (hasUserServices && p.type === 'flatrate' && USER_SERVICES.has(p.provider_id)) {
+            mine.push(p);
+        } else {
+            other.push(p);
+        }
+    }
+
+    function renderProviderPill(p) {
+        return p.logo_url
+            ? `<div class="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark">
+                <img src="${p.logo_url}" alt="" class="w-5 h-5 rounded">
+                <span class="text-xs font-medium">${escapeHtml(p.name)}</span>
+               </div>`
+            : `<span class="px-2 py-1 rounded-lg bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark text-xs">${escapeHtml(p.name)}</span>`;
+    }
+
+    if (mine.length) {
+        const mineEl = document.getElementById('watch-on-mine');
+        document.getElementById('watch-mine-providers').innerHTML = mine.map(renderProviderPill).join('');
+        mineEl.classList.remove('hidden');
+    }
+
+    if (other.length) {
+        const otherEl = document.getElementById('watch-on-other');
+        const typeLabels = { flatrate: 'Stream', rent: 'Rent', buy: 'Buy' };
+        // Group others by type
+        const grouped = {};
+        for (const p of other) {
+            const label = typeLabels[p.type] || p.type;
+            if (!grouped[label]) grouped[label] = [];
+            grouped[label].push(p);
+        }
+        document.getElementById('watch-other-providers').innerHTML = Object.entries(grouped).map(([label, providers]) => `
+            <div class="flex items-center gap-1.5">
+                <span class="text-[10px] text-txt-muted">${label}:</span>
+                ${providers.map(p => p.logo_url ? `<img src="${p.logo_url}" alt="${escapeHtml(p.name)}" title="${escapeHtml(p.name)}" class="w-5 h-5 rounded">` : `<span class="text-[10px]">${escapeHtml(p.name)}</span>`).join('')}
+            </div>
+        `).join('');
+        otherEl.classList.remove('hidden');
+    }
+
+    if (!hasUserServices && ['movie', 'tv'].includes(media.media_type)) {
+        document.getElementById('watch-no-services').classList.remove('hidden');
+    }
+}
+
+// Partner fit — "Josh would enjoy this too"
+async function loadPartnerFit() {
+    const section = document.getElementById('partner-fit-section');
+    const container = document.getElementById('partner-fit-cards');
+    if (!section || !container || !currentMedia) return;
+    try {
+        const genres = currentMedia.genres ? currentMedia.genres.join(', ') : '';
+        const params = new URLSearchParams({ title: currentMedia.title, genres });
+        const resp = await fetch(`/api/relationships/partner-fit/${MEDIA_TYPE}/${EXTERNAL_ID}?${params}`);
+        if (!resp.ok) return;
+        const fits = await resp.json();
+        if (!fits.length) return;
+
+        container.innerHTML = fits.map(p => {
+            const avatar = p.picture
+                ? `<img src="${p.picture}" alt="" class="w-8 h-8 rounded-full">`
+                : `<span class="w-8 h-8 rounded-full bg-sage/20 flex items-center justify-center text-xs font-bold text-sage">${(p.name||'?')[0]}</span>`;
+            const pr = p.predicted_rating;
+            const prColor = pr >= 4 ? 'text-sage' : pr >= 3 ? 'text-gold' : 'text-coral';
+            const firstName = escapeHtml(p.name.split(' ')[0]);
+            return `
+                <div class="flex items-center gap-3 p-3 bg-surface-light dark:bg-surface-dark rounded-lg border border-border-light dark:border-border-dark">
+                    ${avatar}
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium">${firstName} would enjoy this</p>
+                        <p class="text-xs ${prColor}">${pr.toFixed(1)}/5 predicted</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="watchTogether(${p.id}, '${firstName}')" class="px-3 py-1.5 bg-sage text-white text-xs font-medium rounded-lg hover:bg-sage-dark transition-base">Watch together</button>
+                        <button onclick="recommendTo(${p.id}, '${firstName}')" class="px-3 py-1.5 border border-border-light dark:border-border-dark text-xs font-medium rounded-lg hover:border-sage hover:text-sage transition-base">Recommend</button>
+                    </div>
+                </div>`;
+        }).join('');
         section.classList.remove('hidden');
     } catch {}
 }
 
-async function sendToPartner(partnerId, partnerName) {
+async function watchTogether(partnerId, partnerName) {
+    if (!currentMedia) return;
+    try {
+        const resp = await fetch('/api/relationships/watch-together', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                partner_id: partnerId,
+                title: currentMedia.title,
+                media_type: currentMedia.media_type,
+                external_id: currentMedia.external_id || EXTERNAL_ID,
+                source: currentMedia.source || SOURCE,
+                image_url: currentMedia.image_url || '',
+            }),
+        });
+        if (resp.ok) {
+            const btn = event.target;
+            btn.innerHTML = `Added!`;
+            btn.disabled = true;
+            btn.classList.add('bg-sage/50');
+            if (typeof trackEvent === 'function') trackEvent('watch_together', { partner: partnerName });
+        }
+    } catch {}
+}
+
+async function recommendTo(partnerId, partnerName) {
     if (!currentMedia) return;
     try {
         const resp = await fetch('/api/relationships/recommend', {
@@ -401,12 +523,9 @@ async function sendToPartner(partnerId, partnerName) {
             }),
         });
         if (resp.ok) {
-            document.querySelectorAll('.send-to-btn').forEach(b => {
-                if (b.textContent.trim().includes(partnerName)) {
-                    b.innerHTML = `<span class="text-sage text-xs">Sent to ${partnerName}!</span>`;
-                    b.disabled = true;
-                }
-            });
+            const btn = event.target;
+            btn.innerHTML = `Sent!`;
+            btn.disabled = true;
         }
     } catch {}
 }

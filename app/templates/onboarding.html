@@ -340,7 +340,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/card_actions.js?v=4"></script>
+<script src="/static/js/card_actions.js?v=7"></script>
 <script>
 const favorites = [null, null, null, null];
 const miniQuizRatings = {};
@@ -809,6 +809,7 @@ async function finishOnboarding() {
             }),
         });
     } catch {}
+    if (typeof gtag === 'function') gtag('event', 'quiz_completed', { quiz_count: quizRatings.size });
     goToStep(5);
 }
 

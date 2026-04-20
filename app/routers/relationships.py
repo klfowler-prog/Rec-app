@@ -519,3 +519,152 @@ def social_proof(
         label = f"{count} friends rated this {avg}/5 avg"
 
     return {"count": count, "avg": avg, "label": label}
+
+
+@router.get("/partner-fit/{media_type}/{external_id}")
+def partner_fit(
+    media_type: str,
+    external_id: str,
+    title: str = Query(""),
+    genres: str = Query(""),
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Predict how well a specific media item would fit each of the
+    user's partners, using a simple genre-based heuristic (no AI)."""
+    # 1. Get all accepted partners (same query as list_partners)
+    rels = db.query(UserRelationship).filter(
+        ((UserRelationship.sender_id == user.id) | (UserRelationship.receiver_id == user.id)),
+        UserRelationship.status == "accepted",
+    ).all()
+
+    partner_ids = []
+    partner_meta: dict[int, dict] = {}
+    for rel in rels:
+        pid = rel.receiver_id if rel.sender_id == user.id else rel.sender_id
+        partner = db.query(User).filter(User.id == pid).first()
+        if partner:
+            partner_ids.append(pid)
+            partner_meta[pid] = {
+                "id": partner.id,
+                "name": partner.name,
+                "picture": partner.picture,
+                "relationship_type": rel.relationship_type,
+            }
+
+    if not partner_ids:
+        return []
+
+    # Parse incoming genres
+    item_genres = {g.strip().lower() for g in genres.split(",") if g.strip()} if genres else set()
+
+    results = []
+    for pid in partner_ids:
+        # Get partner's rated items in this media_type
+        rated = db.query(MediaEntry).filter(
+            MediaEntry.user_id == pid,
+            MediaEntry.media_type == media_type,
+            MediaEntry.rating.isnot(None),
+        ).all()
+
+        if len(rated) < 3:
+            continue
+
+        # Overall average
+        overall_avg = sum(e.rating for e in rated) / len(rated)
+
+        if not item_genres:
+            # No genres provided — use overall avg with penalty
+            predicted = overall_avg - 0.3
+        else:
+            # Find genre-matching items
+            genre_ratings = []
+            for entry in rated:
+                if entry.genres:
+                    entry_genres = {g.strip().lower() for g in entry.genres.split(",")}
+                    if entry_genres & item_genres:
+                        genre_ratings.append(entry.rating)
+
+            genre_count = len(genre_ratings)
+            if genre_count >= 3:
+                # Enough genre-matching ratings — use genre avg directly
+                predicted = sum(genre_ratings) / genre_count
+            elif genre_count > 0:
+                # Blend genre avg with overall avg
+                genre_avg = sum(genre_ratings) / genre_count
+                predicted = (genre_avg * genre_count + overall_avg * 2) / (genre_count + 2)
+            else:
+                # No genre matches — use overall avg with penalty
+                predicted = overall_avg - 0.3
+
+        predicted = round(predicted, 1)
+        if predicted >= 3.0:
+            results.append({
+                **partner_meta[pid],
+                "predicted_rating": predicted,
+            })
+
+    # Sort by predicted rating descending, return top 3
+    results.sort(key=lambda r: r["predicted_rating"], reverse=True)
+    return results[:3]
+
+
+class WatchTogetherRequest(BaseModel):
+    partner_id: int
+    title: str
+    media_type: str
+    external_id: str = ""
+    source: str = ""
+    image_url: str = ""
+
+
+@router.post("/watch-together")
+def watch_together(
+    payload: WatchTogetherRequest,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Add a media item to both the user's and their partner's queue
+    as a 'watch together' item, tagged for easy filtering."""
+    # Verify accepted relationship exists
+    rel = db.query(UserRelationship).filter(
+        ((UserRelationship.sender_id == user.id) & (UserRelationship.receiver_id == payload.partner_id))
+        | ((UserRelationship.sender_id == payload.partner_id) & (UserRelationship.receiver_id == user.id)),
+        UserRelationship.status == "accepted",
+    ).first()
+    if not rel:
+        raise HTTPException(403, "You're not paired with this person")
+
+    created = []
+    for uid, partner_tag_id in [(user.id, payload.partner_id), (payload.partner_id, user.id)]:
+        # Check if entry already exists for this user
+        existing = db.query(MediaEntry).filter(
+            MediaEntry.user_id == uid,
+            MediaEntry.external_id == payload.external_id,
+            MediaEntry.source == payload.source,
+        ).first()
+
+        tag = f"watch-with:{partner_tag_id}"
+
+        if existing:
+            # Add the tag if not already present
+            current_tags = existing.tags or ""
+            if tag not in current_tags:
+                existing.tags = f"{current_tags},{tag}" if current_tags else tag
+            created.append("existing")
+        else:
+            entry = MediaEntry(
+                user_id=uid,
+                external_id=payload.external_id,
+                source=payload.source or "unknown",
+                title=payload.title,
+                media_type=payload.media_type,
+                image_url=payload.image_url or None,
+                status="want_to_consume",
+                tags=tag,
+            )
+            db.add(entry)
+            created.append("created")
+
+    db.commit()
+    return {"status": "ok", "entries": created}

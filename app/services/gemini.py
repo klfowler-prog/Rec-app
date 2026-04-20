@@ -31,7 +31,7 @@ async def generate(prompt: str, system_instruction: str = "", temperature: float
     if temperature is not None:
         body["generationConfig"] = {"temperature": temperature}
 
-    async with httpx.AsyncClient(timeout=60) as client:
+    async with httpx.AsyncClient(timeout=120) as client:
         resp = await client.post(
             url,
             params={"key": settings.gemini_api_key},

@@ -48,6 +48,7 @@ async function doSearch() {
     resultsGrid.innerHTML = '';
 
     const mediaType = typeFilter.value;
+    if (typeof trackEvent === 'function') trackEvent('search', { search_term: query, media_type: mediaType || 'all' });
     const params = new URLSearchParams({ q: query });
     if (mediaType) params.set('media_type', mediaType);
 
@@ -80,9 +81,9 @@ function mediaCard(item) {
     const fit = item.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
     const safeTitle = item.title || 'Untitled';
     const firstChar = safeTitle[0] || '?';
-    const image = item.image_url
-        ? `<div class="poster-frame"><img src="${item.image_url}" alt="${escapeHtml(safeTitle)}" class="${fit}" loading="lazy"></div>`
-        : `<div class="poster-frame"><div class="poster-fallback bg-sage/10"><span class="text-sage text-3xl">${escapeHtml(firstChar)}</span></div></div>`;
+    const imageInner = item.image_url
+        ? `<img src="${item.image_url}" alt="${escapeHtml(safeTitle)}" class="${fit}" loading="lazy">`
+        : `<div class="poster-fallback bg-sage/10"><span class="text-sage text-3xl">${escapeHtml(firstChar)}</span></div>`;
 
     const year = item.year ? `<span class="text-xs text-txt-muted">${item.year}</span>` : '';
     const badgeClass = typeColors[item.media_type] || typeColors.movie;
@@ -108,12 +109,14 @@ function mediaCard(item) {
         }
         cardStyle = 'opacity: 0.7;';
     } else {
-        actionArea = buildActionBar(item, 'sm');
+        actionArea = typeof buildPosterAction === 'function' ? buildPosterAction(item) : '';
     }
 
     return `
         <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm transition-base card-hover" data-rec-card style="${cardStyle}">
-            <a href="${detailLink}" class="block">${image}</a>
+            <div class="poster-frame relative">
+                <a href="${detailLink}" class="block">${imageInner}</a>
+            </div>
             <div class="p-2">
                 <a href="${detailLink}" class="block hover:text-sage transition-base">
                     <p class="text-[11px] font-semibold leading-tight line-clamp-2 mb-1">${escapeHtml(safeTitle)}</p>
@@ -122,9 +125,10 @@ function mediaCard(item) {
                     <span class="px-1.5 py-0.5 ${badgeClass} text-[10px] font-medium rounded capitalize">${item.media_type}</span>
                     ${year}
                 </div>
-                ${item.creator ? `<p class="text-[10px] text-txt-muted mb-2 truncate">${escapeHtml(item.creator)}</p>` : '<div class="mb-1"></div>'}
-                <div class="quick-add-area">${actionArea}</div>
+                ${item.creator ? `<p class="text-[10px] text-txt-muted mb-1 truncate">${escapeHtml(item.creator)}</p>` : ''}
+                ${profileEntry ? `<div>${actionArea}</div>` : ''}
             </div>
+            ${!profileEntry ? actionArea : ''}
         </div>
     `;
 }

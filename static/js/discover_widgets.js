@@ -127,8 +127,9 @@
             ? `<img src="${pick.image_url}" alt="" class="${fit}">`
             : `<div class="poster-fallback ${accent}"><span class="text-white text-3xl font-bold">${escapeHtml((pick.title || '?')[0])}</span></div>`;
         const image = `<div class="poster-frame relative">${imageInner}${pr}</div>`;
-        const bbReasonParam = pick.reason ? `&reason=${encodeURIComponent(pick.reason)}` : '';
-        const link = pick.external_id ? `/media/${pick.media_type || mediaType}/${pick.external_id}?source=${pick.source}${bbReasonParam}` : '#';
+        const bbReasonParam = '';
+        const bbPrParam = typeof pick.predicted_rating === 'number' ? `&pr=${pick.predicted_rating}` : '';
+        const link = pick.external_id ? `/media/${pick.media_type || mediaType}/${pick.external_id}?source=${pick.source}${bbReasonParam}${bbPrParam}` : '#';
         const itemForCard = {
             external_id: pick.external_id || '',
             source: pick.source || '',
@@ -140,7 +141,7 @@
             genres: Array.isArray(pick.genres) ? pick.genres.join(', ') : (pick.genres || null),
             description: pick.description || null,
         };
-        const actions = typeof buildActionBar === 'function' ? buildActionBar(itemForCard, 'sm') : '';
+        const posterAction = typeof buildPosterAction === 'function' ? buildPosterAction(itemForCard) : '';
         const citedNames = Array.isArray(cited) && cited.length > 0
             ? cited.map(t => escapeHtml(t)).join(' & ')
             : null;
@@ -150,7 +151,10 @@
         const providerIds = (pick.watch_providers || []).map(p => p.provider_id).filter(Boolean).join(',');
         return `
             <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm" data-rec-card data-provider-ids="${providerIds}">
-                <a href="${link}">${image}</a>
+                <div class="poster-frame relative">
+                    <a href="${link}" class="block">${imageInner}</a>
+                    ${pr}
+                </div>
                 <div class="p-2.5">
                     <div class="flex items-center gap-1.5 mb-1">
                         <span class="px-1.5 py-0.5 ${badge} text-[10px] font-semibold rounded-full capitalize">${pick.media_type || mediaType}</span>
@@ -158,25 +162,23 @@
                     </div>
                     <a href="${link}" class="text-[11px] font-semibold leading-tight hover:text-sage transition-base block line-clamp-2">${escapeHtml(pick.title)}</a>
                     ${typeof renderProviderBadges === 'function' && pick.watch_providers ? renderProviderBadges(pick.watch_providers) : ''}
-                    ${pick.reason ? `<p class="text-xs text-txt-muted leading-relaxed mt-1">${escapeHtml(pick.reason)}</p>` : ''}
+                    ${pick.description ? `<p class="text-xs text-txt-muted leading-relaxed mt-1 line-clamp-4">${escapeHtml(pick.description)}</p>` : ''}
                     ${anchorLine}
-                    <div class="mt-3 quick-add-area">${actions}</div>
                 </div>
+                ${posterAction}
             </div>`;
     }
 
     // ---- Vibe-based swim lanes ----------------------------------------
     const THEME_META = {
-        walking_the_dog:  { label: "Good for a walk or commute", blurb: "Podcasts and audiobooks you can drop in and out of.",  accent: 'text-green-500' },
         tonight_binge:    { label: "Can't-stop-watching",        blurb: "Shows that earn the next episode.",                    accent: 'text-purple-500' },
         wind_down:        { label: "Comfort zone",               blurb: "Cozy, low-stakes, feels like a warm blanket.",        accent: 'text-gold' },
-        background_work:  { label: "Easy listening",             blurb: "Half-attention-safe — great while you multitask.",     accent: 'text-sky-500' },
-        weekend_binge:    { label: "Deep dive",                  blurb: "Clear your schedule. This one's worth it.",           accent: 'text-coral' },
         quick_escape:     { label: "Quick escape",               blurb: "Under 90 minutes. Get out of your own head.",         accent: 'text-rose-500' },
+        walking_the_dog:  { label: "Good for a walk",            blurb: "Podcasts you can drop in and out of.",                accent: 'text-green-500' },
     };
-    const THEME_ORDER = ['tonight_binge', 'quick_escape', 'wind_down', 'weekend_binge', 'walking_the_dog', 'background_work'];
+    const THEME_ORDER = ['tonight_binge', 'wind_down', 'quick_escape', 'walking_the_dog'];
 
-    async function loadThemes() {
+    async function loadThemes(retried) {
         const wrap = document.getElementById('themes-wrap');
         if (!wrap) return;
         try {
@@ -189,6 +191,15 @@
                 rendered.push(renderThemeRow(slug, items));
             }
             if (rendered.length === 0) {
+                if (!retried || retried < 3) {
+                    // Bundle may still be generating — bust the cached promise and retry
+                    _homeBundle = null;
+                    _homeBundlePromise = null;
+                    wrap.innerHTML = `<div class="text-center py-10 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-2xl"><div class="inline-block w-6 h-6 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div><p class="text-xs text-txt-muted mt-3">Building your picks&hellip; this can take a moment.</p></div>`;
+                    const attempt = (retried || 0) + 1;
+                    setTimeout(() => loadThemes(attempt), 15000);
+                    return;
+                }
                 wrap.innerHTML = `<p class="text-sm text-txt-muted py-6 text-center">We'll build these out once you've rated a few items.</p>`;
                 return;
             }
@@ -225,6 +236,7 @@
 
     function renderThemeCard(item) {
         const mt = item.media_type || 'movie';
+        const badge = TYPE_BADGE[mt] || TYPE_BADGE.movie;
         const accent = TYPE_ACCENT[mt] || TYPE_ACCENT.movie;
         const fit = mt === 'podcast' ? 'poster-contain' : 'poster-cover';
         const pr = typeof item.predicted_rating === 'number' ? prBadge(item.predicted_rating) : '';
@@ -232,17 +244,25 @@
             ? `<img src="${item.image_url}" alt="" class="${fit}">`
             : `<div class="poster-fallback ${accent}"><span class="text-white text-3xl font-bold">${escapeHtml((item.title || '?')[0])}</span></div>`;
         const image = `<div class="poster-frame relative">${imageInner}${pr}</div>`;
-        const reasonParam = item.reason ? `&reason=${encodeURIComponent(item.reason)}` : '';
-        const link = item.external_id ? `/media/${mt}/${item.external_id}?source=${item.source}${reasonParam}` : '#';
+        const reasonParam = '';
+        const prParam = typeof item.predicted_rating === 'number' ? `&pr=${item.predicted_rating}` : '';
+        const link = item.external_id ? `/media/${mt}/${item.external_id}?source=${item.source}${reasonParam}${prParam}` : '#';
         const themeProviderIds = (item.watch_providers || []).map(p => p.provider_id).filter(Boolean).join(',');
+        const posterAction = typeof buildPosterAction === 'function' ? buildPosterAction(item) : '';
         return `
-            <a href="${link}" class="flex-shrink-0 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm card-hover transition-base block" style="width: 150px; scroll-snap-align: start;" data-rec-card data-provider-ids="${themeProviderIds}">
-                ${image}
-                <div class="p-2">
-                    <p class="text-[11px] font-semibold leading-tight line-clamp-2">${escapeHtml(item.title)}</p>
-                    ${item.reason ? `<p class="text-[10px] text-txt-muted leading-snug mt-0.5 line-clamp-2">${escapeHtml(item.reason)}</p>` : ''}
+            <div class="flex-shrink-0 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm card-hover transition-base" style="width: 130px; scroll-snap-align: start;" data-rec-card data-provider-ids="${themeProviderIds}">
+                <div class="poster-frame relative">
+                    <a href="${link}" class="block">${imageInner}</a>
+                    ${pr}
                 </div>
-            </a>`;
+                <div class="p-2">
+                    <div class="flex items-center gap-1 mb-0.5">
+                        <span class="px-1.5 py-0.5 ${badge} text-[9px] font-semibold rounded-full capitalize">${mt}</span>
+                    </div>
+                    <a href="${link}" class="text-[11px] font-semibold leading-tight line-clamp-2 hover:text-sage transition-base block">${escapeHtml(item.title)}</a>
+                </div>
+                ${posterAction}
+            </div>`;
     }
 
     function applyCollapsible(container, visibleCount) {
