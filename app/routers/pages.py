@@ -197,7 +197,7 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
     # for the AI to produce meaningful recommendations. Minimum: 5 rated
     # items OR 1 completed quiz (which rates 8-12 items across taste axes).
     MIN_RATINGS_FOR_RECS = 5
-    from app.services.taste_quiz_scoring import load_quiz_results as _lqr
+    from app.services.taste_quiz_scoring import load_quiz_results as _lqr, load_streaming_services
     _rated_count = db.query(MediaEntry).filter(
         MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None)
     ).count()
@@ -272,10 +272,33 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
     # day. We rotate by day-of-year so each user sees movie / tv / book /
     # podcast over the course of a week and the page feels fresh on
     # repeat visits without re-querying the AI. The actual /api/media/
-    # best-bet/<type> call is cached 7 days per (user, type), so the
-    # page typically lands on a cached pick.
-    rotation = ["movie", "tv", "book", "podcast"]
-    best_bet_media_type = rotation[datetime.now(ZoneInfo("America/New_York")).timetuple().tm_yday % 4]
+    # Pick the hero media type based on day + time context.
+    # Weeknights lean TV (people want something to watch tonight).
+    # Fri/Sat evenings lean movie (date night / movie night).
+    # Weekend daytime leans book or podcast.
+    # Rotates within each slot so it's not the same every Tuesday.
+    et = datetime.now(ZoneInfo("America/New_York"))
+    day = et.weekday()  # 0=Mon ... 6=Sun
+    hour = et.hour
+    week_num = et.isocalendar()[1]
+
+    if day <= 3:  # Mon-Thu
+        if hour >= 17:  # evening
+            best_bet_media_type = "tv"
+        else:
+            best_bet_media_type = ["book", "podcast"][week_num % 2]
+    elif day == 4:  # Friday
+        best_bet_media_type = "movie" if hour >= 15 else "tv"
+    elif day == 5:  # Saturday
+        if hour < 14:
+            best_bet_media_type = ["book", "podcast"][week_num % 2]
+        else:
+            best_bet_media_type = "movie"
+    else:  # Sunday
+        if hour < 16:
+            best_bet_media_type = ["book", "podcast"][(week_num + 1) % 2]
+        else:
+            best_bet_media_type = "tv"
 
     greeting_ctx = _get_greeting_context(user.name)
 
@@ -484,6 +507,89 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
                 if len(together_highlights) >= 3:
                     break
 
+    # --- Tonight pick (server-side, no LLM) ---
+    from app.recommenders.tonight import build_tonight
+    tonight_raw = build_tonight(user, db)
+    tonight = None
+    if tonight_raw:
+        item = tonight_raw.item
+        providers = tonight_raw.providers
+        tonight = {
+            "title": item.title,
+            "year": item.year,
+            "blurb": tonight_raw.reason,
+            "service": providers[0] if providers else None,
+            "watch_url": "#",
+            "poster_url": item.image_url,
+            "external_id": item.external_id,
+            "media_type": item.media_type,
+            "reason_tag": "Tonight \u00b7 strongest signal",
+            "runtime_label": None,
+            "source": item.source,
+        }
+
+    # --- Blend seeds: 2 random highly-rated items for the Mad Lib ---
+    blend_candidates = (
+        db.query(MediaEntry)
+        .filter(
+            MediaEntry.user_id == user.id,
+            MediaEntry.status == "consumed",
+            MediaEntry.rating >= 4,
+        )
+        .order_by(func.random())
+        .limit(2)
+        .all()
+    )
+    blend_seed_1 = {"title": blend_candidates[0].title} if len(blend_candidates) > 0 else {"title": ""}
+    blend_seed_2 = {"title": blend_candidates[1].title} if len(blend_candidates) > 1 else {"title": ""}
+
+    # --- Taste donut: surface existing quiz profile + genre breakdown ---
+    taste_type = None
+    taste_genre_breakdown = []
+    if quizzes_done > 0 and quiz_results:
+        # Find the strongest quiz profile across all categories
+        best_profile = None
+        best_sim = 0
+        for cat in ("movies", "tv", "books"):
+            profiles = (quiz_results.get(cat) or {}).get("profiles", [])
+            for p in profiles[:1]:
+                sim = p.get("similarity", 0)
+                if sim > best_sim:
+                    best_sim = sim
+                    best_profile = p
+        if best_profile:
+            taste_type = {
+                "label": best_profile.get("name", ""),
+                "confidence": round(best_sim * 100),
+                "description": best_profile.get("description", ""),
+            }
+
+        # Genre breakdown for donut segments
+        from collections import Counter
+        genre_counter: Counter = Counter()
+        rated_entries = (
+            db.query(MediaEntry)
+            .filter(
+                MediaEntry.user_id == user.id,
+                MediaEntry.rating >= 3,
+                MediaEntry.genres.isnot(None),
+            )
+            .all()
+        )
+        for e in rated_entries:
+            for g in e.genres.split(","):
+                g = g.strip()
+                if g and g.lower() not in ("fiction", "literary criticism"):
+                    genre_counter[g] += 1
+        total_genre = sum(genre_counter.values()) or 1
+        donut_colors = ["#8B9E6B", "#E8734A", "#B8A97E", "#6B5B8A", "#3D5068", "#C55A34"]
+        for i, (name, cnt) in enumerate(genre_counter.most_common(6)):
+            taste_genre_breakdown.append({
+                "name": name,
+                "pct": round(cnt / total_genre * 100),
+                "color": donut_colors[i % len(donut_colors)],
+            })
+
     return templates.TemplateResponse(
         "index.html",
         {
@@ -507,6 +613,12 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
             "taste_comparison": taste_comparison,
             "rated_this_month": rated_this_month,
             "fives_count": fives_count,
+            "user_services": load_streaming_services(db, user.id),
+            "tonight": tonight,
+            "blend_seed_1": blend_seed_1,
+            "blend_seed_2": blend_seed_2,
+            "taste_type": taste_type,
+            "taste_genre_breakdown": taste_genre_breakdown,
             **greeting_ctx,
         },
     )
@@ -915,8 +1027,10 @@ async def quick_start_books_nonfiction_page(request: Request, user: User = Depen
 
 
 @router.get("/media/{media_type}/{external_id}")
-async def media_detail_page(request: Request, media_type: str, external_id: str, user: User = Depends(require_user)):
+async def media_detail_page(request: Request, media_type: str, external_id: str, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    from app.services.taste_quiz_scoring import load_streaming_services
+    user_services = load_streaming_services(db, user.id) or []
     return templates.TemplateResponse(
         "media_detail.html",
-        {"request": request, "user": user, "media_type": media_type, "external_id": external_id},
+        {"request": request, "user": user, "media_type": media_type, "external_id": external_id, "user_services": user_services},
     )

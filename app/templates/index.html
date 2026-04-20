@@ -118,9 +118,66 @@
     {% endif %}
     {% else %}
 
+    {% if not user_services %}
+    <div class="bg-coral/5 border border-coral/20 rounded-xl p-4 flex items-center gap-3 mb-4">
+        <svg class="w-5 h-5 text-coral flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+        <p class="text-sm flex-1">Tell us your streaming services so we can recommend things you can actually watch.</p>
+        <a href="/settings/preferences" class="px-3 py-1.5 bg-coral text-white text-xs font-medium rounded-lg hover:bg-coral-dark transition-base flex-shrink-0">Set services</a>
+    </div>
+    {% endif %}
+
     <!-- ============================================================
-         Hero: greeting + day-aware featured content, one unit
+         Hero: greeting + tonight editorial pick or day-aware content
          ============================================================ -->
+    {% if tonight %}
+    <!-- Greeting bar -->
+    <div class="flex items-start justify-between">
+        <div>
+            <h1 class="text-2xl md:text-3xl font-bold mb-1">{{ greeting }}</h1>
+            <p class="text-sm text-txt-muted leading-relaxed max-w-2xl">{{ suggestion }}</p>
+        </div>
+        <button onclick="refreshAll(this)" title="Get fresh picks" class="flex-shrink-0 w-9 h-9 rounded-full bg-sage/10 hover:bg-sage/20 flex items-center justify-center text-txt-muted hover:text-sage transition-base">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h4.586M20 20v-5h-4.586M4.929 9A8 8 0 0119.07 9M19.071 15A8 8 0 014.93 15"/></svg>
+        </button>
+    </div>
+    <!-- Tonight editorial hero -->
+    <div class="editorial-hero" data-rec-card>
+      <a href="/media/{{ tonight.media_type }}/{{ tonight.external_id }}?source={{ tonight.source }}"
+         class="editorial-hero__poster block relative overflow-hidden">
+        {% if tonight.poster_url %}
+          <img src="{{ tonight.poster_url }}" alt="" class="absolute inset-0 w-full h-full object-cover">
+        {% else %}
+          <div class="poster-fallback gradient-navy flex items-center justify-center h-full">
+            <span class="text-white text-5xl font-bold">{{ (tonight.title or '?')[0] }}</span>
+          </div>
+        {% endif %}
+        <button class="poster-action-trigger" aria-label="Save to library"
+                onclick="event.preventDefault();event.stopPropagation();togglePosterMenu('pm-tonight')">
+          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 5v14M5 12h14"/>
+          </svg>
+        </button>
+        <div class="poster-action-menu" id="pm-tonight">
+          <button onclick="quickAddSave(this, {external_id:'{{ tonight.external_id }}',source:'{{ tonight.source }}',title:'{{ tonight.title|e }}',media_type:'{{ tonight.media_type }}',status:'want_to_consume'})">Save for later</button>
+          <button onclick="quickAddSave(this, {external_id:'{{ tonight.external_id }}',source:'{{ tonight.source }}',title:'{{ tonight.title|e }}',media_type:'{{ tonight.media_type }}',status:'consuming'})">Start tonight</button>
+        </div>
+      </a>
+      <div class="editorial-hero__body">
+        <div class="editorial-hero__eyebrow">{{ tonight.reason_tag or 'Tonight · strongest signal' }}</div>
+        <h2 class="editorial-hero__title">{{ tonight.title }}{% if tonight.year %} <span class="font-normal opacity-70">({{ tonight.year }})</span>{% endif %}</h2>
+        <p class="editorial-hero__blurb">{{ tonight.blurb }}</p>
+        <div class="editorial-hero__actions">
+          {% if tonight.service %}
+          <a href="{{ tonight.watch_url or '#' }}" class="btn-primary">Watch on {{ tonight.service }}</a>
+          {% endif %}
+          <a href="/media/{{ tonight.media_type }}/{{ tonight.external_id }}?source={{ tonight.source }}" class="btn-ghost">Details →</a>
+        </div>
+        {% if tonight.runtime_label %}
+        <div class="text-xs opacity-60 mt-3">{{ tonight.runtime_label }}</div>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
     <div class="home-hero">
         <div class="flex items-start justify-between mb-4">
             <div>
@@ -137,20 +194,15 @@
                 <div class="inline-block w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
             </div>
         </div>
-        {% elif featured_mode == 'wind_down' %}
-        <div id="wind-down-cards" class="flex gap-3 overflow-x-auto pb-1" style="scroll-snap-type: x mandatory;">
-            <div class="text-center py-4 w-full">
-                <div class="inline-block w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-            </div>
-        </div>
         {% else %}
-        <div id="weekday-pick-cards" class="flex gap-3 overflow-x-auto pb-1" style="scroll-snap-type: x mandatory;">
-            <div class="text-center py-4 w-full">
+        <div id="hero-pick" class="py-2">
+            <div class="text-center py-4">
                 <div class="inline-block w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
             </div>
         </div>
         {% endif %}
     </div>
+    {% endif %}
 
     <!-- Signal strength meter -->
     <div id="signal-meter" class="hidden">
@@ -274,49 +326,41 @@
     {% endif %}
 
     <!-- ============================================================
-         Because you loved — personalized anchor lanes
+         Because you loved — personalized anchor lanes (client-side loaded)
          ============================================================ -->
-    <div id="because-loved-section" class="hidden space-y-5"></div>
+    <section id="because-loved-section" class="hidden space-y-8"></section>
 
     <!-- ============================================================
-         Discover — best bet + three ways to find something new
+         Explore — Blend Mad Lib + secondary mood/AI links
          ============================================================ -->
-    <div>
-        <div class="flex items-center justify-between mb-3">
-            <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold">Discover something new</p>
-            <a href="/discover" class="text-xs text-sage hover:underline">Open Discover &rarr;</a>
+    <section>
+      <div class="section-head">
+        <div>
+          <div class="eyebrow text-sage">EXPLORE · BLEND TWO THINGS</div>
+          <h2 class="section-head__title">What if we mixed...</h2>
         </div>
+        <a href="/discover" class="section-head__cta">All of Discover →</a>
+      </div>
 
-        <!-- Best bet — the one big pick -->
-        <div id="best-bet-section" class="hidden mb-3">
-            <div id="best-bet-card" class="best-bet-hero"></div>
-        </div>
+      <form id="blend-madlib-form" class="blend-madlib"
+            onsubmit="event.preventDefault();window.location.href='/discover#blend?a='+encodeURIComponent(this.a.value)+'&amp;b='+encodeURIComponent(this.b.value)">
+        <span>What if</span>
+        <button type="button" class="blend-madlib__slot{% if blend_seed_1.title %} blend-madlib__slot--filled{% endif %}" onclick="openBlendPicker('a')"
+                data-field="a"><span id="blend-a-label">{{ blend_seed_1.title or 'pick something' }}</span></button>
+        <input type="hidden" name="a" value="{{ blend_seed_1.title }}">
+        <span>had the energy of</span>
+        <button type="button" class="blend-madlib__slot{% if blend_seed_2.title %} blend-madlib__slot--filled{% endif %}" onclick="openBlendPicker('b')"
+                data-field="b"><span id="blend-b-label">{{ blend_seed_2.title or 'pick something' }}</span></button>
+        <input type="hidden" name="b" value="{{ blend_seed_2.title }}">
+        <span>?</span>
+        <button type="submit" class="blend-madlib__go">Blend it</button>
+      </form>
 
-        <!-- Three ways in -->
-        <div class="grid grid-cols-3 gap-2">
-            <a href="/discover#moods" class="block p-4 rounded-xl relative overflow-hidden transition-all hover:scale-[1.02] hover:shadow-lg group" style="background: linear-gradient(135deg, #6B5B8A 0%, #524470 100%);">
-                <div class="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full -translate-y-6 translate-x-6"></div>
-                <div class="relative z-10">
-                    <p class="text-sm font-bold text-white uppercase tracking-wide group-hover:text-cream transition-base">Browse by mood</p>
-                    <p class="text-[10px] text-white/60 mt-1 leading-snug">Wind down, binge, quick escape</p>
-                </div>
-            </a>
-            <a href="/discover#blend" class="block p-4 rounded-xl relative overflow-hidden transition-all hover:scale-[1.02] hover:shadow-lg group" style="background: linear-gradient(135deg, #E8734A 0%, #C55A34 100%);">
-                <div class="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full -translate-y-6 translate-x-6"></div>
-                <div class="relative z-10">
-                    <p class="text-sm font-bold text-white uppercase tracking-wide group-hover:text-cream transition-base">Blend two things</p>
-                    <p class="text-[10px] text-white/60 mt-1 leading-snug">Mix vibes into one perfect rec</p>
-                </div>
-            </a>
-            <a href="/discover#ask" class="block p-4 rounded-xl relative overflow-hidden transition-all hover:scale-[1.02] hover:shadow-lg group" style="background: linear-gradient(135deg, #2B3A4E 0%, #1E2A3A 100%);">
-                <div class="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full -translate-y-6 translate-x-6"></div>
-                <div class="relative z-10">
-                    <p class="text-sm font-bold text-white uppercase tracking-wide group-hover:text-sage-light transition-base">Ask the AI</p>
-                    <p class="text-[10px] text-white/60 mt-1 leading-snug">"Like Severance but a book"</p>
-                </div>
-            </a>
-        </div>
-    </div>
+      <div class="flex gap-3 mt-3">
+        <a href="/discover#moods" class="btn-secondary text-xs">Or browse by mood →</a>
+        <a href="/discover#ask" class="btn-secondary text-xs">Or just ask the AI →</a>
+      </div>
+    </section>
 
     <!-- ============================================================
          Quick rate — 4 random unrated items, feels like a mini-game
@@ -373,24 +417,23 @@
         </div>
         <div class="swim-lane flex gap-3 overflow-x-auto pb-2 -mx-4 px-4" style="scroll-snap-type: x mandatory; flex-wrap: nowrap;">
             {% for item in type_items %}
-            <div class="flex-shrink-0 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm transition-base" style="width: 130px; scroll-snap-align: start;" data-rec-card>
-                <div class="relative">
-                    <a href="{% if item.external_id %}/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}{% else %}/profile{% endif %}" class="block">
-                        <div class="poster-frame relative">
-                            {% if item.image_url %}
-                                <img src="{{ item.image_url }}" alt="" class="{% if item.media_type == 'podcast' %}poster-contain{% else %}poster-cover{% endif %}">
-                            {% else %}
-                                <div class="poster-fallback {% if item.media_type == 'tv' %}gradient-purple{% elif item.media_type == 'book' %}gradient-amber{% elif item.media_type == 'podcast' %}bg-green-500{% else %}gradient-blue{% endif %}">
-                                    <span class="text-white text-3xl font-bold">{{ (item.title or '?')[0] }}</span>
-                                </div>
-                            {% endif %}
-                            {% if item.predicted_rating and item.predicted_rating >= 3 %}
-                            <div class="absolute top-1.5 right-1.5 px-1.5 py-0.5 {% if item.predicted_rating >= 4.5 %}bg-sage{% elif item.predicted_rating >= 4 %}bg-sage-light{% elif item.predicted_rating >= 3.5 %}bg-gold{% else %}bg-gold{% endif %} rounded-full shadow">
-                                <span class="text-[9px] font-bold text-white">{{ "%.1f"|format(item.predicted_rating) }}</span>
+            {% set q_link = "/media/" ~ item.media_type ~ "/" ~ item.external_id ~ "?source=" ~ item.source if item.external_id else "/profile" %}
+            <div class="flex-shrink-0 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm transition-base" style="width: 130px; scroll-snap-align: start;" data-rec-card data-queue-item data-eid="{{ item.external_id or '' }}" data-src="{{ item.source or '' }}" data-title="{{ item.title }}" data-mt="{{ item.media_type }}" data-img="{{ item.image_url or '' }}" data-year="{{ item.year or '' }}">
+                <div class="poster-frame relative">
+                    <a href="{{ q_link }}" class="block">
+                        {% if item.image_url %}
+                            <img src="{{ item.image_url }}" alt="" class="{% if item.media_type == 'podcast' %}poster-contain{% else %}poster-cover{% endif %}">
+                        {% else %}
+                            <div class="poster-fallback {% if item.media_type == 'tv' %}gradient-purple{% elif item.media_type == 'book' %}gradient-amber{% elif item.media_type == 'podcast' %}bg-green-500{% else %}gradient-blue{% endif %}">
+                                <span class="text-white text-3xl font-bold">{{ (item.title or '?')[0] }}</span>
                             </div>
-                            {% endif %}
-                        </div>
+                        {% endif %}
                     </a>
+                    {% if item.predicted_rating and item.predicted_rating >= 3 %}
+                    <div class="absolute top-1.5 right-1.5 px-1.5 py-0.5 {% if item.predicted_rating >= 4.5 %}bg-sage{% elif item.predicted_rating >= 4 %}bg-sage-light{% elif item.predicted_rating >= 3.5 %}bg-gold{% else %}bg-gold{% endif %} rounded-full shadow">
+                        <span class="text-[9px] font-bold text-white">{{ "%.1f"|format(item.predicted_rating) }}</span>
+                    </div>
+                    {% endif %}
                 </div>
                 <div class="p-2">
                     <p class="text-[11px] font-semibold leading-tight line-clamp-2">{{ item.title }}</p>
@@ -404,8 +447,49 @@
     {% endif %}
 
     <!-- ============================================================
-         My Taste — combined DNA insight + stats in one full-width box
+         My Taste — donut card + DNA insight + stats
          ============================================================ -->
+    {% if taste_type %}
+    <section class="bg-surface-light dark:bg-surface-dark rounded-2xl border border-border-light dark:border-border-dark p-6">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow text-sage">YOUR SIGNAL</div>
+          <h2 class="section-head__title">How NextUp reads you</h2>
+        </div>
+        <a href="/taste" class="section-head__cta">Full taste profile →</a>
+      </div>
+      <div class="taste-donut">
+        <svg viewBox="0 0 120 120" class="taste-donut__svg" aria-hidden="true">
+          <circle cx="60" cy="60" r="48" fill="none" stroke="#E8E4DC" stroke-width="16"/>
+          {% set ns = namespace(offset=0) %}
+          {% for seg in taste_genre_breakdown %}
+            {% set dash = (seg.pct / 100) * 301.6 %}
+            <circle cx="60" cy="60" r="48" fill="none"
+              stroke="{{ seg.color }}" stroke-width="16"
+              stroke-dasharray="{{ dash }} 301.6"
+              stroke-dashoffset="-{{ ns.offset }}"
+              transform="rotate(-90 60 60)"/>
+            {% set ns.offset = ns.offset + dash %}
+          {% endfor %}
+          <text x="60" y="56" text-anchor="middle" font-size="18" font-weight="700" fill="currentColor">{{ taste_type.confidence }}%</text>
+          <text x="60" y="72" text-anchor="middle" font-size="9" fill="#7A8494">MATCH</text>
+        </svg>
+        <div>
+          <div class="eyebrow text-sage mb-1">YOUR TYPE</div>
+          <div class="taste-donut__type">{{ taste_type.label }}</div>
+          {% if taste_type.description %}
+          <div class="taste-donut__desc">{{ taste_type.description }}</div>
+          {% endif %}
+          <div class="flex gap-2 flex-wrap">
+            {% for seg in taste_genre_breakdown[:4] %}
+              <span class="pill">{{ seg.name }} {{ seg.pct }}%</span>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </section>
+    {% endif %}
+
     <a href="/taste" class="block p-5 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark hover:border-coral/30 transition-all group">
         <div class="flex items-center justify-between mb-3">
             <p class="text-[11px] text-coral uppercase tracking-[0.18em] font-bold">My Taste</p>
@@ -549,8 +633,22 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/card_actions.js?v=4"></script>
+<script src="/static/js/card_actions.js?v=7"></script>
 <script>
+// Inject poster actions into server-rendered queue cards
+document.querySelectorAll('[data-queue-item]').forEach(card => {
+    const pf = card.querySelector('.poster-frame');
+    if (!pf || pf.querySelector('.poster-action-trigger')) return;
+    const item = {
+        external_id: card.dataset.eid, source: card.dataset.src,
+        title: card.dataset.title, media_type: card.dataset.mt,
+        image_url: card.dataset.img || null, year: card.dataset.year || null,
+    };
+    if (typeof buildPosterAction === 'function') {
+        card.insertAdjacentHTML('beforeend', buildPosterAction(item));
+    }
+});
+
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = (text == null ? '' : text);
@@ -684,44 +782,6 @@ async function toggleResonance(btn, entryId) {
     btn.disabled = false;
 }
 
-// Best bet hero — one big visual pick
-const TYPE_ACCENT = { movie: 'gradient-blue', tv: 'gradient-purple', book: 'gradient-amber', podcast: 'bg-green-500' };
-async function loadBestBet() {
-    const section = document.getElementById('best-bet-section');
-    const card = document.getElementById('best-bet-card');
-    try {
-        const resp = await fetch('/api/media/best-bet/{{ best_bet_media_type }}');
-        if (!resp.ok) return;
-        const data = await resp.json();
-        if (!data || !data.pick) return;
-        const pick = data.pick;
-        const anchor = data.anchor;
-        const mt = pick.media_type || '{{ best_bet_media_type }}';
-        const fit = mt === 'podcast' ? 'poster-contain' : 'poster-cover';
-        const accent = TYPE_ACCENT[mt] || TYPE_ACCENT.movie;
-        const image = pick.image_url
-            ? `<div class="poster-frame"><img src="${pick.image_url}" alt="" class="${fit}"></div>`
-            : `<div class="poster-frame"><div class="poster-fallback ${accent}"><span class="text-white text-4xl font-bold">${escapeHtml((pick.title || '?')[0])}</span></div></div>`;
-        const link = pick.external_id ? `/media/${mt}/${pick.external_id}?source=${pick.source}` : '#';
-        const actions = typeof buildActionBar === 'function' ? buildActionBar(pick, 'md') : '';
-        const anchorLine = anchor && anchor.title
-            ? `<p class="text-[10px] text-txt-muted uppercase tracking-widest font-semibold mb-1">Because you loved <span class="text-sage font-bold normal-case">${escapeHtml(anchor.title)}</span></p>`
-            : '';
-        card.innerHTML = `
-            <div class="flex flex-col sm:flex-row" data-rec-card>
-                <a href="${link}" class="sm:w-44 md:w-52 flex-shrink-0">${image}</a>
-                <div class="p-5 md:p-6 flex-1 flex flex-col">
-                    ${anchorLine}
-                    <a href="${link}" class="text-xl md:text-2xl font-bold hover:text-sage transition-base block leading-tight">${escapeHtml(pick.title)}</a>
-                    ${pick.year ? `<p class="text-xs text-txt-muted mt-1">${pick.year}${pick.creator ? ' · ' + escapeHtml(pick.creator) : ''}</p>` : ''}
-                    ${pick.reason ? `<p class="text-sm text-txt dark:text-txt-light leading-relaxed mt-3 mb-4">${escapeHtml(pick.reason)}</p>` : '<div class="mt-3"></div>'}
-                    <div class="mt-auto quick-add-area">${actions}</div>
-                </div>
-            </div>`;
-        section.classList.remove('hidden');
-    } catch {}
-}
-
 // Refresh all — bust caches and reload the page
 async function refreshAll(btn) {
     btn.disabled = true;
@@ -769,7 +829,7 @@ async function notNowConfirmed(entryId) {
     } catch {}
 }
 
-// Finish flow — reaction-style rating on progress cards
+// Finish flow — 1-5 rating dots matching the rest of the app
 async function startFinishFlow(entryId, title, mediaType) {
     const flow = document.getElementById(`finish-flow-${entryId}`);
     if (!flow) return;
@@ -777,32 +837,16 @@ async function startFinishFlow(entryId, title, mediaType) {
     const doneVerb = {movie:'watched',tv:'watched',book:'read',podcast:'listened to'}[mediaType] || 'finished';
 
     flow.innerHTML = `
-        <p class="text-white text-xs mb-2">How was it?</p>
-        <div class="grid grid-cols-4 gap-1.5">
-            <button onclick="finishAndRate(${entryId}, 5, '${doneVerb}')" class="py-2 bg-sage/80 hover:bg-sage text-white text-[11px] font-semibold rounded-lg transition-base text-center">Loved it</button>
-            <button onclick="finishAndRate(${entryId}, 4, '${doneVerb}')" class="py-2 bg-sage-light/80 hover:bg-sage-light text-white text-[11px] font-semibold rounded-lg transition-base text-center">Good</button>
-            <button onclick="finishAndRate(${entryId}, 3, '${doneVerb}')" class="py-2 bg-gold/80 hover:bg-gold text-white text-[11px] font-semibold rounded-lg transition-base text-center">Meh</button>
-            <button onclick="finishAndRate(${entryId}, 1, '${doneVerb}')" class="py-2 bg-coral/80 hover:bg-coral text-white text-[11px] font-semibold rounded-lg transition-base text-center">Nope</button>
+        <p class="text-[10px] text-txt-muted mb-1">Rate it:</p>
+        <div class="flex items-center gap-1">
+            <button onclick="finishAndRate(${entryId}, 1, '${doneVerb}')" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-coral transition-base text-[9px] font-bold text-transparent hover:text-white" title="1/5">1</button>
+            <button onclick="finishAndRate(${entryId}, 2, '${doneVerb}')" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-coral-light transition-base text-[9px] font-bold text-transparent hover:text-white" title="2/5">2</button>
+            <button onclick="finishAndRate(${entryId}, 3, '${doneVerb}')" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-gold transition-base text-[9px] font-bold text-transparent hover:text-white" title="3/5">3</button>
+            <button onclick="finishAndRate(${entryId}, 4, '${doneVerb}')" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-sage-light transition-base text-[9px] font-bold text-transparent hover:text-white" title="4/5">4</button>
+            <button onclick="finishAndRate(${entryId}, 5, '${doneVerb}')" class="w-5 h-5 rounded-full bg-border-light dark:bg-border-dark hover:bg-sage transition-base text-[9px] font-bold text-transparent hover:text-white" title="5/5">5</button>
         </div>
-        <button onclick="showFullRatingScale(${entryId}, '${doneVerb}')" class="w-full mt-1.5 text-[10px] text-white/50 hover:text-white/80 transition-base">
-            Use 1-5 scale instead
-        </button>
     `;
     flow.classList.remove('hidden');
-}
-
-function showFullRatingScale(entryId, doneVerb) {
-    const flow = document.getElementById(`finish-flow-${entryId}`);
-    if (!flow) return;
-    let dots = '';
-    for (let n = 1; n <= 5; n++) {
-        const color = n <= 1 ? 'bg-coral' : n <= 2 ? 'bg-coral-light' : n <= 3 ? 'bg-gold' : 'bg-sage';
-        dots += `<button onclick="finishAndRate(${entryId}, ${n}, '${doneVerb}')" class="w-8 h-8 rounded-full ${color} hover:scale-110 transition-base text-xs font-bold text-white">${n}</button>`;
-    }
-    flow.innerHTML = `
-        <p class="text-white text-xs mb-2">Rate 1-5</p>
-        <div class="flex gap-1 justify-center">${dots}</div>
-    `;
 }
 
 async function finishAndRate(entryId, rating, doneVerb) {
@@ -1081,13 +1125,18 @@ async function loadBoxOffice() {
             const asPct = as ? Math.round(as * 10) : null;
             const asColor = asPct >= 70 ? 'text-sage' : asPct >= 50 ? 'text-gold' : 'text-coral';
             const asBadge = (asPct && item.audience_count >= 10) ? `<span class="${asColor} text-[9px] font-bold">${asPct}% audience</span>` : '';
-            const image = item.image_url
-                ? `<div class="poster-frame"><img src="${item.image_url}" alt="" class="poster-cover"></div>`
-                : `<div class="poster-frame"><div class="poster-fallback bg-white/10"><span class="text-white/60 text-2xl font-bold">${escapeHtml((item.title||'?')[0])}</span></div></div>`;
+            const imageInner = item.image_url
+                ? `<img src="${item.image_url}" alt="" class="poster-cover">`
+                : `<div class="poster-fallback bg-white/10"><span class="text-white/60 text-2xl font-bold">${escapeHtml((item.title||'?')[0])}</span></div>`;
             const link = item.external_id ? `/media/movie/${item.external_id}?source=${item.source}` : '#';
+            const theaterItem = { external_id: item.external_id || '', source: item.source || '', title: item.title, media_type: 'movie', image_url: item.image_url || null, year: item.year || null };
+            const theaterAction = typeof buildPosterAction === 'function' ? buildPosterAction(theaterItem) : '';
             return `
-                <a href="${link}" class="flex-shrink-0 rounded-xl overflow-hidden shadow-md card-hover transition-base block" style="width: 130px; scroll-snap-align: start;">
-                    <div class="relative">${image}${prBadge}</div>
+                <div class="flex-shrink-0 rounded-xl overflow-hidden shadow-md card-hover transition-base" style="width: 130px; scroll-snap-align: start;" data-rec-card>
+                    <div class="poster-frame relative">
+                        <a href="${link}" class="block">${imageInner}</a>
+                        ${prBadge}
+                    </div>
                     <div class="p-1.5">
                         <p class="text-[11px] font-semibold leading-tight line-clamp-2 text-white">${escapeHtml(item.title)}</p>
                         <div class="flex items-center gap-1.5 mt-0.5">
@@ -1095,80 +1144,75 @@ async function loadBoxOffice() {
                             ${asBadge}
                         </div>
                     </div>
-                </a>`;
+                    ${theaterAction}
+                </div>`;
         }).join('');
     } catch {
         container.innerHTML = '';
     }
 }
 loadBoxOffice();
-{% elif featured_mode == 'wind_down' %}
-async function loadWindDown() {
-    const container = document.getElementById('wind-down-cards');
+{% elif featured_mode == 'wind_down' and not tonight %}
+// Single hero pick — pulls the best match from the home bundle
+// based on the preferred type for this time/day
+const HERO_PREFERRED_TYPE = '{{ best_bet_media_type }}';
+async function loadHeroPick() {
+    const container = document.getElementById('hero-pick');
     if (!container) return;
     try {
-        // Pull top picks — the AI already scores these against taste
-        const resp = await fetch('/api/media/top-picks');
+        const resp = await fetch('/api/media/home-bundle');
         if (!resp.ok) { container.innerHTML = ''; return; }
-        const items = await resp.json();
-        // Prefer TV and books for a cozy night — filter if we have enough
-        const cozyTypes = ['tv', 'book', 'podcast'];
-        let picks = items.filter(i => cozyTypes.includes(i.media_type));
-        if (picks.length < 2) picks = items;
-        picks = picks.slice(0, 4);
-        if (!picks.length) { container.innerHTML = '<p class="text-xs text-white/50 py-2">Nothing to suggest right now.</p>'; return; }
-        container.innerHTML = picks.map(item => {
-            const fit = item.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
-            const image = item.image_url
-                ? `<div class="poster-frame"><img src="${item.image_url}" alt="" class="${fit}"></div>`
-                : `<div class="poster-frame"><div class="poster-fallback bg-white/10"><span class="text-white/60 text-2xl font-bold">${escapeHtml((item.title||'?')[0])}</span></div></div>`;
-            const link = item.external_id ? `/media/${item.media_type}/${item.external_id}?source=${item.source}` : '#';
-            const typeLabel = {movie:'Movie',tv:'TV',book:'Book',podcast:'Podcast'}[item.media_type] || '';
-            return `
-                <a href="${link}" class="flex-shrink-0 rounded-xl overflow-hidden shadow-md card-hover transition-base block" style="width: 130px; scroll-snap-align: start;">
-                    ${image}
-                    <div class="p-1.5">
-                        <p class="text-[11px] font-semibold leading-tight line-clamp-2 text-white">${escapeHtml(item.title)}</p>
-                        <span class="text-[9px] text-white/50">${typeLabel}</span>
+        const bundle = await resp.json();
+        const picks = bundle.top_picks || [];
+        // Find the best pick matching the preferred type, fall back to any
+        let hero = picks.find(p => p.media_type === HERO_PREFERRED_TYPE);
+        if (!hero && picks.length) hero = picks[0];
+        if (!hero) { container.innerHTML = ''; return; }
+
+        const fit = hero.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
+        const image = hero.image_url
+            ? `<img src="${hero.image_url}" alt="" class="${fit}">`
+            : `<div class="poster-fallback bg-white/10"><span class="text-white/60 text-3xl font-bold">${escapeHtml((hero.title||'?')[0])}</span></div>`;
+        const link = hero.external_id ? `/media/${hero.media_type}/${hero.external_id}?source=${hero.source}` : '#';
+        const typeLabel = {movie:'Movie',tv:'TV Show',book:'Book',podcast:'Podcast'}[hero.media_type] || '';
+        const pr = hero.predicted_rating;
+        const prColor = pr >= 4 ? 'text-sage' : pr >= 3 ? 'text-gold' : 'text-coral';
+        const prText = pr ? `<span class="${prColor} text-sm font-bold">${pr}/5 predicted</span>` : '';
+
+        // If description is missing (common for podcasts), fetch from detail API
+        if (!hero.description && hero.external_id) {
+            try {
+                const detailResp = await fetch(`/api/media/${hero.media_type}/${hero.external_id}?source=${hero.source || ''}`);
+                if (detailResp.ok) {
+                    const detail = await detailResp.json();
+                    if (detail.description) hero.description = detail.description;
+                }
+            } catch {}
+        }
+
+        const heroAction = typeof buildPosterAction === 'function' ? buildPosterAction(hero) : '';
+        container.innerHTML = `
+            <div class="flex gap-4 items-center" data-rec-card>
+                <div class="poster-frame relative w-24 md:w-32 flex-shrink-0 rounded-xl overflow-hidden shadow-lg">
+                    <a href="${link}" class="block">${image}</a>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <a href="${link}" class="block group">
+                        <p class="text-lg md:text-xl font-bold text-white group-hover:text-sage transition-base leading-tight">${escapeHtml(hero.title)}</p>
+                    </a>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="text-xs text-white/50">${typeLabel}${hero.year ? ' · ' + hero.year : ''}</span>
+                        ${prText}
                     </div>
-                </a>`;
-        }).join('');
+                    ${hero.description ? `<p class="text-xs text-white/60 leading-relaxed mt-2 line-clamp-4">${escapeHtml(hero.description)}</p>` : ''}
+                </div>
+                ${heroAction}
+            </div>`;
     } catch {
         container.innerHTML = '';
     }
 }
-loadWindDown();
-{% else %}
-async function loadWeekdayPick() {
-    const container = document.getElementById('weekday-pick-cards');
-    if (!container) return;
-    try {
-        const resp = await fetch('/api/media/top-picks');
-        if (!resp.ok) { container.innerHTML = ''; return; }
-        const items = await resp.json();
-        const picks = items.slice(0, 4);
-        if (!picks.length) { container.innerHTML = '<p class="text-xs text-white/50 py-2">Nothing to suggest right now.</p>'; return; }
-        container.innerHTML = picks.map(item => {
-            const fit = item.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
-            const image = item.image_url
-                ? `<div class="poster-frame"><img src="${item.image_url}" alt="" class="${fit}"></div>`
-                : `<div class="poster-frame"><div class="poster-fallback bg-white/10"><span class="text-white/60 text-2xl font-bold">${escapeHtml((item.title||'?')[0])}</span></div></div>`;
-            const link = item.external_id ? `/media/${item.media_type}/${item.external_id}?source=${item.source}` : '#';
-            const typeLabel = {movie:'Movie',tv:'TV',book:'Book',podcast:'Podcast'}[item.media_type] || '';
-            return `
-                <a href="${link}" class="flex-shrink-0 rounded-xl overflow-hidden shadow-md card-hover transition-base block" style="width: 130px; scroll-snap-align: start;">
-                    ${image}
-                    <div class="p-1.5">
-                        <p class="text-[11px] font-semibold leading-tight line-clamp-2 text-white">${escapeHtml(item.title)}</p>
-                        <span class="text-[9px] text-white/50">${typeLabel}</span>
-                    </div>
-                </a>`;
-        }).join('');
-    } catch {
-        container.innerHTML = '';
-    }
-}
-loadWeekdayPick();
+loadHeroPick();
 {% endif %}
 
 function toggleProgressMenu(id) {
@@ -1178,9 +1222,18 @@ function toggleProgressMenu(id) {
     if (menu && !wasOpen) menu.classList.add('open');
 }
 
+// Blend picker — reuses the quick-add search to pick titles
+function openBlendPicker(field) {
+    const input = document.getElementById('quick-add-input');
+    if (!input) return;
+    input.focus();
+    input.dataset.blendTarget = field;
+    input.placeholder = 'Search for a title to blend...';
+    // The picker resolves when the user clicks a quick-add result
+}
+
 wireRatingSlots();
 loadRightNow();
-loadBestBet();
 loadSignalStrength();
 loadBecauseYouLoved();
 
@@ -1199,9 +1252,9 @@ async function loadBecauseYouLoved() {
                 const pr = item.predicted_rating;
                 const prColor = pr >= 4 ? 'bg-sage' : pr >= 3 ? 'bg-gold' : 'bg-coral-light';
                 const prBadge = pr ? `<div class="absolute top-1.5 right-1.5 px-1.5 py-0.5 ${prColor} rounded-full shadow"><span class="text-[9px] font-bold text-white">${pr}</span></div>` : '';
-                const image = item.image_url
-                    ? `<div class="poster-frame relative"><img src="${item.image_url}" alt="" class="${fit}">${prBadge}</div>`
-                    : `<div class="poster-frame relative"><div class="poster-fallback bg-sage/10"><span class="text-sage text-2xl font-bold">${escapeHtml((item.title||'?')[0])}</span></div>${prBadge}</div>`;
+                const imageInner = item.image_url
+                    ? `<img src="${item.image_url}" alt="" class="${fit}">`
+                    : `<div class="poster-fallback gradient-sage flex items-center justify-center"><span class="text-white text-2xl font-bold">${escapeHtml((item.title||'?')[0])}</span></div>`;
                 const link = item.external_id ? `/media/${item.media_type}/${item.external_id}?source=${item.source}` : '#';
                 const itemData = {
                     external_id: item.external_id || '', source: item.source || '',
@@ -1211,28 +1264,30 @@ async function loadBecauseYouLoved() {
                 };
                 const posterAction = typeof buildPosterAction === 'function' ? buildPosterAction(itemData) : '';
                 return `
-                    <div class="flex-shrink-0 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm transition-base" style="width: 130px; scroll-snap-align: start;" data-rec-card>
-                        <div class="relative">
-                            <a href="${link}" class="block">${image}</a>
+                    <a href="${link}" data-rec-card class="block">
+                        <div class="poster-frame">
+                            ${imageInner}
+                            ${prBadge}
                             ${posterAction}
                         </div>
-                        <div class="p-2">
-                            <span class="px-1.5 py-0.5 text-[8px] font-semibold rounded capitalize ${
-                                item.media_type === 'tv' ? 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400' :
-                                item.media_type === 'book' ? 'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400' :
-                                item.media_type === 'podcast' ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' :
-                                'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
-                            }">${item.media_type}</span>
-                            <a href="${link}" class="block mt-1"><p class="text-[11px] font-semibold leading-tight line-clamp-2 hover:text-sage transition-base">${escapeHtml(item.title)}</p></a>
-                            ${item.reason ? `<p class="text-[10px] text-txt-muted leading-snug mt-0.5 line-clamp-2">${escapeHtml(item.reason)}</p>` : ''}
+                        <div class="mt-2">
+                            <div class="text-sm font-bold leading-tight line-clamp-2">${escapeHtml(item.title)}</div>
+                            <div class="text-[11px] text-txt-muted">${item.year || ''} · ${item.media_type.charAt(0).toUpperCase() + item.media_type.slice(1)}</div>
                         </div>
-                    </div>`;
+                    </a>`;
             }).join('');
 
+            const anchorLink = lane.anchor_external_id ? `/media/${lane.anchor_media_type || 'movie'}/${lane.anchor_external_id}` : '#';
             return `
                 <div>
-                    <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold mb-2">Because you loved ${escapeHtml(lane.anchor_title)}</p>
-                    <div class="swim-lane flex gap-3 overflow-x-auto pb-2 -mx-4 px-4" style="scroll-snap-type: x mandatory; flex-wrap: nowrap; -webkit-overflow-scrolling: touch;">
+                    <div class="section-head">
+                        <div>
+                            <div class="eyebrow text-sage">BECAUSE YOU LOVED</div>
+                            <h2 class="section-head__title">${escapeHtml(lane.anchor_title)}</h2>
+                        </div>
+                        <a href="${anchorLink}" class="section-head__cta">About this pick →</a>
+                    </div>
+                    <div class="swim-lane swim-lane--md">
                         ${cards}
                     </div>
                 </div>`;

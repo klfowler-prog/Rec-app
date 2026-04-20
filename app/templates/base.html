@@ -4,6 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}NextUp{% endblock %} — NextUp</title>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-PZGSTG615W"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-PZGSTG615W');
+        // Fire login/signup events from auth redirect
+        (function() {
+            var p = new URLSearchParams(window.location.search);
+            var ev = p.get('event');
+            if (ev === 'login') gtag('event', 'login', { method: 'google' });
+            if (ev === 'signup') gtag('event', 'sign_up', { method: 'google' });
+            if (ev) { p.delete('event'); var clean = p.toString(); history.replaceState(null, '', window.location.pathname + (clean ? '?' + clean : '')); }
+        })();
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -31,21 +46,24 @@
     <style>
         body { font-size: 16px; line-height: 1.65; }
         .transition-base { transition: all 200ms ease; }
-        /* Hide action bars — replaced by floating + button */
+        /* Hide old inline action bars everywhere — replaced by coral + button */
         .quick-add-area { display: none; }
-        /* Floating action trigger on posters */
+        /* Coral + button — bottom-right of the card.
+           [data-rec-card] is the positioning parent. */
+        [data-rec-card] { position: relative; }
         .poster-action-trigger {
             position: absolute; bottom: 6px; right: 6px; z-index: 5;
-            width: 28px; height: 28px; border-radius: 50%;
-            background: #E8734A; box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            width: 24px; height: 24px; border-radius: 50%;
+            background: #E8734A; box-shadow: 0 2px 6px rgba(0,0,0,0.2);
             display: flex; align-items: center; justify-content: center;
-            color: white; opacity: 0; transition: opacity 0.2s;
-            cursor: pointer; border: none;
+            color: white; cursor: pointer; border: none;
+            opacity: 0; transition: opacity 0.2s, transform 0.15s;
         }
         [data-rec-card]:hover .poster-action-trigger { opacity: 1; }
-        @media (hover: none) { .poster-action-trigger { opacity: 0.7; } }
+        @media (hover: none) { .poster-action-trigger { opacity: 0.85; } }
+        .poster-action-trigger:hover { transform: scale(1.15); box-shadow: 0 3px 10px rgba(232,115,74,0.4); }
         .poster-action-menu {
-            position: absolute; bottom: 38px; right: 2px; z-index: 20;
+            position: absolute; bottom: 34px; right: 2px; z-index: 20;
             background: white; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.15);
             padding: 4px; min-width: 100px; display: none;
         }
@@ -54,8 +72,9 @@
         .poster-action-menu button {
             display: block; width: 100%; text-align: left; padding: 6px 10px;
             font-size: 11px; font-weight: 500; border: none; background: none;
-            cursor: pointer; border-radius: 4px; color: inherit;
+            cursor: pointer; border-radius: 4px; color: #333;
         }
+        .dark .poster-action-menu button { color: #E0DDD7; }
         .poster-action-menu button:hover { background: rgba(139,158,107,0.1); color: #8B9E6B; }
         /* Chat content prose styling */
         .chat-content p { margin-bottom: 0.75rem; }
@@ -78,10 +97,10 @@
            distorting the row spacing. */
         .poster-frame { position: relative; width: 100%; aspect-ratio: 2 / 3; background-color: #EFEAE0; overflow: hidden; }
         .dark .poster-frame { background-color: #2A2D34; }
-        .poster-frame > img, .poster-frame > .poster-fallback { position: absolute; inset: 0; width: 100%; height: 100%; }
-        .poster-frame > img.poster-cover { object-fit: cover; }
-        .poster-frame > img.poster-contain { object-fit: contain; padding: 14%; }
-        .poster-frame > .poster-fallback { display: flex; align-items: center; justify-content: center; }
+        .poster-frame img, .poster-frame .poster-fallback { position: absolute; inset: 0; width: 100%; height: 100%; }
+        .poster-frame img.poster-cover { object-fit: cover; }
+        .poster-frame img.poster-contain { object-fit: contain; padding: 14%; }
+        .poster-frame .poster-fallback { display: flex; align-items: center; justify-content: center; }
         .card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.08); }
         .dark .card-hover:hover { box-shadow: 0 8px 25px rgba(0,0,0,0.3); }
         ::-webkit-scrollbar { width: 6px; }
@@ -96,6 +115,7 @@
             #sidebar.open { transform: translateX(0); }
         }
     </style>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/components.css') }}">
     {% block head %}{% endblock %}
 </head>
 <body class="bg-bg-light dark:bg-bg-dark text-txt dark:text-txt-light min-h-screen">
@@ -107,9 +127,14 @@
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h16"/></svg>
             </button>
             <span class="text-sm font-bold text-navy dark:text-cream">Next</span><span class="text-sm font-bold text-sage">Up</span>
-            {% if user is defined and user and user.picture %}
-            <img src="{{ user.picture }}" alt="" class="w-7 h-7 rounded-full ml-auto">
-            {% endif %}
+            <div class="ml-auto flex items-center gap-3">
+                <a href="/search" class="text-txt-muted hover:text-sage transition-base">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                </a>
+                {% if user is defined and user and user.picture %}
+                <img src="{{ user.picture }}" alt="" class="w-7 h-7 rounded-full">
+                {% endif %}
+            </div>
         </div>
 
         <!-- Sidebar overlay (mobile) -->
@@ -118,8 +143,8 @@
         <!-- Sidebar -->
         <nav id="sidebar" class="w-60 bg-surface-light dark:bg-surface-dark border-r border-border-light dark:border-border-dark flex flex-col fixed h-full z-50 md:translate-x-0">
             <div class="p-4 border-b border-border-light dark:border-border-dark bg-white dark:bg-surface-dark flex items-center justify-between">
-                <a href="/" class="block" onclick="closeSidebar()">
-                    <img src="/static/img/a_vector_style_digital_vector_logo_for_nextup_fe.png" alt="NextUp" class="w-36 mx-auto">
+                <a href="/" class="block" onclick="closeSidebar()" aria-label="nextup home">
+                    <img src="{{ url_for('static', path='/img/nextup-wordmark.svg') }}" alt="nextup" class="w-36 h-auto">
                 </a>
                 <button id="menu-close" class="md:hidden p-1 text-txt-muted hover:text-txt">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -133,10 +158,6 @@
                 <a href="/discover" onclick="closeSidebar()" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-base hover:bg-sage/10 {% if request.url.path == '/discover' or request.url.path == '/recommend' %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16zM11 8v6M8 11h6"/></svg>
                     Discover
-                </a>
-                <a href="/search" onclick="closeSidebar()" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-base hover:bg-sage/10 {% if request.url.path == '/search' %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                    Search
                 </a>
                 {% set library_active = request.url.path == '/profile' or request.url.path.startswith('/profile/') %}
                 <div class="nav-group">
@@ -189,6 +210,10 @@
                 </a>
                 {% endif %}
                 {% if user is defined and user %}
+                <a href="/settings/preferences" onclick="closeSidebar()" class="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-txt-muted hover:bg-sage/10 transition-base w-full {% if request.url.path == '/settings/preferences' %}text-sage font-medium{% endif %}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    Preferences
+                </a>
                 <div class="flex items-center gap-2.5 px-3 py-2">
                     {% if user.picture %}
                     <img src="{{ user.picture }}" alt="" class="w-7 h-7 rounded-full">
@@ -222,6 +247,12 @@
                 </form>
             </div>
             {% endif %}
+            <div class="hidden md:flex items-center justify-end px-8 py-3 border-b border-border-light dark:border-border-dark sticky top-0 z-20 bg-bg-light dark:bg-bg-dark">
+                <a href="/search" class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-txt-muted hover:bg-sage/10 hover:text-sage transition-base">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    Search
+                </a>
+            </div>
             <div class="max-w-5xl mx-auto px-4 md:px-8 py-4 md:py-8 mt-14 md:mt-0">
                 {% block content %}{% endblock %}
             </div>
@@ -233,10 +264,10 @@
 
 
 
-    <!-- Floating quick-add button (mobile) -->
+    <!-- Floating search button (mobile) -->
     {% if user is defined and user %}
-    <button id="fab-add" onclick="window.location.href='/search'" class="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-sage hover:bg-sage-dark text-white rounded-full shadow-lg z-40 flex items-center justify-center transition-all hover:scale-110 active:scale-95">
-        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6v12m6-6H6"/></svg>
+    <button id="fab-search" onclick="window.location.href='/search'" class="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-sage hover:bg-sage-dark text-white rounded-full shadow-lg z-40 flex items-center justify-center transition-all hover:scale-110 active:scale-95">
+        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
     </button>
     {% endif %}
 

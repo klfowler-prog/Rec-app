@@ -18,6 +18,11 @@ struct NextUpTVApp: App {
             }
             .environmentObject(authStore)
             .environmentObject(APIClient(authStore: authStore))
+            // NAVY THEME — applied once at the app root.
+            .preferredColorScheme(.dark)
+            .tint(Theme.gold)
+            .foregroundStyle(Theme.ink)
+            .background(Theme.bg.ignoresSafeArea())
         }
     }
 }
