@@ -26,7 +26,8 @@
 /* Collapse toggle */
 #tonight.collapsed .tonight-body      { display: none; }
 #tonight.collapsed .tonight-collapsed { display: flex; }
-.tonight-collapsed                    { display: none; }
+.tonight-collapsed                    { display: none !important; }
+#tonight.collapsed .tonight-collapsed { display: flex !important; }
 
 /* Serif stack for headline + reason prose */
 .tonight-serif {
