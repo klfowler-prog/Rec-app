@@ -123,7 +123,9 @@
          ============================================================ -->
     <!-- Welcome observation — always shows when available -->
     {% if tonight %}
-    <section id="tonight">
+    <section id="tonight" style="position: relative; padding: 1rem 0 1.25rem 1.25rem;">
+      {# Gradient bar — inline because Tailwind CDN can override external CSS #}
+      <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 3px; border-radius: 3px; background: linear-gradient(180deg, #8B9E6B 0%, #E8734A 100%);"></div>
       <div class="tonight-body">
         <div class="flex items-center justify-between mb-3">
           <p class="text-[10px] leading-none">
@@ -133,9 +135,9 @@
           <button id="tonight-collapse" title="Dismiss"
                   class="w-4 h-4 text-txt-muted hover:text-sage text-[16px] leading-none transition-base">×</button>
         </div>
-        <p class="tonight-serif text-xl md:text-[23px] leading-[1.45] text-navy dark:text-[#E5E5E3]"><span class="font-bold">{{ tonight.theme_headline }},</span> {{ tonight.welcome_text[0]|lower }}{{ tonight.welcome_text[1:]|safe }} See what we've lined up for you below.</p>
+        <p style="font-family: 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif; font-size: 1.35rem; line-height: 1.45; letter-spacing: -0.005em;" class="text-navy dark:text-[#E5E5E3]"><span class="font-bold">{{ tonight.theme_headline }},</span> {{ tonight.welcome_text[0]|lower }}{{ tonight.welcome_text[1:]|safe }} See what we've lined up for you below.</p>
       </div>
-      <div class="tonight-collapsed" style="height: 40px; align-items: center; gap: 0.75rem;">
+      <div id="tonight-collapsed-row" style="display: none; height: 40px; align-items: center; gap: 0.75rem;">
         <div class="flex-1 min-w-0 text-xs text-txt-muted truncate">
           <span class="text-[10px] uppercase tracking-[0.15em] font-bold text-[#6E8350] dark:text-[#A8B88A]">Your signal</span>
           <span> · </span>
@@ -1198,15 +1200,25 @@ loadBecauseYouLoved();
 (function initTonight() {
     const el = document.getElementById('tonight');
     if (!el) return;
-    if (localStorage.getItem('nextup-tonight') === 'collapsed') el.classList.add('collapsed');
-    document.getElementById('tonight-collapse')?.addEventListener('click', () => {
-        el.classList.add('collapsed');
+    const body = el.querySelector('.tonight-body');
+    const collapsed = document.getElementById('tonight-collapsed-row');
+    if (!body || !collapsed) return;
+
+    function collapse() {
+        body.style.display = 'none';
+        collapsed.style.display = 'flex';
         localStorage.setItem('nextup-tonight', 'collapsed');
-    });
-    document.getElementById('tonight-expand')?.addEventListener('click', () => {
-        el.classList.remove('collapsed');
+    }
+    function expand() {
+        body.style.display = 'block';
+        collapsed.style.display = 'none';
         localStorage.setItem('nextup-tonight', 'expanded');
-    });
+    }
+
+    if (localStorage.getItem('nextup-tonight') === 'collapsed') collapse();
+
+    document.getElementById('tonight-collapse')?.addEventListener('click', collapse);
+    document.getElementById('tonight-expand')?.addEventListener('click', expand);
 })();
 
 async function loadBecauseYouLoved() {
