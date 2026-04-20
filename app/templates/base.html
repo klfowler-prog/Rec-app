@@ -96,6 +96,7 @@
             #sidebar.open { transform: translateX(0); }
         }
     </style>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/components.css') }}">
     {% block head %}{% endblock %}
 </head>
 <body class="bg-bg-light dark:bg-bg-dark text-txt dark:text-txt-light min-h-screen">
@@ -118,8 +119,8 @@
         <!-- Sidebar -->
         <nav id="sidebar" class="w-60 bg-surface-light dark:bg-surface-dark border-r border-border-light dark:border-border-dark flex flex-col fixed h-full z-50 md:translate-x-0">
             <div class="p-4 border-b border-border-light dark:border-border-dark bg-white dark:bg-surface-dark flex items-center justify-between">
-                <a href="/" class="block" onclick="closeSidebar()">
-                    <img src="/static/img/a_vector_style_digital_vector_logo_for_nextup_fe.png" alt="NextUp" class="w-36 mx-auto">
+                <a href="/" class="block" onclick="closeSidebar()" aria-label="nextup home">
+                    <img src="{{ url_for('static', path='/img/nextup-wordmark.svg') }}" alt="nextup" class="w-36 h-auto">
                 </a>
                 <button id="menu-close" class="md:hidden p-1 text-txt-muted hover:text-txt">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -134,10 +135,7 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16zM11 8v6M8 11h6"/></svg>
                     Discover
                 </a>
-                <a href="/search" onclick="closeSidebar()" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-base hover:bg-sage/10 {% if request.url.path == '/search' %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                    Search
-                </a>
+                <!-- Search moved to global header bar -->
                 {% set library_active = request.url.path == '/profile' or request.url.path.startswith('/profile/') %}
                 <div class="nav-group">
                     <button type="button" onclick="toggleLibraryGroup()" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-base hover:bg-sage/10 {% if library_active %}bg-sage/10 text-sage-dark dark:text-sage-light font-medium{% else %}text-txt-muted{% endif %}">
@@ -222,6 +220,27 @@
                 </form>
             </div>
             {% endif %}
+            {% if user is defined and user %}
+            <div class="hidden md:block sticky top-0 z-20 bg-bg-light dark:bg-bg-dark border-b border-border-light dark:border-border-dark">
+                <div class="max-w-xl mx-auto px-4 py-2.5">
+                    <div class="relative">
+                        <div class="flex items-center gap-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl px-3 py-2 shadow-sm">
+                            <svg class="w-4 h-4 text-txt-muted flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            <input id="global-search-input" type="text" placeholder="Search or add to your queue..." autocomplete="off"
+                                class="flex-1 px-1 py-0.5 bg-transparent text-sm focus:outline-none placeholder:text-txt-muted">
+                            <div class="flex gap-1 flex-shrink-0" id="global-search-pills">
+                                <button onclick="setGlobalSearchType('')" class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-sage/10 text-sage transition-base" data-gs-type="">All</button>
+                                <button onclick="setGlobalSearchType('movie')" class="px-2 py-0.5 text-[10px] font-medium rounded-full text-txt-muted hover:bg-sage/5 transition-base" data-gs-type="movie">Movies</button>
+                                <button onclick="setGlobalSearchType('tv')" class="px-2 py-0.5 text-[10px] font-medium rounded-full text-txt-muted hover:bg-sage/5 transition-base" data-gs-type="tv">TV</button>
+                                <button onclick="setGlobalSearchType('book')" class="px-2 py-0.5 text-[10px] font-medium rounded-full text-txt-muted hover:bg-sage/5 transition-base" data-gs-type="book">Books</button>
+                                <button onclick="setGlobalSearchType('podcast')" class="px-2 py-0.5 text-[10px] font-medium rounded-full text-txt-muted hover:bg-sage/5 transition-base" data-gs-type="podcast">Pods</button>
+                            </div>
+                        </div>
+                        <div id="global-search-results" class="hidden absolute left-0 right-0 top-full mt-1 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl shadow-lg z-30 max-h-72 overflow-y-auto"></div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
             <div class="max-w-5xl mx-auto px-4 md:px-8 py-4 md:py-8 mt-14 md:mt-0">
                 {% block content %}{% endblock %}
             </div>
@@ -271,6 +290,132 @@
             const chevron = document.getElementById('library-chevron');
             submenu.classList.toggle('hidden');
             chevron.classList.toggle('rotate-180');
+        }
+
+        // ── Global search bar ──
+        function _escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = (text == null ? '' : text);
+            return div.innerHTML;
+        }
+        function _escapeAttr(str) {
+            return str.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+        let _globalSearchType = '';
+        function setGlobalSearchType(type) {
+            _globalSearchType = type;
+            document.querySelectorAll('[data-gs-type]').forEach(btn => {
+                const active = btn.getAttribute('data-gs-type') === type;
+                btn.classList.remove('bg-sage/10', 'text-sage', 'text-txt-muted');
+                btn.classList.add(active ? 'bg-sage/10' : 'text-txt-muted');
+                if (active) btn.classList.add('text-sage');
+            });
+            const input = document.getElementById('global-search-input');
+            if (input && input.value.trim().length >= 2) {
+                input.dispatchEvent(new Event('input'));
+            }
+        }
+
+        (function initGlobalSearch() {
+            const input = document.getElementById('global-search-input');
+            const results = document.getElementById('global-search-results');
+            if (!input || !results) return;
+
+            let debounce = null;
+
+            input.addEventListener('input', () => {
+                clearTimeout(debounce);
+                const q = input.value.trim();
+                if (q.length < 2) { results.classList.add('hidden'); return; }
+                debounce = setTimeout(() => globalSearch(q), 300);
+            });
+
+            input.addEventListener('focus', () => {
+                if (input.value.trim().length >= 2) globalSearch(input.value.trim());
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#global-search-input') && !e.target.closest('#global-search-results') && !e.target.closest('#global-search-pills')) {
+                    results.classList.add('hidden');
+                }
+            });
+
+            async function globalSearch(q) {
+                try {
+                    const mt = _globalSearchType;
+                    const resp = await fetch(`/api/media/search?q=${encodeURIComponent(q)}${mt ? '&media_type=' + mt : ''}`);
+                    if (!resp.ok) return;
+                    const items = await resp.json();
+                    if (!items.length) {
+                        results.innerHTML = '<p class="p-3 text-xs text-txt-muted">No results found.</p>';
+                        results.classList.remove('hidden');
+                        return;
+                    }
+                    results.innerHTML = items.slice(0, 6).map(item => {
+                        const badge = {movie:'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400',tv:'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400',book:'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400',podcast:'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400'}[item.media_type] || 'bg-gray-100 text-gray-600';
+                        const img = item.image_url
+                            ? `<img src="${item.image_url}" alt="" class="w-8 h-11 object-cover rounded flex-shrink-0">`
+                            : `<div class="w-8 h-11 bg-sage/10 rounded flex items-center justify-center flex-shrink-0"><span class="text-sage text-xs font-bold">${_escapeHtml((item.title||'?')[0])}</span></div>`;
+                        const baseData = {
+                            external_id: item.external_id || '', source: item.source || '', title: item.title,
+                            media_type: item.media_type, image_url: item.image_url || null, year: item.year || null,
+                            creator: item.creator || null,
+                            genres: item.genres ? (Array.isArray(item.genres) ? item.genres.join(', ') : item.genres) : null,
+                            description: item.description || null,
+                        };
+                        const laterData = _escapeAttr(JSON.stringify({...baseData, status: 'want_to_consume'}));
+                        const nowData = _escapeAttr(JSON.stringify({...baseData, status: 'consuming'}));
+                        const doneData = _escapeAttr(JSON.stringify({...baseData, status: 'consumed'}));
+                        return `
+                            <div class="flex items-center gap-3 px-3 py-2.5 hover:bg-sage/5 transition-base" data-gs-row>
+                                ${img}
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium truncate">${_escapeHtml(item.title)}</p>
+                                    <p class="text-[10px] text-txt-muted">${item.year || ''} ${item.creator ? '· ' + _escapeHtml(item.creator) : ''}</p>
+                                </div>
+                                <span class="px-1.5 py-0.5 ${badge} text-[9px] font-medium rounded capitalize flex-shrink-0">${item.media_type}</span>
+                                <div class="flex gap-1 flex-shrink-0">
+                                    <button onclick="globalAddSave(this, ${laterData})" class="px-2 py-1 text-[10px] font-medium bg-sage/10 hover:bg-sage hover:text-white text-sage rounded transition-base" title="Save for later">Later</button>
+                                    <button onclick="globalAddSave(this, ${nowData})" class="px-2 py-1 text-[10px] font-medium bg-coral/10 hover:bg-coral hover:text-white text-coral rounded transition-base" title="Start now">Now</button>
+                                    <button onclick="globalAddSave(this, ${doneData})" class="px-2 py-1 text-[10px] font-medium bg-gray-100 dark:bg-gray-800 hover:bg-sage hover:text-white text-txt-muted rounded transition-base" title="Already seen/read">Done</button>
+                                </div>
+                            </div>`;
+                    }).join('');
+                    results.classList.remove('hidden');
+                } catch {}
+            }
+        })();
+
+        async function globalAddSave(btn, data) {
+            btn.disabled = true;
+            try {
+                const resp = await fetch('/api/profile/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                });
+                const statusLabel = {want_to_consume: 'Saved to queue', consuming: 'Started', consumed: 'Added'}[data.status] || 'Saved';
+                if (resp.status === 409) {
+                    try {
+                        const checkResp = await fetch(`/api/profile/check/${encodeURIComponent(data.source || '_')}/${encodeURIComponent(data.external_id || '_')}`);
+                        const checkData = await checkResp.json();
+                        if (checkData.entry && checkData.entry.status !== data.status) {
+                            await fetch(`/api/profile/${checkData.entry.id}`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ status: data.status }),
+                            });
+                        }
+                    } catch {}
+                }
+                if (resp.ok || resp.status === 409) {
+                    const row = btn.closest('[data-gs-row]') || btn;
+                    row.innerHTML = `<span class="text-xs text-sage font-medium px-3">${statusLabel} ✓</span>`;
+                    setTimeout(() => row.remove(), 1500);
+                } else {
+                    btn.disabled = false;
+                }
+            } catch { btn.disabled = false; }
         }
     </script>
     {% block scripts %}{% endblock %}

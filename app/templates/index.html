@@ -119,8 +119,35 @@
     {% else %}
 
     <!-- ============================================================
-         Hero: greeting + day-aware featured content, one unit
+         Hero: tonight editorial pick OR day-aware featured content
          ============================================================ -->
+    <!-- Welcome observation — always shows when available -->
+    {% if tonight %}
+    <section id="tonight">
+      <div class="tonight-body">
+        <div class="flex items-center justify-between mb-3">
+          <p class="text-[10px] leading-none">
+            <span class="uppercase tracking-[0.18em] font-bold text-[#6E8350] dark:text-[#A8B88A]">Your signal</span>
+            <span class="text-txt-muted"> · {{ tonight.updated_label or 'updated daily' }}</span>
+          </p>
+          <button id="tonight-collapse" title="Dismiss"
+                  class="w-4 h-4 text-txt-muted hover:text-sage text-[16px] leading-none transition-base">×</button>
+        </div>
+        <p class="tonight-serif text-xl md:text-[23px] leading-[1.45] text-navy dark:text-[#E5E5E3]"><span class="font-bold">{{ tonight.theme_headline }},</span> {{ tonight.welcome_text[0]|lower }}{{ tonight.welcome_text[1:]|safe }} See what we've lined up for you below.</p>
+      </div>
+      <div class="tonight-collapsed items-center gap-3" style="height: 40px;">
+        <div class="flex-1 min-w-0 text-xs text-txt-muted truncate">
+          <span class="text-[10px] uppercase tracking-[0.15em] font-bold text-[#6E8350] dark:text-[#A8B88A]">Your signal</span>
+          <span> · </span>
+          <span class="text-[13px] text-navy dark:text-[#E5E5E3]">{{ tonight.welcome_text[:60] }}…</span>
+        </div>
+        <button id="tonight-expand" class="text-[10px] text-sage font-medium hover:underline flex-shrink-0 px-1">Show more</button>
+      </div>
+    </section>
+    {% endif %}
+
+    <!-- Box office / featured content — shows on theater weekends, independent of welcome -->
+    {% if featured_mode == 'theaters' %}
     <div class="home-hero">
         <div class="flex items-start justify-between mb-4">
             <div>
@@ -131,13 +158,25 @@
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h4.586M20 20v-5h-4.586M4.929 9A8 8 0 0119.07 9M19.071 15A8 8 0 014.93 15"/></svg>
             </button>
         </div>
-        {% if featured_mode == 'theaters' %}
         <div id="box-office-cards" class="flex gap-3 overflow-x-auto pb-1" style="scroll-snap-type: x mandatory;">
             <div class="text-center py-4 w-full">
                 <div class="inline-block w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
             </div>
         </div>
-        {% elif featured_mode == 'wind_down' %}
+    </div>
+    {% elif not tonight %}
+    <!-- Fallback hero when no welcome observation and not theaters -->
+    <div class="home-hero">
+        <div class="flex items-start justify-between mb-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold mb-1">{{ greeting }}</h1>
+                <p class="text-sm md:text-base text-white/75 leading-relaxed max-w-2xl">{{ suggestion }}</p>
+            </div>
+            <button onclick="refreshAll(this)" title="Get fresh picks" class="flex-shrink-0 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/60 hover:text-white transition-base">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h4.586M20 20v-5h-4.586M4.929 9A8 8 0 0119.07 9M19.071 15A8 8 0 014.93 15"/></svg>
+            </button>
+        </div>
+        {% if featured_mode == 'wind_down' %}
         <div id="wind-down-cards" class="flex gap-3 overflow-x-auto pb-1" style="scroll-snap-type: x mandatory;">
             <div class="text-center py-4 w-full">
                 <div class="inline-block w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
@@ -151,6 +190,7 @@
         </div>
         {% endif %}
     </div>
+    {% endif %}
 
     <!-- Signal strength meter -->
     <div id="signal-meter" class="hidden">
@@ -185,36 +225,7 @@
         </div>
     </div>
 
-    <!-- ============================================================
-         Quick add — capture a title fast, like jotting down a note
-         ============================================================ -->
-    <div>
-        <div class="flex items-center justify-between mb-2">
-            <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold">Keep track of what you want to explore</p>
-            <div class="flex gap-1.5" id="quick-add-pills">
-                <button onclick="setQuickAddType('')" class="px-2.5 py-1 text-[10px] font-medium rounded-full bg-sage/10 text-sage transition-base" data-qa-type="">All</button>
-                <button onclick="setQuickAddType('movie')" class="px-2.5 py-1 text-[10px] font-medium rounded-full text-txt-muted hover:bg-blue-50 transition-base" data-qa-type="movie">Movies</button>
-                <button onclick="setQuickAddType('tv')" class="px-2.5 py-1 text-[10px] font-medium rounded-full text-txt-muted hover:bg-purple-50 transition-base" data-qa-type="tv">TV</button>
-                <button onclick="setQuickAddType('book')" class="px-2.5 py-1 text-[10px] font-medium rounded-full text-txt-muted hover:bg-amber-50 transition-base" data-qa-type="book">Books</button>
-                <button onclick="setQuickAddType('podcast')" class="px-2.5 py-1 text-[10px] font-medium rounded-full text-txt-muted hover:bg-green-50 transition-base" data-qa-type="podcast">Pods</button>
-            </div>
-        </div>
-        <div class="relative">
-        <div class="flex items-center gap-2 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl p-2 shadow-sm">
-            <svg class="w-5 h-5 text-txt-muted ml-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-            <input id="quick-add-input" type="text" placeholder="Search for a title..." autocomplete="off"
-                class="flex-1 px-2 py-2 bg-transparent text-sm focus:outline-none placeholder:text-txt-muted">
-            <select id="quick-add-type" class="hidden">
-                <option value="">Any</option>
-                <option value="movie">Movie</option>
-                <option value="tv">TV</option>
-                <option value="book">Book</option>
-                <option value="podcast">Podcast</option>
-            </select>
-        </div>
-        <div id="quick-add-results" class="hidden absolute left-0 right-0 top-full mt-1 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl shadow-lg z-30 max-h-64 overflow-y-auto"></div>
-        </div>
-    </div>
+    <!-- Quick add moved to global search bar in base.html header -->
 
     <!-- ============================================================
          In progress — cinematic poster cards with resonance toggle.
@@ -1183,6 +1194,20 @@ loadRightNow();
 loadBestBet();
 loadSignalStrength();
 loadBecauseYouLoved();
+
+(function initTonight() {
+    const el = document.getElementById('tonight');
+    if (!el) return;
+    if (localStorage.getItem('nextup-tonight') === 'collapsed') el.classList.add('collapsed');
+    document.getElementById('tonight-collapse')?.addEventListener('click', () => {
+        el.classList.add('collapsed');
+        localStorage.setItem('nextup-tonight', 'collapsed');
+    });
+    document.getElementById('tonight-expand')?.addEventListener('click', () => {
+        el.classList.remove('collapsed');
+        localStorage.setItem('nextup-tonight', 'expanded');
+    });
+})();
 
 async function loadBecauseYouLoved() {
     const section = document.getElementById('because-loved-section');

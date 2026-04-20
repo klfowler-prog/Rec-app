@@ -147,12 +147,12 @@ def force_refresh() -> None:
     with _lock:
         # Don't clear new_releases — those are weekly external data that
         # shouldn't regenerate on every rating change
-        prefixes = ("top_picks", "suggestions_home", "home_bundle", "related_items", "insights", "best_bet", "taste_dna", "taste_fit", "missing")
+        prefixes = ("top_picks", "suggestions_home", "home_bundle", "related_items", "insights", "best_bet", "taste_dna", "taste_fit", "missing", "new_on_services", "friends_enjoying", "hidden_gems", "tonight_welcome")
         keys_to_delete = [k for k in _cache if any(k.startswith(p) for p in prefixes)]
         for k in keys_to_delete:
             _cache.pop(k, None)
     # Also clear from DB
-    for p in ("top_picks", "suggestions_home", "home_bundle", "related_items", "insights", "best_bet", "taste_dna", "taste_fit", "missing"):
+    for p in ("top_picks", "suggestions_home", "home_bundle", "related_items", "insights", "best_bet", "taste_dna", "taste_fit", "missing", "new_on_services", "friends_enjoying", "hidden_gems", "tonight_welcome"):
         _db_invalidate(p)
 
 
@@ -165,6 +165,19 @@ def invalidate(prefix: str = "") -> None:
             for k in keys_to_delete:
                 _cache.pop(k, None)
     _db_invalidate(prefix)
+
+
+def get_predicted_rating(user_id: int, media_type: str, external_id: str) -> float | None:
+    """Get the authoritative predicted rating for a user+item."""
+    key = f"pr:{user_id}:{media_type}:{external_id}"
+    val = get(key)
+    return val if isinstance(val, (int, float)) else None
+
+
+def set_predicted_rating(user_id: int, media_type: str, external_id: str, rating: float) -> None:
+    """Store an authoritative predicted rating for a user+item. Long TTL since these are expensive to compute."""
+    key = f"pr:{user_id}:{media_type}:{external_id}"
+    set(key, rating, ttl_seconds=604800)  # 7 days
 
 
 def get_recent_recs(user_id: int) -> list[str]:

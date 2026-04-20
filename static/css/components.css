@@ -1,0 +1,81 @@
+/* ============================================================
+   NextUp — components.css (additive only)
+   Load AFTER Tailwind + base.html <style> block.
+   ============================================================ */
+
+
+/* ═══════════════════════════════════════════════════════════
+   TONIGHT'S PICK
+   No card chrome. Accent bar left, content right of it.
+   ═══════════════════════════════════════════════════════════ */
+#tonight {
+  position: relative;
+  padding: 1rem 0 1.25rem 1.25rem;
+}
+#tonight::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #8B9E6B 0%, #E8734A 100%);
+}
+
+/* Collapse toggle */
+#tonight.collapsed .tonight-body      { display: none; }
+#tonight.collapsed .tonight-collapsed { display: flex; }
+.tonight-collapsed                    { display: none; }
+
+/* Serif stack for headline + reason prose */
+.tonight-serif {
+  font-family: 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua',
+               Palatino, Georgia, serif;
+  letter-spacing: -0.005em;
+}
+
+/* Reason prose styling */
+.tonight-reason {
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+@media (min-width: 768px) {
+  .tonight-reason { font-size: 0.95rem; }
+}
+.tonight-reason em { font-style: italic; color: #6E8350; }
+.dark .tonight-reason em { color: #A8B88A; }
+
+/* CTA pills */
+.tonight-cta-primary {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 0.5rem 0.9rem; border-radius: 9999px;
+  background: #2B3A4E; color: #FFFFFF;
+  font-size: 12px; font-weight: 700;
+  text-decoration: none; white-space: nowrap;
+  transition: background 150ms ease;
+}
+.tonight-cta-primary:hover { background: #1E2A3A; }
+.dark .tonight-cta-primary { background: #8B9E6B; }
+.dark .tonight-cta-primary:hover { background: #6E8350; }
+
+.tonight-cta-secondary {
+  display: inline-flex; align-items: center;
+  padding: 0.5rem 0.9rem; border-radius: 9999px;
+  background: transparent; color: #6E8350;
+  border: 1px solid #8B9E6B;
+  font-size: 12px; font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+  transition: background 150ms ease;
+}
+.tonight-cta-secondary:hover { background: rgba(139,158,107,0.08); }
+.dark .tonight-cta-secondary { color: #A8B88A; border-color: #8B9E6B; }
+.dark .tonight-cta-secondary:hover { background: rgba(139,158,107,0.12); }
+
+.tonight-cta-tertiary {
+  font-size: 12px; font-weight: 600;
+  color: #7A8494; text-decoration: none;
+  transition: color 150ms ease;
+}
+.tonight-cta-tertiary:hover { color: #2B3A4E; }
+.dark .tonight-cta-tertiary:hover { color: #E5E5E3; }

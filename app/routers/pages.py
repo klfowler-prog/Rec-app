@@ -507,9 +507,45 @@ async def home(request: Request, user: User = Depends(require_user), db: Session
             "taste_comparison": taste_comparison,
             "rated_this_month": rated_this_month,
             "fives_count": fives_count,
+            "tonight": await _build_tonight_ctx(user, db),
             **greeting_ctx,
         },
     )
+
+
+async def _build_tonight_ctx(user, db) -> dict | None:
+    """Build tonight welcome context for the template. Returns None if no data."""
+    try:
+        from app.recommenders.tonight import build_tonight
+        result = await build_tonight(user, db)
+        if not result:
+            return None
+
+        first_name = (user.name or "friend").split()[0]
+
+        # Time-aware headline
+        hour = datetime.now(ZoneInfo("America/New_York")).hour
+        if hour >= 20:
+            headline = f"Time to wind down, {first_name}"
+        elif hour >= 17:
+            headline = f"Tonight, {first_name}"
+        else:
+            headline = f"Hey {first_name}"
+
+        # Day label for eyebrow
+        _now = datetime.now(ZoneInfo("America/New_York"))
+        day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        day_label = day_names[_now.weekday()]
+
+        return {
+            "theme_headline": headline,
+            "welcome_text": result.get("welcome_text", ""),
+            "updated_label": f"{day_label}, updated daily",
+        }
+    except Exception:
+        import traceback
+        traceback.print_exc()
+        return None
 
 
 @router.get("/search")
