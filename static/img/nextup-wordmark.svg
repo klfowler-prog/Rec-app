@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 40" role="img" aria-label="nextup">
-  <title>nextup</title>
-  <text x="0" y="30" font-family="-apple-system, BlinkMacSystemFont, &#39;SF Pro Display&#39;, &#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="28" font-weight="700" letter-spacing="-1.3" fill="#2B3A4E">next</text>
-  <text x="62" y="30" font-family="-apple-system, BlinkMacSystemFont, &#39;SF Pro Display&#39;, &#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif" font-size="28" font-weight="700" letter-spacing="-1.3" fill="#8B9E6B">up</text>
-  <path d="M 104 12 L 118 21 L 104 30 Z" fill="#8B9E6B"></path>
-</svg>

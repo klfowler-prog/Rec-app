@@ -19,18 +19,6 @@ class MediaResult(BaseModel):
     audience_score: float | None = None  # TMDB vote_average (0-10)
     audience_count: int | None = None    # TMDB vote_count
     popularity: float | None = None      # TMDB popularity score
-    runtime: int | None = None           # minutes
-    status: str | None = None            # "Ended", "Returning Series", etc.
-    seasons: int | None = None
-    episodes: int | None = None
-    network: str | None = None           # primary network name
-    signal_score: float | None = None    # 0-10 recommendation strength (predicted_rating * 2)
-
-
-class TonightPick(BaseModel):
-    item: MediaResult
-    reason: str = Field(..., max_length=140)
-    providers: list[str] = []
 
 
 class MediaEntryCreate(BaseModel):

@@ -16,11 +16,6 @@ struct ContentView: View {
             TogetherView()
                 .tabItem { Label("Together", systemImage: "person.2") }
                 .tag(2)
-
-            SignalView()
-                .tabItem { Label("My Signal", systemImage: "waveform.path") }
-                .tag(3)
         }
-        .background(Theme.bg)
     }
 }

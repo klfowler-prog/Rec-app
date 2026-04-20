@@ -39,22 +39,15 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: Theme.Spacing.rowGap) {
+                LazyVStack(alignment: .leading, spacing: 40) {
                     if vm.isLoading {
                         ProgressView()
                             .frame(maxWidth: .infinity, minHeight: 400)
                     } else if let error = vm.error {
                         errorView(error)
                     } else {
-                        // Tonight hero — above everything
-                        if let tonight = vm.bundle?.tonight {
-                            TonightHero(pick: tonight)
-                        }
-
                         if let picks = vm.bundle?.topPicks, !picks.isEmpty {
-                            mediaRow(title: "Top Picks for You",
-                                     eyebrow: "Strongest signal · tonight",
-                                     items: picks)
+                            mediaRow(title: "Top Picks for You", items: picks)
                         }
 
                         if let suggestions = vm.bundle?.suggestions {
@@ -80,7 +73,6 @@ struct HomeView: View {
                 }
                 .padding(.vertical, 40)
             }
-            .background(Theme.bg)
             .navigationTitle("NextUp")
             .navigationDestination(for: MediaItem.self) { item in
                 DetailView(mediaType: item.mediaType, externalId: item.externalId, title: item.title)
@@ -98,18 +90,15 @@ struct HomeView: View {
         }
     }
 
-    private func mediaRow(title: String, eyebrow: String? = nil, items: [MediaItem]) -> some View {
+    private func mediaRow(title: String, items: [MediaItem]) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 6) {
-                if let eyebrow { Eyebrow(text: eyebrow) }
-                Text(title)
-                    .font(.system(size: Theme.FontSize.rowTitle, weight: .bold))
-                    .foregroundStyle(Theme.ink)
-            }
-            .padding(.horizontal, Theme.Spacing.screenPadding)
+            Text(title)
+                .font(.title2)
+                .bold()
+                .padding(.horizontal, 60)
 
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: Theme.Spacing.posterGap) {
+                LazyHStack(spacing: 24) {
                     ForEach(items) { item in
                         NavigationLink(value: item) {
                             PosterCard(item: item)
@@ -117,7 +106,7 @@ struct HomeView: View {
                         .buttonStyle(.card)
                     }
                 }
-                .padding(.horizontal, Theme.Spacing.screenPadding)
+                .padding(.horizontal, 60)
             }
         }
     }
@@ -125,12 +114,12 @@ struct HomeView: View {
     private func suggestionsSection(_ suggestions: HomeSuggestions) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Suggestions")
-                .font(.system(size: Theme.FontSize.rowTitle, weight: .bold))
-                .foregroundStyle(Theme.ink)
-                .padding(.horizontal, Theme.Spacing.screenPadding)
+                .font(.title2)
+                .bold()
+                .padding(.horizontal, 60)
 
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: Theme.Spacing.posterGap) {
+                HStack(spacing: 24) {
                     if let pick = suggestions.quickPick {
                         suggestionCard(label: "Quick Pick", item: pick)
                     }
@@ -141,7 +130,7 @@ struct HomeView: View {
                         suggestionCard(label: "Wildcard", item: wild)
                     }
                 }
-                .padding(.horizontal, Theme.Spacing.screenPadding)
+                .padding(.horizontal, 60)
             }
         }
     }
@@ -149,7 +138,10 @@ struct HomeView: View {
     private func suggestionCard(label: String, item: MediaItem) -> some View {
         NavigationLink(value: item) {
             VStack(alignment: .leading, spacing: 8) {
-                Eyebrow(text: label)
+                Text(label)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
                 PosterCard(item: item)
             }
         }
@@ -159,22 +151,21 @@ struct HomeView: View {
     private func insightsSection(_ insights: [Insight]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Taste Insights")
-                .font(.system(size: Theme.FontSize.rowTitle, weight: .bold))
-                .foregroundStyle(Theme.ink)
+                .font(.title2)
+                .bold()
 
             ForEach(insights, id: \.self) { insight in
                 Text(insight.text)
-                    .foregroundStyle(Theme.inkDim)
+                    .foregroundStyle(.secondary)
             }
         }
-        .padding(.horizontal, Theme.Spacing.screenPadding)
+        .padding(.horizontal, 60)
     }
 
     private func errorView(_ message: String) -> some View {
         VStack(spacing: 16) {
-            Text(message).foregroundStyle(Theme.inkDim)
+            Text(message).foregroundStyle(.secondary)
             Button("Retry") { Task { await vm.refresh(api: api) } }
-                .tint(Theme.gold)
         }
         .frame(maxWidth: .infinity, minHeight: 400)
     }

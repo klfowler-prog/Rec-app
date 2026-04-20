@@ -50,7 +50,6 @@ struct MediaItem: Codable, Identifiable, Hashable {
     let backdropUrl: String?
     let reason: String?
     let watchProviders: [WatchProvider]?
-    let signalScore: Double?
 
     var id: String { "\(source ?? "unknown"):\(externalId)" }
 
@@ -65,7 +64,6 @@ struct MediaItem: Codable, Identifiable, Hashable {
         case backdropUrl = "backdrop_url"
         case reason
         case watchProviders = "watch_providers"
-        case signalScore = "signal_score"
     }
 
     init(from decoder: Decoder) throws {
@@ -82,7 +80,6 @@ struct MediaItem: Codable, Identifiable, Hashable {
         backdropUrl = try c.decodeIfPresent(String.self, forKey: .backdropUrl)
         reason = try c.decodeIfPresent(String.self, forKey: .reason)
         watchProviders = try c.decodeIfPresent([WatchProvider].self, forKey: .watchProviders)
-        signalScore = try c.decodeIfPresent(Double.self, forKey: .signalScore)
 
         if let str = try? c.decodeIfPresent(String.self, forKey: .genres) {
             genres = str
@@ -94,21 +91,13 @@ struct MediaItem: Codable, Identifiable, Hashable {
     }
 }
 
-struct TonightPick: Codable, Hashable {
-    let item: MediaItem
-    let reason: String
-    let providers: [String]
-}
-
 struct HomeBundle: Codable {
-    let tonight: TonightPick?
     let topPicks: [MediaItem]?
     let suggestions: HomeSuggestions?
     let themes: [String: [MediaItem]]?
     let insights: [Insight]?
 
     enum CodingKeys: String, CodingKey {
-        case tonight
         case topPicks = "top_picks"
         case suggestions, themes, insights
     }
