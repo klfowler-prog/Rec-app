@@ -14,7 +14,7 @@ from app.schemas import MediaResult
 router = APIRouter()
 
 
-async def _smart_search(title: str, media_type: str | None = None, creator: str = "") -> list[MediaResult]:
+async def _smart_search(title: str, media_type: str | None = None, creator: str = "", year: int | None = None) -> list[MediaResult]:
     """Shared enrichment search with creator awareness and title similarity check.
     Used by all endpoints that need to find the right item from an AI-suggested title."""
     from app.services.unified_search import unified_search
@@ -27,6 +27,13 @@ async def _smart_search(title: str, media_type: str | None = None, creator: str 
 
     if not matches:
         return []
+
+    # If we have a year hint, prefer matches within ±1 year. This prevents
+    # short/ambiguous titles like "Milk" from matching the wrong film.
+    if year and len(matches) > 1:
+        year_matches = [m for m in matches if m.year and abs(m.year - year) <= 1]
+        if year_matches:
+            matches = year_matches + [m for m in matches if m not in year_matches]
 
     # Reject matches where the title is wildly different
     best_title = matches[0].title.lower()
@@ -2633,10 +2640,11 @@ Return ONLY valid JSON, no markdown:
             title = pick.get("title", "")
             mt = pick.get("media_type")
             creator = pick.get("creator") or pick.get("author") or ""
+            pick_year = pick.get("year")
             pr = _coerce_pr(pick.get("predicted_rating"))
-            # Search with creator for accuracy, fall back to title-only if no results
+            # Search with creator + year for accuracy
             try:
-                matches = await _smart_search(title, mt, creator)
+                matches = await _smart_search(title, mt, creator, year=pick_year)
             except Exception:
                 matches = []
             if matches:
@@ -2673,7 +2681,7 @@ Return ONLY valid JSON, no markdown:
             creator = item.get("creator") or item.get("author") or ""
             pr = item.get("predicted_rating")
             try:
-                matches = await _smart_search(title, media_type, creator)
+                matches = await _smart_search(title, media_type, creator, year=item.get("year"))
             except Exception:
                 matches = []
             if matches:
