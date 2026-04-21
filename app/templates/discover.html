@@ -13,51 +13,70 @@
         pointer-events: none;
     }
 
-    /* Discover hero — warm welcome moment at the top of the page.
-       Keeps the sage brand color anchored to the section label
-       instead of drowning the whole page in green like the old
-       Mad Lib hero did. */
-    .discover-hero {
-        background: linear-gradient(135deg, #2B3A4E 0%, #1E2A3A 100%);
-        border-radius: 1.5rem; padding: 2rem 2rem 2.25rem;
-        position: relative; overflow: hidden; color: white;
+    /* Mood door cards — each one is a browsable entry point,
+       warm accent tint on cream, horizontally scrollable. */
+    .mood-door {
+        flex-shrink: 0; width: 140px;
+        padding: 1rem; border-radius: 1.25rem;
+        border: 1px solid rgba(139,158,107,0.15);
+        display: flex; flex-direction: column; align-items: flex-start; gap: 0.375rem;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+        cursor: pointer; text-align: left; scroll-snap-align: start;
     }
-    .discover-hero::before {
-        content: ""; position: absolute; top: -4rem; right: -4rem;
-        width: 14rem; height: 14rem; border-radius: 50%;
-        background: radial-gradient(circle, rgba(139,158,107,0.35) 0%, transparent 70%);
+    .mood-door:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.08); }
+    .dark .mood-door:hover { box-shadow: 0 8px 25px rgba(0,0,0,0.3); }
+    .mood-door-icon {
+        width: 2.25rem; height: 2.25rem; border-radius: 0.75rem;
+        display: flex; align-items: center; justify-content: center; margin-bottom: 0.25rem;
     }
-    .discover-hero::after {
-        content: ""; position: absolute; bottom: -6rem; left: 20%;
-        width: 12rem; height: 12rem; border-radius: 50%;
-        background: radial-gradient(circle, rgba(232,115,74,0.25) 0%, transparent 70%);
-    }
-    .discover-hero > * { position: relative; z-index: 1; }
+    .mood-door-icon svg { width: 1.125rem; height: 1.125rem; }
+    .mood-door-label { font-size: 0.8125rem; font-weight: 700; line-height: 1.2; color: #2B3A4E; }
+    .dark .mood-door-label { color: #E5E5E3; }
+    .mood-door-teaser { font-size: 0.6875rem; line-height: 1.35; color: #7A8494; }
 
-    /* Mood pills — small, colorful, delightful. Each mood gets its
-       own accent color so the row reads as a palette of options
-       rather than a block of sameness. */
-    .mood-pill {
-        display: inline-flex; align-items: center; gap: 0.5rem;
-        padding: 0.625rem 1rem; border-radius: 9999px;
-        font-size: 0.875rem; font-weight: 600;
-        border: 1.5px solid transparent;
-        transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
-        white-space: nowrap;
+    /* purple — bingeable TV */
+    .mood-door-tv       { background: linear-gradient(135deg, rgba(147,130,180,0.15), rgba(147,130,180,0.06)); border-color: rgba(147,130,180,0.3); }
+    .mood-door-tv       .mood-door-icon { background: rgba(147,130,180,0.25); color: #7B68A8; }
+    /* coral — movies */
+    .mood-door-movies   { background: linear-gradient(135deg, rgba(232,115,74,0.14), rgba(232,115,74,0.05)); border-color: rgba(232,115,74,0.3); }
+    .mood-door-movies   .mood-door-icon { background: rgba(232,115,74,0.22); color: #D0663A; }
+    /* amber/gold — quick escape, comfort */
+    .mood-door-quick    { background: linear-gradient(135deg, rgba(184,169,126,0.18), rgba(184,169,126,0.07)); border-color: rgba(184,169,126,0.35); }
+    .mood-door-quick    .mood-door-icon { background: rgba(184,169,126,0.28); color: #9A8A5E; }
+    /* sage — learn something */
+    .mood-door-learn    { background: linear-gradient(135deg, rgba(139,158,107,0.15), rgba(139,158,107,0.06)); border-color: rgba(139,158,107,0.3); }
+    .mood-door-learn    .mood-door-icon { background: rgba(139,158,107,0.25); color: #5A7040; }
+    /* dusty blue — get lost in a story */
+    .mood-door-lost     { background: linear-gradient(135deg, rgba(90,130,170,0.14), rgba(90,130,170,0.05)); border-color: rgba(90,130,170,0.28); }
+    .mood-door-lost     .mood-door-icon { background: rgba(90,130,170,0.22); color: #4A7A9E; }
+    /* dusty blue lighter — new on services */
+    .mood-door-new      { background: linear-gradient(135deg, rgba(60,80,110,0.13), rgba(60,80,110,0.05)); border-color: rgba(60,80,110,0.25); }
+    .mood-door-new      .mood-door-icon { background: rgba(60,80,110,0.2); color: #3D5068; }
+    /* warm amber — social, people */
+    .mood-door-friends  { background: linear-gradient(135deg, rgba(200,160,100,0.16), rgba(200,160,100,0.06)); border-color: rgba(200,160,100,0.3); }
+    .mood-door-friends  .mood-door-icon { background: rgba(200,160,100,0.25); color: #A07830; }
+    /* muted navy — hidden gems */
+    .mood-door-gems     { background: linear-gradient(135deg, rgba(147,130,180,0.1), rgba(90,130,170,0.06)); border-color: rgba(147,130,180,0.2); }
+    .mood-door-gems     .mood-door-icon { background: rgba(147,130,180,0.18); color: #7B68A8; }
+
+    .dark .mood-door-tv       { background: linear-gradient(135deg, rgba(147,130,180,0.2), rgba(147,130,180,0.08)); }
+    .dark .mood-door-movies   { background: linear-gradient(135deg, rgba(232,115,74,0.18), rgba(232,115,74,0.07)); }
+    .dark .mood-door-quick    { background: linear-gradient(135deg, rgba(184,169,126,0.2), rgba(184,169,126,0.08)); }
+    .dark .mood-door-learn    { background: linear-gradient(135deg, rgba(139,158,107,0.2), rgba(139,158,107,0.08)); }
+    .dark .mood-door-lost     { background: linear-gradient(135deg, rgba(90,130,170,0.2), rgba(90,130,170,0.08)); }
+    .dark .mood-door-new      { background: linear-gradient(135deg, rgba(60,80,110,0.22), rgba(60,80,110,0.09)); }
+    .dark .mood-door-friends  { background: linear-gradient(135deg, rgba(200,160,100,0.2), rgba(200,160,100,0.08)); }
+    .dark .mood-door-gems     { background: linear-gradient(135deg, rgba(147,130,180,0.16), rgba(90,130,170,0.08)); }
+
+    /* Search tools container — warm tint matching rate-section */
+    .discover-search-tools {
+        background: linear-gradient(135deg, rgba(232,115,74,0.06), rgba(139,158,107,0.06));
+        border: 1px solid rgba(139,158,107,0.15); border-radius: 1.25rem; overflow: hidden;
     }
-    .mood-pill:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.08); }
-    .dark .mood-pill:hover { box-shadow: 0 6px 18px rgba(0,0,0,0.3); }
-    .mood-pill svg { width: 1rem; height: 1rem; flex-shrink: 0; }
-    .mood-pill-tonight    { background: rgba(107, 91, 138, 0.12); color: #6B5B8A; border-color: rgba(107, 91, 138, 0.25); }
-    .mood-pill-wind       { background: rgba(184, 169, 126, 0.15); color: #8A7A50; border-color: rgba(184, 169, 126, 0.3); }
-    .mood-pill-walk       { background: rgba(107, 166, 133, 0.13); color: #4E8A68; border-color: rgba(107, 166, 133, 0.28); }
-    .mood-pill-work       { background: rgba(93, 132, 170, 0.13); color: #3D5C80; border-color: rgba(93, 132, 170, 0.3); }
-    .mood-pill-quick      { background: rgba(232, 115, 74, 0.13); color: #C55A34; border-color: rgba(232, 115, 74, 0.3); }
-    .mood-pill-weekend    { background: rgba(139, 158, 107, 0.15); color: #5A7040; border-color: rgba(139, 158, 107, 0.3); }
-    .mood-pill-new        { background: rgba(59, 130, 246, 0.12); color: #2563EB; border-color: rgba(59, 130, 246, 0.25); }
-    .mood-pill-friends    { background: rgba(232, 115, 74, 0.12); color: #C55A34; border-color: rgba(232, 115, 74, 0.25); }
-    .mood-pill-gems       { background: rgba(147, 51, 234, 0.12); color: #7C3AED; border-color: rgba(147, 51, 234, 0.25); }
-    .dark .mood-pill { color: white; }
+    .dark .discover-search-tools {
+        background: linear-gradient(135deg, rgba(232,115,74,0.08), rgba(139,158,107,0.08));
+        border-color: rgba(139,158,107,0.2);
+    }
 
     /* Mad lib — compact, warm, inline. Not a dominant hero block. */
     .madlib-compact {
@@ -111,11 +130,11 @@
 <div class="space-y-10">
 
     <!-- ============================================================
-         Hero: warm welcome, on-beige with accent bar
+         Zone 1: Greeting + Mood Doors
          ============================================================ -->
-    <div style="position: relative; padding: 1rem 0 1.25rem 1.25rem;">
+    <div style="position: relative; padding: 0.5rem 0 0 1.25rem;">
         <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 3px; border-radius: 3px; background: linear-gradient(180deg, #8B9E6B 0%, #E8734A 100%);"></div>
-        <div class="flex items-start justify-between mb-3">
+        <div class="flex items-start justify-between mb-2">
             <p class="text-[10px] leading-none">
                 <span class="uppercase tracking-[0.18em] font-bold text-[#6E8350] dark:text-[#A8B88A]">Discover</span>
             </p>
@@ -123,8 +142,122 @@
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h4.586M20 20v-5h-4.586M4.929 9A8 8 0 0119.07 9M19.071 15A8 8 0 014.93 15"/></svg>
             </button>
         </div>
-        <h1 style="font-family: 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif; font-size: 1.6rem; line-height: 1.2; letter-spacing: -0.005em;" class="font-bold text-navy dark:text-[#E5E5E3] mb-2">What looks good, {{ (user.name or 'friend').split(' ')[0] }}?</h1>
-        <p class="text-sm text-txt-muted max-w-2xl leading-relaxed">We pulled one pick from every category we think you'll love today. Scroll down for moods, mix-two-things, or just ask us straight up.</p>
+        <h1 style="font-family: 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif; font-size: 1.75rem; line-height: 1.2; letter-spacing: -0.005em;" class="font-bold text-navy dark:text-[#E5E5E3] mb-5">What looks good, {{ (user.name or 'friend').split(' ')[0] }}?</h1>
+    </div>
+
+    <!-- Mood doors — horizontally scrollable cards -->
+    <div class="swim-lane flex gap-3 overflow-x-auto pb-3 -mx-4 px-4" style="scroll-snap-type: x mandatory;">
+        <button onclick="scrollToTheme('bingeable_tv')" class="mood-door mood-door-tv">
+            <div class="mood-door-icon">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+            </div>
+            <span class="mood-door-label">Bingeable TV</span>
+            <span class="mood-door-teaser">Shows you won't be able to stop.</span>
+        </button>
+        <button onclick="scrollToTheme('movies_youll_love')" class="mood-door mood-door-movies">
+            <div class="mood-door-icon">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/></svg>
+            </div>
+            <span class="mood-door-label">Movies you'll love</span>
+            <span class="mood-door-teaser">Strong taste matches picked for you.</span>
+        </button>
+        <button onclick="scrollToTheme('quick_escape')" class="mood-door mood-door-quick">
+            <div class="mood-door-icon">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            </div>
+            <span class="mood-door-label">Quick escape</span>
+            <span class="mood-door-teaser">Light, easy comfort. 90 min or less.</span>
+        </button>
+        <button onclick="scrollToTheme('learn_something')" class="mood-door mood-door-learn">
+            <div class="mood-door-icon">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+            </div>
+            <span class="mood-door-label">Learn something new</span>
+            <span class="mood-door-teaser">Podcasts and nonfiction for curious minds.</span>
+        </button>
+        <button onclick="scrollToTheme('get_lost')" class="mood-door mood-door-lost">
+            <div class="mood-door-icon">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+            </div>
+            <span class="mood-door-label">Get lost in a story</span>
+            <span class="mood-door-teaser">Books you'll lose a weekend to.</span>
+        </button>
+        {% if user_services %}
+        <button onclick="scrollToSection('new-on-services-section')" class="mood-door mood-door-new">
+            <div class="mood-door-icon">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            </div>
+            <span class="mood-door-label">New on my services</span>
+            <span class="mood-door-teaser">Recently added, picked for you.</span>
+        </button>
+        {% endif %}
+        <button onclick="scrollToSection('friends-enjoying-section')" class="mood-door mood-door-friends">
+            <div class="mood-door-icon">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            </div>
+            <span class="mood-door-label">From your people</span>
+            <span class="mood-door-teaser">What your friends are into lately.</span>
+        </button>
+        <button onclick="scrollToSection('hidden-gems-section')" class="mood-door mood-door-gems">
+            <div class="mood-door-icon">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+            </div>
+            <span class="mood-door-label">Hidden gems</span>
+            <span class="mood-door-teaser">Under the radar, right up your alley.</span>
+        </button>
+    </div>
+
+    <!-- ============================================================
+         Zone 2: Search Tools — mad lib + chat in warm container
+         ============================================================ -->
+    <div class="discover-search-tools">
+        <div class="p-4">
+            <p class="text-[10px] text-sage font-bold uppercase tracking-widest mb-2.5">Mix two things you love</p>
+            <div class="flex flex-wrap items-baseline gap-x-3 gap-y-3">
+                <span class="text-base text-txt-muted font-light">I want a</span>
+                <select id="madlib-type" class="madlib-select">
+                    <option value="">anything</option>
+                    <option value="movie">movie</option>
+                    <option value="tv">TV show</option>
+                    <option value="book">book</option>
+                    <option value="podcast">podcast</option>
+                </select>
+                <span class="text-base text-txt-muted font-light">that's like</span>
+                <input id="madlib-ref1" type="text" placeholder="The Matrix" autocomplete="off"
+                    class="madlib-field min-w-[100px] w-36" />
+                <span class="text-base text-txt-muted font-light">meets</span>
+                <input id="madlib-ref2" type="text" placeholder="Harry Potter" autocomplete="off"
+                    class="madlib-field min-w-[110px] w-40" />
+                <button id="madlib-send"
+                    class="px-5 py-2 bg-sage text-white rounded-lg text-sm font-bold transition-all hover:bg-sage-dark hover:scale-105 active:scale-95 shadow-sm whitespace-nowrap">
+                    Find it &rarr;
+                </button>
+            </div>
+        </div>
+        <div class="border-t border-sage/10 mx-4"></div>
+        <div id="chat-panel">
+            <div class="p-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-sage/40 text-[10px] font-bold uppercase tracking-widest flex-shrink-0">Or ask</span>
+                    <select id="rec-type-filter" class="flex-shrink-0 px-2 py-1.5 bg-white/80 dark:bg-white/10 border border-sage/15 dark:border-sage/25 rounded-lg text-xs text-txt dark:text-txt-light">
+                        <option value="">Any type</option>
+                        <option value="movie">Movie</option>
+                        <option value="tv">TV</option>
+                        <option value="book">Book</option>
+                        <option value="podcast">Podcast</option>
+                    </select>
+                    <div class="flex-1">
+                        <textarea id="rec-input" rows="1" placeholder="A sci-fi book that won't depress me, something to watch with my partner who hates anything dark..."
+                            class="w-full px-3 py-1.5 bg-white/80 dark:bg-white/10 border border-sage/15 dark:border-sage/25 rounded-lg text-sm text-txt dark:text-txt-light placeholder-txt-muted/40 focus:outline-none focus:ring-1 focus:ring-sage/30 focus:border-sage/30 transition-base resize-none"
+                            style="max-height: 120px;"></textarea>
+                    </div>
+                    <button id="rec-send" class="px-4 py-1.5 bg-sage text-white rounded-lg text-sm font-semibold hover:bg-sage-dark disabled:opacity-50 transition-base flex items-center gap-1.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div id="chat-messages" class="ask-messages hidden overflow-y-auto space-y-3 px-4 pb-4 border-t border-sage/10"></div>
+        </div>
     </div>
 
     <!-- Signal strength nudge (shown when signal is weak) -->
@@ -152,144 +285,12 @@
     {% endif %}
 
     <!-- ============================================================
-         1. YOUR BEST BETS — the hero content. Four poster cards,
-         one per media type, each tied to a specific thing the user
-         recently loved. This is the most rewarding visual moment
-         on the page, so it leads.
-         ============================================================ -->
-    <div>
-        <div class="flex items-end justify-between mb-3">
-            <div>
-                <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold mb-0.5">Your best bets</p>
-                <h2 class="text-xl md:text-2xl font-bold">One per category, picked for right now</h2>
-            </div>
-        </div>
-        <div id="best-bets" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div class="col-span-full text-center py-10 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-2xl">
-                <div class="inline-block w-6 h-6 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div>
-                <p class="text-xs text-txt-muted mt-3">Picking something great for you&hellip;</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- ============================================================
-         2. LET'S FIND SOMETHING — mad lib + chat in a proper section
+         4. CURATED LANES — browse by category
          ============================================================ -->
     <div>
         <div class="mb-4">
-            <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold mb-0.5">Let's find something</p>
-            <h2 class="text-xl md:text-2xl font-bold">Tell us what you're in the mood for</h2>
-        </div>
-
-        <div class="space-y-4">
-            <!-- Mad Lib -->
-            <div class="relative overflow-hidden rounded-2xl p-5 md:p-6" style="background: linear-gradient(135deg, #8B9E6B 0%, #5A7040 100%);">
-                <div class="absolute top-0 right-0 w-28 h-28 bg-white/10 rounded-full -translate-y-10 translate-x-10"></div>
-                <div class="absolute bottom-0 left-4 w-16 h-16 bg-white/5 rounded-full translate-y-8"></div>
-                <div class="relative z-10">
-                    <p class="text-white/70 text-xs font-bold uppercase tracking-widest mb-3">Mix two things you love</p>
-                    <div class="flex flex-wrap items-baseline gap-x-3 gap-y-4">
-                        <span class="text-lg text-white/80 font-light">I want a</span>
-                        <select id="madlib-type" class="border-b-2 border-white/50 bg-white/15 text-white text-lg font-semibold px-2 py-0.5 rounded-t outline-none cursor-pointer appearance-none" style="color: white;">
-                            <option value="" style="color: #2B3A4E;">anything</option>
-                            <option value="movie" style="color: #2B3A4E;">movie</option>
-                            <option value="tv" style="color: #2B3A4E;">TV show</option>
-                            <option value="book" style="color: #2B3A4E;">book</option>
-                            <option value="podcast" style="color: #2B3A4E;">podcast</option>
-                        </select>
-                        <span class="text-lg text-white/80 font-light">that's like</span>
-                        <input id="madlib-ref1" type="text" placeholder="The Matrix" autocomplete="off"
-                            class="border-b-2 border-white/50 bg-white/15 text-white text-lg font-semibold placeholder-white/30 px-2 py-0.5 rounded-t outline-none min-w-[120px] w-40 focus:border-white transition-colors" />
-                        <span class="text-lg text-white/80 font-light">meets</span>
-                        <input id="madlib-ref2" type="text" placeholder="Harry Potter" autocomplete="off"
-                            class="border-b-2 border-white/50 bg-white/15 text-white text-lg font-semibold placeholder-white/30 px-2 py-0.5 rounded-t outline-none min-w-[140px] w-52 focus:border-white transition-colors" />
-                        <button id="madlib-send"
-                            class="px-6 py-2.5 bg-white text-sage-dark rounded-xl text-base font-bold transition-all hover:bg-cream hover:scale-105 active:scale-95 shadow-lg whitespace-nowrap">
-                            Find it &rarr;
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Chat bar -->
-            <div id="chat-panel" class="ask-bar">
-                <div class="p-4">
-                    <p class="text-[11px] text-txt-muted uppercase tracking-[0.18em] font-bold mb-2">Or just tell us</p>
-                    <div class="flex items-center gap-2">
-                        <select id="rec-type-filter" class="flex-shrink-0 px-3 py-2.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm text-txt dark:text-txt-light">
-                            <option value="">Any type</option>
-                            <option value="movie">Movie</option>
-                            <option value="tv">TV</option>
-                            <option value="book">Book</option>
-                            <option value="podcast">Podcast</option>
-                        </select>
-                        <div class="flex-1">
-                            <textarea id="rec-input" rows="1" placeholder="A sci-fi book that won't depress me, something to watch with my partner who hates anything dark..."
-                                class="w-full px-4 py-2.5 bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sage/40 focus:border-sage transition-base resize-none"
-                                style="max-height: 120px;"></textarea>
-                        </div>
-                        <button id="rec-send" class="px-5 py-2.5 bg-sage text-white rounded-lg text-sm font-semibold hover:bg-sage-dark disabled:opacity-50 transition-base flex items-center gap-1.5">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
-                        </button>
-                    </div>
-                </div>
-                <!-- Chat messages area — hidden until a message is sent -->
-                <div id="chat-messages" class="ask-messages hidden overflow-y-auto space-y-3 px-4 pb-4 border-t border-border-light dark:border-border-dark"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ============================================================
-         3. MOOD PILLS — browse by moment in your day.
-         ============================================================ -->
-    <div>
-        <div class="mb-3">
-            <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold mb-0.5">Browse by mood</p>
-            <h2 class="text-xl md:text-2xl font-bold">What's the vibe?</h2>
-        </div>
-        <div class="flex flex-wrap gap-2.5">
-            <button onclick="scrollToTheme('tonight_binge')" class="mood-pill mood-pill-tonight">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-                Can't-stop-watching
-            </button>
-            <button onclick="scrollToTheme('wind_down')" class="mood-pill mood-pill-wind">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
-                Comfort zone
-            </button>
-            <button onclick="scrollToTheme('quick_escape')" class="mood-pill mood-pill-quick">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                Quick escape
-            </button>
-            <button onclick="scrollToTheme('walking_the_dog')" class="mood-pill mood-pill-walk">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
-                Good for a walk
-            </button>
-            {% if user_services %}
-            <button onclick="scrollToSection('new-on-services-section')" class="mood-pill mood-pill-new">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/></svg>
-                New on my services
-            </button>
-            {% endif %}
-            <button onclick="scrollToSection('friends-enjoying-section')" class="mood-pill mood-pill-friends">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                Friends are enjoying
-            </button>
-            <button onclick="scrollToSection('hidden-gems-section')" class="mood-pill mood-pill-gems">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
-                Hidden gems
-            </button>
-        </div>
-    </div>
-
-    <!-- ============================================================
-         4. FOR YOUR DAY — themed swim lanes for continued browsing.
-         Each row is a moment in the user's day and carries poster
-         cards of matching picks. Loaded async from home-bundle.
-         ============================================================ -->
-    <div>
-        <div class="mb-4">
-            <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold mb-0.5">For your day</p>
-            <h2 class="text-xl md:text-2xl font-bold">Picks framed around moments</h2>
+            <p class="text-[11px] text-sage uppercase tracking-[0.18em] font-bold mb-0.5">Picked for you</p>
+            <h2 class="text-xl md:text-2xl font-bold">Browse by category</h2>
         </div>
         <div id="themes-wrap" class="space-y-8">
             <div class="text-center py-10 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-2xl">

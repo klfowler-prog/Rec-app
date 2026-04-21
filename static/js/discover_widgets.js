@@ -171,12 +171,13 @@
 
     // ---- Vibe-based swim lanes ----------------------------------------
     const THEME_META = {
-        tonight_binge:    { label: "Can't-stop-watching",        blurb: "Shows that earn the next episode.",                    accent: 'text-purple-500' },
-        wind_down:        { label: "Comfort zone",               blurb: "Cozy, low-stakes, feels like a warm blanket.",        accent: 'text-gold' },
-        quick_escape:     { label: "Quick escape",               blurb: "Under 90 minutes. Get out of your own head.",         accent: 'text-rose-500' },
-        walking_the_dog:  { label: "Good for a walk",            blurb: "Podcasts you can drop in and out of.",                accent: 'text-green-500' },
+        bingeable_tv:      { label: "Bingeable TV",              blurb: "Shows you won't be able to stop.",                    color: '#7B68A8' },
+        movies_youll_love: { label: "Movies you'll love",        blurb: "Strong taste matches picked for you.",                color: '#D0663A' },
+        quick_escape:      { label: "Quick escape",              blurb: "Light, easy comfort. 90 min or less.",                color: '#9A8A5E' },
+        learn_something:   { label: "Learn something new",       blurb: "Podcasts and nonfiction for curious minds.",          color: '#5A7040' },
+        get_lost:          { label: "Get lost in a story",       blurb: "Books you'll lose a weekend to.",                     color: '#4A7A9E' },
     };
-    const THEME_ORDER = ['tonight_binge', 'wind_down', 'quick_escape', 'walking_the_dog'];
+    const THEME_ORDER = ['bingeable_tv', 'movies_youll_love', 'quick_escape', 'learn_something', 'get_lost'];
 
     async function loadThemes(retried) {
         const wrap = document.getElementById('themes-wrap');
@@ -217,14 +218,14 @@
     }
 
     function renderThemeRow(slug, items) {
-        const meta = THEME_META[slug] || { label: slug, blurb: '', accent: 'text-sage' };
+        const meta = THEME_META[slug] || { label: slug, blurb: '', color: '#8B9E6B' };
         const cards = items.map(renderThemeCard).join('');
         const containerId = `theme-row-${slug}`;
         return `
             <div>
                 <div class="flex items-center justify-between mb-2">
                     <div>
-                        <h3 class="text-base font-semibold ${meta.accent}">${escapeHtml(meta.label)}</h3>
+                        <h3 class="text-base font-semibold" style="color: ${meta.color}">${escapeHtml(meta.label)}</h3>
                         <p class="text-xs text-txt-muted">${escapeHtml(meta.blurb)}</p>
                     </div>
                 </div>

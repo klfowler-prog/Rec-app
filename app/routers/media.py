@@ -198,6 +198,44 @@ def _is_known(title: str, known_normalized: set[str]) -> bool:
     return _normalize_title(title) in known_normalized
 
 
+def _build_genre_breakdown(entries) -> str:
+    """Build a raw genre count summary so the AI sees proportions at a glance."""
+    from collections import Counter
+
+    rated = [e for e in entries if e.rating and e.rating >= 3]
+    if not rated:
+        return ""
+
+    # Overall genre counts
+    overall = Counter()
+    by_type: dict[str, Counter] = {}
+    type_counts: dict[str, int] = {}
+    for e in rated:
+        type_counts[e.media_type] = type_counts.get(e.media_type, 0) + 1
+        if e.genres:
+            for g in e.genres.split(","):
+                g = g.strip()
+                if g and g.lower() not in ("fiction", "literary criticism", "computer technicians"):
+                    overall[g] += 1
+                    by_type.setdefault(e.media_type, Counter())[g] += 1
+
+    lines = ["GENRE BREAKDOWN (rated 3+):"]
+    top_overall = overall.most_common(8)
+    if top_overall:
+        lines.append("  Overall: " + ", ".join(f"{g} ({c})" for g, c in top_overall))
+
+    label_map = {"movie": "Movies", "tv": "TV", "book": "Books", "podcast": "Podcasts"}
+    for mt in ("movie", "tv", "book", "podcast"):
+        count = type_counts.get(mt, 0)
+        if count == 0:
+            continue
+        mt_genres = by_type.get(mt, Counter()).most_common(5)
+        genre_str = ", ".join(f"{g} ({c})" for g, c in mt_genres) if mt_genres else "no genre data"
+        lines.append(f"  {label_map[mt]} ({count} rated): {genre_str}")
+
+    return "\n".join(lines)
+
+
 def _parse_ai_json(text: str, context: str) -> dict | list | None:
     """Robust parser for Gemini responses that are supposed to be JSON.
 
@@ -2368,7 +2406,7 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
         recent_section = "\n\nRECENTLY ADDED (this profile is less than 2 weeks old — the user is still building their library. These items reflect data entry order, NOT current mood or preference. Weight the FULL taste profile above equally across all items. Do not over-index on the last few things added):\n" + "\n".join(recent_lines)
 
     # Age range context for the AI
-    from app.services.taste_quiz_scoring import load_age_range
+    from app.services.taste_quiz_scoring import load_age_range, load_onboarding
     bundle_age = load_age_range(db, user.id)
     age_context = ""
     if bundle_age == "under_18":
@@ -2447,12 +2485,11 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
         # consumption the user might actually be in. These replace the
         # old "Patterns in your taste" insights block on the home page.
         theme_catalog = [
-            ("walking_the_dog", "Something to listen to while walking the dog, cooking, cleaning the house, or running errands", "podcast", "podcast: 30-60 min, conversational or narrative, one you can drop in and out of without losing the thread"),
-            ("tonight_binge",    "Tonight's binge",                                                                                "tv",      "tv: 1-2 hour episodes, propulsive, something the user will be eager to engage with and that feels well aligned with their taste"),
-            ("wind_down",        "Wind down before bed",                                                                           "book",    "book or slow tv: low stakes, light and entertaining, cozy. MIX familiar comfort picks from the user's library (things they've already watched/read and would happily revisit) with new suggestions they haven't tried. Aim for roughly half familiar, half new."),
-            ("background_work",  "Background while you work",                                                                      "podcast", "podcast or comfort tv: familiar or conversational, doesn't demand attention but rewards it when you lean in. MIX comfort rewatches from the user's library (shows they know and love) with new suggestions. Aim for roughly half familiar, half new."),
-            ("weekend_binge",    "Weekend binge",                                                                                  "any",     "movie, tv limited series, OR book (any length). This category can ask more of the user than the weeknight binge — engaging, something worth sitting with on a Saturday. Mix the media types across the 4 picks — don't return all one category."),
-            ("quick_escape",     "Quick escape",                                                                                   "movie",   "movie or short-form tv: 15-90 min, fun, the thing you'd watch when you have a pocket of time and need out of your own head, a laugh, or to feel inspired or positive"),
+            ("bingeable_tv",      "Bingeable TV",            "tv",      "TV ONLY. Propulsive series the user won't be able to stop watching. Shows with momentum — cliffhangers, compelling arcs, binge-worthy pacing. All 8 picks must be media_type 'tv'."),
+            ("movies_youll_love", "Movies you'll love",      "movie",   "MOVIES ONLY. Strong taste-matched films the user will love. Mix genres that match their profile — don't cluster in one genre. All 8 picks must be media_type 'movie'."),
+            ("quick_escape",      "Quick escape",            "any",     "TV and MOVIES only (no books, no podcasts). Light, comforting, easy — the kind of thing you put on when you want to relax without thinking too hard. 90 minutes or less. Comfort rewatches are welcome. Mix TV and movies roughly evenly."),
+            ("learn_something",   "Learn something new",     "any",     "PODCASTS and NONFICTION BOOKS only (no fiction, no TV, no movies). Idea-driven, educational, mind-expanding content that matches the user's interests. Narrative nonfiction, science, history, essays, interview podcasts, explainer pods. Mix podcasts and books roughly evenly."),
+            ("get_lost",          "Get lost in a story",     "book",    "BOOKS ONLY. Fiction or narrative nonfiction — immersive, involved, the kind of book you lose a weekend to. Literary fiction, page-turners, epic narratives, compelling memoirs. All 8 picks must be media_type 'book'."),
         ]
         theme_schema_lines = [
             f'    "{slug}": [{{"title": "...", "creator": "...", "media_type": "movie|tv|book|podcast", "year": 2020, "reason": "What it is + why", "predicted_rating": 4.5}}, ... 8 items]'
@@ -2558,7 +2595,7 @@ Return ONLY valid JSON, no markdown:
                     it for it in items if not _is_known(it.get("title", ""), known_normalized)
                 ]
         # Themes that allow familiar/comfort rewatches skip the known-title filter
-        COMFORT_THEMES = {"wind_down", "background_work"}
+        COMFORT_THEMES = {"quick_escape"}
         for theme_slug in list(raw_themes.keys()):
             items = raw_themes[theme_slug]
             if isinstance(items, list) and theme_slug not in COMFORT_THEMES:
@@ -2723,10 +2760,10 @@ Return ONLY valid JSON, no markdown:
             # the AI already matched them to the user's taste + the
             # moment. Dropping them leaves sparse sections.
             enriched_themes.setdefault(key, []).append(result)
-        # Sort scored items first (desc), unscored at end, cap at 6
+        # Sort scored items first (desc), unscored at end, cap at 8
         for key in list(enriched_themes.keys()):
             enriched_themes[key].sort(key=_pr_sort_key)
-            enriched_themes[key] = enriched_themes[key][:4]
+            enriched_themes[key] = enriched_themes[key][:8]
 
         log.info(
             "home_bundle [user=%d]: %d top_picks, suggestions=%s, themes=%s, %d insights",
@@ -2752,6 +2789,22 @@ Return ONLY valid JSON, no markdown:
             "insights": raw_insights,
         }
         cache.set(cache_key, bundle, ttl_seconds=21600)  # 6 hours
+
+        # Persist predicted ratings so detail pages reuse the same scores
+        for item in enriched_picks:
+            pr = item.get("predicted_rating")
+            eid = item.get("external_id")
+            mt = item.get("media_type")
+            if pr is not None and eid and mt:
+                cache.set_predicted_rating(user.id, mt, eid, pr)
+        for theme_items in enriched_themes.values():
+            for item in theme_items:
+                pr = item.get("predicted_rating")
+                eid = item.get("external_id")
+                mt = item.get("media_type")
+                if pr is not None and eid and mt:
+                    cache.set_predicted_rating(user.id, mt, eid, pr)
+
         return bundle
     except Exception as e:
         log.error("home_bundle failed: %s", str(e))
@@ -4711,6 +4764,354 @@ Return ONLY valid JSON — a list of objects:
         return []
 
 
+@router.get("/new-on-services")
+async def new_on_services(
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Fresh, high-fit releases on the user's streaming services."""
+    import json
+
+    from app import cache
+    from app.config import settings
+    from app.models import MediaEntry
+    from app.services.gemini import generate
+    from app.services.taste_quiz_scoring import load_onboarding, load_streaming_services
+    from app.services.tmdb import TIER1_PROVIDERS
+
+    cache_key = f"new_on_services:{user.id}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    user_services = load_streaming_services(db, user.id)
+    if not user_services:
+        return []
+
+    if not settings.gemini_api_key:
+        return []
+
+    service_names = [TIER1_PROVIDERS.get(pid, f"Service {pid}") for pid in user_services]
+
+    consumed = db.query(MediaEntry).filter(
+        MediaEntry.user_id == user.id, MediaEntry.status == "consumed",
+        MediaEntry.rating.isnot(None),
+    ).order_by(MediaEntry.rating.desc()).limit(20).all()
+    if not consumed:
+        return []
+
+    taste = "\n".join(
+        f"- {e.title} ({e.media_type}, {e.rating}/5)" for e in consumed
+    )
+    known_normalized, _ = _build_known_titles(db, user.id)
+
+    # Disliked items
+    nos_low_rated = db.query(MediaEntry).filter(
+        MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None), MediaEntry.rating <= 2
+    ).order_by(MediaEntry.rating.asc()).limit(8).all()
+    nos_disliked_lines = "\n".join(f"- {e.title} ({e.media_type}, {e.rating}/5) [{e.genres or ''}]" for e in nos_low_rated)
+    nos_disliked_section = f"\nDISLIKED (avoid anything similar in genre or tone):\n{nos_disliked_lines}" if nos_low_rated else ""
+
+    # Genre breakdown
+    nos_all_consumed = db.query(MediaEntry).filter(
+        MediaEntry.user_id == user.id, MediaEntry.status == "consumed"
+    ).all()
+    nos_genre_breakdown = _build_genre_breakdown(nos_all_consumed)
+
+    # Genre exclusions
+    nos_onb = load_onboarding(db, user.id)
+    nos_scenes = set((nos_onb or {}).get("scenes", []))
+    _nos_deal = {"anime": "anime, manga, or Japanese animation", "k_content": "K-drama or Korean content"}
+    _nos_excl = []
+    for key, label in _nos_deal.items():
+        if key not in nos_scenes:
+            gs = "anime" if key == "anime" else "k-drama"
+            has = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.genres.ilike(f"%{gs}%"), MediaEntry.rating >= 3).limit(1).first()
+            if not has:
+                _nos_excl.append(label)
+    nos_genre_exclusion_ctx = f"\nHARD EXCLUSIONS — DO NOT RECOMMEND: {', '.join(_nos_excl)}. The user has no interest in these.\n" if _nos_excl else ""
+
+    prompt = f"""You're a media recommender. The user subscribes to: {', '.join(service_names)}.
+{nos_genre_exclusion_ctx}
+TASTE PROFILE:
+{taste}
+{nos_disliked_section}
+{f'{nos_genre_breakdown}' if nos_genre_breakdown else ''}
+
+Recommend 12 items (mix of movies and TV shows) that are NEW or RECENTLY ADDED on the user's streaming services (added in the last 3-6 months). These should be things they likely haven't seen yet but would enjoy based on their taste.
+
+For each item, include which service it's on.
+
+Return ONLY valid JSON array:
+[
+  {{"title": "...", "creator": "director or showrunner", "media_type": "movie|tv", "year": 2024, "service": "Netflix", "predicted_rating": 4.2}},
+  ...
+]
+
+FOCUS: Spend your energy on selecting items that are genuine taste matches. Do not write descriptions or explanations — just pick the right items, get the titles right, and predict ratings honestly."""
+
+    try:
+        text = (await generate(prompt, temperature=0)).strip()
+        parsed = _parse_ai_json(text, "new_on_services")
+        if not isinstance(parsed, list):
+            return []
+
+        parsed = [p for p in parsed if not _is_known(p.get("title", ""), known_normalized)]
+
+        async def _enrich_nos(item):
+            title = item.get("title", "")
+            mt = item.get("media_type", "movie")
+            creator = item.get("creator", "")
+            try:
+                matches = await _smart_search(title, mt, creator)
+            except Exception:
+                matches = []
+            if matches:
+                best = matches[0]
+                if _is_known(best.title, known_normalized):
+                    return None
+                nos_pr = item.get("predicted_rating")
+                cached_pr = cache.get_predicted_rating(user.id, best.media_type, best.external_id)
+                if cached_pr is not None:
+                    nos_pr = cached_pr
+                return {
+                    "title": best.title, "media_type": best.media_type,
+                    "year": best.year, "image_url": best.image_url,
+                    "external_id": best.external_id, "source": best.source,
+                    "description": best.description or "",
+                    "service": item.get("service", ""),
+                    "predicted_rating": nos_pr,
+                }
+            return {
+                "title": title, "media_type": mt,
+                "year": item.get("year"), "image_url": None,
+                "external_id": "", "source": "",
+                "description": "",
+                "service": item.get("service", ""),
+                "predicted_rating": item.get("predicted_rating"),
+            }
+
+        import asyncio
+        results = await asyncio.gather(*[_enrich_nos(p) for p in parsed[:12]])
+        enriched = [r for r in results if r is not None]
+        cache.set(cache_key, enriched, ttl_seconds=86400)  # 24 hours
+        return enriched
+    except Exception as e:
+        log.error("new-on-services failed: %s", str(e))
+        return []
+
+
+@router.get("/friends-enjoying")
+async def friends_enjoying(
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """What the user's Together partners have recently consumed and rated highly."""
+    from app import cache
+    from app.models import MediaEntry, UserRelationship
+
+    cache_key = f"friends_enjoying:{user.id}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    # Find accepted partners
+    rels = db.query(UserRelationship).filter(
+        ((UserRelationship.sender_id == user.id) | (UserRelationship.receiver_id == user.id)),
+        UserRelationship.status == "accepted",
+    ).all()
+
+    partner_ids = []
+    partner_names = {}
+    for rel in rels:
+        pid = rel.receiver_id if rel.sender_id == user.id else rel.sender_id
+        partner = db.query(User).filter(User.id == pid).first()
+        if partner:
+            partner_ids.append(pid)
+            partner_names[pid] = (partner.name or "Friend").split()[0]
+
+    if not partner_ids:
+        return []
+
+    # Get user's own titles to exclude
+    my_titles = set()
+    my_entries = db.query(MediaEntry.title).filter(MediaEntry.user_id == user.id).all()
+    for (t,) in my_entries:
+        my_titles.add((t or "").lower().strip())
+
+    # Get partner's recently consumed items rated 3+
+    from datetime import datetime, timedelta
+    cutoff = datetime.utcnow() - timedelta(days=60)
+    partner_items = db.query(MediaEntry).filter(
+        MediaEntry.user_id.in_(partner_ids),
+        MediaEntry.status == "consumed",
+        MediaEntry.rating >= 3,
+        MediaEntry.updated_at >= cutoff,
+    ).order_by(MediaEntry.rating.desc(), MediaEntry.updated_at.desc()).limit(30).all()
+
+    results = []
+    seen_titles = set()
+    for item in partner_items:
+        title_key = (item.title or "").lower().strip()
+        if title_key in my_titles or title_key in seen_titles:
+            continue
+        seen_titles.add(title_key)
+        friend_name = partner_names.get(item.user_id, "Friend")
+        results.append({
+            "title": item.title,
+            "media_type": item.media_type,
+            "year": item.year,
+            "image_url": item.image_url,
+            "external_id": item.external_id or "",
+            "source": item.source or "",
+            "rating": item.rating,
+            "friend_name": friend_name,
+            "reason": f"{friend_name} rated this {item.rating}/5",
+        })
+        if len(results) >= 12:
+            break
+
+    cache.set(cache_key, results, ttl_seconds=3600)  # 1 hour
+    return results
+
+
+@router.get("/hidden-gems")
+async def hidden_gems(
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Under-the-radar items the AI thinks will be a strong taste fit."""
+    import json
+
+    from app import cache
+    from app.config import settings
+    from app.models import MediaEntry
+    from app.services.gemini import generate
+
+    cache_key = f"hidden_gems:{user.id}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    if not settings.gemini_api_key:
+        return []
+
+    consumed = db.query(MediaEntry).filter(
+        MediaEntry.user_id == user.id, MediaEntry.status == "consumed",
+        MediaEntry.rating.isnot(None),
+    ).order_by(MediaEntry.rating.desc()).limit(25).all()
+    if len(consumed) < 5:
+        return []
+
+    taste = "\n".join(
+        f"- {e.title} ({e.media_type}, {e.rating}/5) [{e.genres or ''}]" for e in consumed
+    )
+    known_normalized, _ = _build_known_titles(db, user.id)
+
+    from app.services.taste_quiz_scoring import load_streaming_services
+    from app.services.tmdb import TIER1_PROVIDERS
+    hg_user_services = load_streaming_services(db, user.id)
+    hg_streaming_ctx = ""
+    if hg_user_services:
+        hg_service_names = [TIER1_PROVIDERS.get(pid, f"Service {pid}") for pid in hg_user_services]
+        hg_streaming_ctx = f"\nSTREAMING SERVICES: The user subscribes to: {', '.join(hg_service_names)}. TV show picks MUST be available on one of these services — people don't rent TV. Movies can be rental/purchase. Books and podcasts: streaming doesn't apply.\n"
+
+    # Disliked items
+    hg_low_rated = db.query(MediaEntry).filter(
+        MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None), MediaEntry.rating <= 2
+    ).order_by(MediaEntry.rating.asc()).limit(8).all()
+    hg_disliked_lines = "\n".join(f"- {e.title} ({e.media_type}, {e.rating}/5) [{e.genres or ''}]" for e in hg_low_rated)
+    hg_disliked_section = f"\nDISLIKED (avoid anything similar in genre or tone):\n{hg_disliked_lines}" if hg_low_rated else ""
+
+    # Genre breakdown
+    hg_all_consumed = db.query(MediaEntry).filter(
+        MediaEntry.user_id == user.id, MediaEntry.status == "consumed"
+    ).all()
+    hg_genre_breakdown = _build_genre_breakdown(hg_all_consumed)
+
+    # Genre exclusions
+    from app.services.taste_quiz_scoring import load_onboarding as _hg_load_onboarding
+    _hg_onb = _hg_load_onboarding(db, user.id)
+    _hg_scenes = set((_hg_onb or {}).get("scenes", []))
+    _hg_deal = {"anime": "anime, manga, or Japanese animation", "k_content": "K-drama or Korean content"}
+    _hg_excl = []
+    for key, label in _hg_deal.items():
+        if key not in _hg_scenes:
+            gs = "anime" if key == "anime" else "k-drama"
+            has = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.genres.ilike(f"%{gs}%"), MediaEntry.rating >= 3).limit(1).first()
+            if not has:
+                _hg_excl.append(label)
+    hg_genre_exclusion_ctx = f"\nHARD EXCLUSIONS — DO NOT RECOMMEND: {', '.join(_hg_excl)}. The user has no interest in these.\n" if _hg_excl else ""
+
+    prompt = f"""You're a media recommender specializing in hidden gems — great content that most people haven't heard of.
+{hg_streaming_ctx}{hg_genre_exclusion_ctx}
+TASTE PROFILE:
+{taste}
+{hg_disliked_section}
+{f'{hg_genre_breakdown}' if hg_genre_breakdown else ''}
+Recommend 12 hidden gems across ALL media types (movies, TV, books, AND podcasts — aim for 3 of each). These should be:
+- NOT blockbusters, bestsellers, or mainstream hits
+- Genuinely excellent but under-the-radar — indie films, cult TV, lesser-known books, niche podcasts
+- Strong taste matches based on the profile above
+- Things the user would be delighted to discover
+
+FOCUS: Spend your energy on selecting items that are genuine taste matches. Do not write descriptions or explanations — just pick the right items, get the titles right, and predict ratings honestly.
+
+Return ONLY valid JSON array:
+[
+  {{"title": "...", "creator": "...", "media_type": "movie|tv|book|podcast", "year": 2020, "predicted_rating": 4.5}},
+  ...
+]"""
+
+    try:
+        text = (await generate(prompt, temperature=0)).strip()
+        parsed = _parse_ai_json(text, "hidden_gems")
+        if not isinstance(parsed, list):
+            return []
+
+        parsed = [p for p in parsed if not _is_known(p.get("title", ""), known_normalized)]
+
+        async def _enrich_hg(item):
+            title = item.get("title", "")
+            mt = item.get("media_type", "movie")
+            creator = item.get("creator", "")
+            try:
+                matches = await _smart_search(title, mt, creator)
+            except Exception:
+                matches = []
+            if matches:
+                best = matches[0]
+                if _is_known(best.title, known_normalized):
+                    return None
+                hg_pr = item.get("predicted_rating")
+                cached_pr = cache.get_predicted_rating(user.id, best.media_type, best.external_id)
+                if cached_pr is not None:
+                    hg_pr = cached_pr
+                return {
+                    "title": best.title, "media_type": best.media_type,
+                    "year": best.year, "image_url": best.image_url,
+                    "external_id": best.external_id, "source": best.source,
+                    "description": best.description or "",
+                    "predicted_rating": hg_pr,
+                }
+            return {
+                "title": title, "media_type": mt,
+                "year": item.get("year"), "image_url": None,
+                "external_id": "", "source": "",
+                "description": "",
+                "predicted_rating": item.get("predicted_rating"),
+            }
+
+        import asyncio
+        results = await asyncio.gather(*[_enrich_hg(p) for p in parsed[:12]])
+        enriched = [r for r in results if r is not None]
+        cache.set(cache_key, enriched, ttl_seconds=86400)  # 24 hours
+        return enriched
+    except Exception as e:
+        log.error("hidden-gems failed: %s", str(e))
+        return []
+
+
 @router.get("/taste-fit/{media_type}/{external_id}")
 async def taste_fit(
     media_type: str, external_id: str,
@@ -4719,7 +5120,8 @@ async def taste_fit(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    """Quick AI prediction: how well does this item fit the user's taste?"""
+    """AI prediction: how well does this item fit the user's taste?
+    Uses the same rich context as home-bundle for consistency."""
     import json
 
     from app import cache
@@ -4735,6 +5137,11 @@ async def taste_fit(
     if existing and existing.predicted_rating:
         return {"predicted_rating": existing.predicted_rating, "reason": None}
 
+    # Check authoritative predicted rating cache (set by home-bundle)
+    cached_pr = cache.get_predicted_rating(user.id, media_type, external_id)
+    if cached_pr is not None:
+        return {"predicted_rating": cached_pr, "reason": None}
+
     cache_key = f"taste_fit:{user.id}:{media_type}:{external_id}"
     cached = cache.get(cache_key)
     if cached is not None:
@@ -4743,33 +5150,79 @@ async def taste_fit(
     if not settings.gemini_api_key or not title:
         return {"predicted_rating": None, "reason": None}
 
-    top_rated = (
-        db.query(MediaEntry)
-        .filter(MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None))
-        .order_by(MediaEntry.rating.desc())
-        .limit(15)
-        .all()
-    )
-    low_rated = (
-        db.query(MediaEntry)
-        .filter(MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None), MediaEntry.rating <= 2)
-        .order_by(MediaEntry.rating.asc())
-        .limit(10)
-        .all()
-    )
+    # Build the same rich context used by home-bundle
+    consumed = db.query(MediaEntry).filter(
+        MediaEntry.user_id == user.id, MediaEntry.status == "consumed"
+    ).all()
 
-    loved = "\n".join(f"- {e.title} ({e.media_type}, {e.rating}/5) [{e.genres or ''}]" for e in top_rated) or "no data"
-    disliked = "\n".join(f"- {e.title} ({e.media_type}, {e.rating}/5) [{e.genres or ''}]" for e in low_rated) or "none"
+    if not consumed:
+        return {"predicted_rating": None, "reason": None}
+
+    by_type: dict[str, list] = {"movie": [], "tv": [], "book": [], "podcast": []}
+    for e in consumed:
+        if e.rating and e.rating >= 4:
+            by_type.setdefault(e.media_type, []).append(e)
+    for mt in by_type:
+        by_type[mt].sort(key=lambda x: x.rating or 0, reverse=True)
+
+    taste_sections = []
+    label_map = {"movie": "MOVIES", "tv": "TV SHOWS", "book": "BOOKS", "podcast": "PODCASTS"}
+    for mt, label in label_map.items():
+        items = by_type.get(mt, [])[:8]
+        if items:
+            lines = [f"  - {e.title} ({e.year or '?'}) — {e.rating}/5 [{e.genres or ''}]" for e in items]
+            taste_sections.append(f"{label}:\n" + "\n".join(lines))
+    taste_summary = "\n\n".join(taste_sections) if taste_sections else "No rated items yet."
+
+    # Genre breakdown
+    genre_breakdown = _build_genre_breakdown(consumed)
+
+    # Disliked items — with WHY context so the AI doesn't surface-match
+    low_rated = db.query(MediaEntry).filter(
+        MediaEntry.user_id == user.id, MediaEntry.rating.isnot(None), MediaEntry.rating <= 2
+    ).order_by(MediaEntry.rating.asc()).limit(10).all()
+    if low_rated:
+        disliked_lines = []
+        for e in low_rated:
+            genre_hint = e.genres or "unknown genre"
+            disliked_lines.append(f"  - {e.title} ({e.media_type}, {e.rating}/5) [{genre_hint}]")
+        disliked_section = "DISLIKED (rated 1-2):\n" + "\n".join(disliked_lines)
+    else:
+        disliked_section = ""
+
+    # Quiz signals + resonance + streaming + age
+    from app.services.taste_quiz_scoring import build_quiz_signals_block, load_age_range, load_streaming_services
+    from app.services.tmdb import TIER1_PROVIDERS
+    quiz_signals = build_quiz_signals_block(db, user.id)
+    resonance_signals = build_resonance_block(db, user.id)
+
+    tf_age = load_age_range(db, user.id)
+    age_context = ""
+    if tf_age == "under_18":
+        age_context = "\nAGE: Under 18."
+    elif tf_age == "35_50":
+        age_context = "\nAGE: 35-50."
+    elif tf_age == "over_50":
+        age_context = "\nAGE: Over 50."
+
+    tf_services = load_streaming_services(db, user.id)
+    streaming_ctx = ""
+    if tf_services:
+        svc_names = [TIER1_PROVIDERS.get(pid, f"Service {pid}") for pid in tf_services]
+        streaming_ctx = f"\nSTREAMING SERVICES: {', '.join(svc_names)}"
 
     from app.services.gemini import generate
 
     prompt = f"""Predict how much this user would enjoy a specific item on a 1-5 scale, and explain why in one sentence.
 
-ITEMS THEY LOVED (rated 4-5):
-{loved}
+{quiz_signals}
+{resonance_signals}
+USER'S TASTE PROFILE (items they rated 4-5):
+{taste_summary}
+{f'{genre_breakdown}' if genre_breakdown else ''}
 
-ITEMS THEY DISLIKED (rated 1-2):
-{disliked}
+{disliked_section}
+{streaming_ctx}{age_context}
 
 ITEM TO EVALUATE:
 Title: {title}
@@ -4778,34 +5231,42 @@ Type: {media_type}
 {f'Genres: {genres}' if genres else ''}
 {f'Description: {description}' if description else ''}
 
-RULES:
-- Be honest, not generous. Most items are a 3-3.5 for any given person. Only give 4+ for genuine taste matches.
-- If the item's genre/tone/style resembles their disliked items, score it 1.5-2.5.
-- If you don't recognize the item or can't tell, return null.
+SCORING RULES:
+- Be honest, not generous. Most items are a 3-3.5 for any given person. Only give 4+ for genuine taste matches where the item's themes, tone, and storytelling approach connect to multiple things they love.
 - A 5.0 means near-perfect match to their absolute favorites. Extremely rare.
-- The reason should mention something they already love and explain why this is similar.
+- If you don't recognize the item or can't tell, return null.
+
+DISLIKED ITEMS — CRITICAL:
+- A low rating means the user didn't enjoy THAT SPECIFIC ITEM. It does NOT mean they dislike the entire genre.
+- Someone who rated a kids show 1/5 dislikes kids content, NOT comedy or animation as a whole.
+- Someone who rated a bad thriller 1/5 dislikes THAT thriller, not the thriller genre.
+- Look at WHAT KIND of item was disliked (kids content, reality TV, self-help, etc.) and only penalize the item being evaluated if it's genuinely the same kind of content — not just the same genre label.
+- NEVER cite a disliked item as a reason unless the item being evaluated is truly the same kind of content in terms of audience, tone, and intent.
+
+REASON FORMAT:
+- Mention something specific from their loved items that connects to this item.
+- If you're scoring low, explain what about the item doesn't match — not just "similar to disliked items."
 
 Return ONLY a JSON object:
-{{"predicted_rating": 3.2, "reason": "Your mixed feelings about similar memoirs suggest this would be pleasant but not a standout."}}
+{{"predicted_rating": 3.5, "reason": "One sentence connecting to their taste profile."}}
 """
     try:
         text = (await generate(prompt, temperature=0)).strip()
-        if text.startswith("```"):
-            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-            text = text.rsplit("```", 1)[0]
-        first_brace = text.find("{")
-        last_brace = text.rfind("}")
-        if first_brace >= 0 and last_brace > first_brace:
-            text = text[first_brace:last_brace + 1]
-        parsed = json.loads(text)
-        result = {
-            "predicted_rating": parsed.get("predicted_rating"),
-            "reason": parsed.get("reason"),
-        }
+        parsed = _parse_ai_json(text, "taste_fit")
+        if not isinstance(parsed, dict):
+            result = {"predicted_rating": None, "reason": None}
+        else:
+            result = {
+                "predicted_rating": parsed.get("predicted_rating"),
+                "reason": parsed.get("reason"),
+            }
     except Exception as e:
         log.error("taste_fit failed: %s", str(e))
         result = {"predicted_rating": None, "reason": None}
 
+    # Persist to authoritative cache so future lookups are consistent
+    if result.get("predicted_rating") is not None:
+        cache.set_predicted_rating(user.id, media_type, external_id, result["predicted_rating"])
     cache.set(cache_key, result, ttl_seconds=604800)
     return result
 

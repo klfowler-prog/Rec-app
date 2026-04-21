@@ -78,10 +78,11 @@
            distorting the row spacing. */
         .poster-frame { position: relative; width: 100%; aspect-ratio: 2 / 3; background-color: #EFEAE0; overflow: hidden; }
         .dark .poster-frame { background-color: #2A2D34; }
-        .poster-frame > img, .poster-frame > .poster-fallback { position: absolute; inset: 0; width: 100%; height: 100%; }
-        .poster-frame > img.poster-cover { object-fit: cover; }
-        .poster-frame > img.poster-contain { object-fit: contain; padding: 14%; }
-        .poster-frame > .poster-fallback { display: flex; align-items: center; justify-content: center; }
+        .poster-frame > img, .poster-frame > a > img, .poster-frame > .poster-fallback, .poster-frame > a > .poster-fallback { position: absolute; inset: 0; width: 100%; height: 100%; }
+        .poster-frame > img.poster-cover, .poster-frame > a > img.poster-cover { object-fit: cover; }
+        .poster-frame > img.poster-contain, .poster-frame > a > img.poster-contain { object-fit: contain; padding: 14%; }
+        .poster-frame > .poster-fallback, .poster-frame > a > .poster-fallback { display: flex; align-items: center; justify-content: center; }
+        .poster-frame > a { display: block; position: absolute; inset: 0; }
         .card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.08); }
         .dark .card-hover:hover { box-shadow: 0 8px 25px rgba(0,0,0,0.3); }
         ::-webkit-scrollbar { width: 6px; }
