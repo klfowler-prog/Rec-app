@@ -2594,10 +2594,30 @@ Return ONLY valid JSON, no markdown:
                 raw_suggestions[mt] = [
                     it for it in items if not _is_known(it.get("title", ""), known_normalized)
                 ]
-        # Don't filter known titles from theme lanes — queued and consumed
-        # items are valid browse recommendations and filtering them out
-        # leaves lanes sparse. The AI avoid list already prevents the most
-        # obvious duplicates; anything that survives is worth showing.
+        # Filter consumed and dismissed items from theme lanes, but keep
+        # queued items — those are valid browse recommendations.
+        from app.models import DismissedItem
+        _consumed_rows = db.query(MediaEntry.title).filter(
+            MediaEntry.user_id == user.id, MediaEntry.status == "consumed"
+        ).all()
+        _dismissed_rows = db.query(DismissedItem.title).filter(
+            DismissedItem.user_id == user.id
+        ).all()
+        consumed_normalized: set[str] = set()
+        for (t,) in _consumed_rows:
+            if t:
+                consumed_normalized.add(_normalize_title(t))
+        for (t,) in _dismissed_rows:
+            if t:
+                consumed_normalized.add(_normalize_title(t))
+
+        for theme_slug in list(raw_themes.keys()):
+            items = raw_themes[theme_slug]
+            if isinstance(items, list):
+                raw_themes[theme_slug] = [
+                    it for it in items
+                    if not _is_known(it.get("title", ""), consumed_normalized)
+                ]
 
         # Enrich top picks and suggestions with posters in parallel.
         def _coerce_pr(raw) -> float | None:
@@ -2699,7 +2719,7 @@ Return ONLY valid JSON, no markdown:
             if not isinstance(items, list):
                 continue
             for it in items[:8]:  # cap input per theme at 8
-                theme_tasks.append(enrich_pick(it, allow_known=True))
+                theme_tasks.append(enrich_pick(it, allow_known=True))  # known-title check in enrich uses full set; pre-filter above already removed consumed
                 theme_keys.append(theme_slug)
 
         all_results = await asyncio.gather(*pick_tasks, *suggestion_tasks, *theme_tasks)
