@@ -2594,14 +2594,10 @@ Return ONLY valid JSON, no markdown:
                 raw_suggestions[mt] = [
                     it for it in items if not _is_known(it.get("title", ""), known_normalized)
                 ]
-        # Themes that allow familiar/comfort rewatches skip the known-title filter
-        COMFORT_THEMES = {"quick_escape"}
-        for theme_slug in list(raw_themes.keys()):
-            items = raw_themes[theme_slug]
-            if isinstance(items, list) and theme_slug not in COMFORT_THEMES:
-                raw_themes[theme_slug] = [
-                    it for it in items if not _is_known(it.get("title", ""), known_normalized)
-                ]
+        # Don't filter known titles from theme lanes — queued and consumed
+        # items are valid browse recommendations and filtering them out
+        # leaves lanes sparse. The AI avoid list already prevents the most
+        # obvious duplicates; anything that survives is worth showing.
 
         # Enrich top picks and suggestions with posters in parallel.
         def _coerce_pr(raw) -> float | None:
@@ -2703,7 +2699,7 @@ Return ONLY valid JSON, no markdown:
             if not isinstance(items, list):
                 continue
             for it in items[:8]:  # cap input per theme at 8
-                theme_tasks.append(enrich_pick(it, allow_known=(theme_slug in COMFORT_THEMES)))
+                theme_tasks.append(enrich_pick(it, allow_known=True))
                 theme_keys.append(theme_slug)
 
         all_results = await asyncio.gather(*pick_tasks, *suggestion_tasks, *theme_tasks)
