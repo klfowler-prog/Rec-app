@@ -276,8 +276,8 @@
     {% if user_services %}
     <div class="flex items-center gap-3 flex-wrap">
         <span class="text-[11px] text-txt-muted uppercase tracking-wide font-semibold">Show:</span>
-        <button id="filter-all" onclick="setServiceFilter('all')" class="px-3 py-1.5 rounded-full text-xs font-medium transition-base bg-sage text-white">All</button>
-        <button id="filter-mine" onclick="setServiceFilter('mine')" class="px-3 py-1.5 rounded-full text-xs font-medium transition-base bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark text-txt-muted hover:border-sage">My services</button>
+        <button id="filter-all" onclick="setServiceFilter('all')" class="px-3 py-1.5 rounded-full text-xs font-medium transition-base bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark text-txt-muted hover:border-sage">All</button>
+        <button id="filter-mine" onclick="setServiceFilter('mine')" class="px-3 py-1.5 rounded-full text-xs font-medium transition-base bg-sage text-white">My services</button>
         <span id="filter-services-list" class="hidden text-[10px] text-txt-muted">
             {% for pid in user_services %}{{ service_labels.get(pid, '') }}{% if not loop.last %}, {% endif %}{% endfor %}
         </span>
@@ -698,9 +698,15 @@
         } catch {}
     }
 
-    // Kick off the async sections, then backfill providers (default to showing all)
+    // Kick off the async sections, backfill providers, then apply filter.
+    // Hide lanes until filter is applied to prevent flash-then-shrink.
+    const themesWrap = document.getElementById('themes-wrap');
+    if (themesWrap && USER_SERVICES.size > 0) themesWrap.style.opacity = '0';
     Promise.all([loadBestBets(), loadThemes(), loadMissing(), loadNewOnServices(), loadFriendsEnjoying(), loadHiddenGems()]).then(() => {
-        backfillProviders();
+        backfillProviders().then(() => {
+            if (USER_SERVICES.size > 0) setServiceFilter('mine');
+            if (themesWrap) themesWrap.style.opacity = '1';
+        });
     });
 </script>
 {% endblock %}
