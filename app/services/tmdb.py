@@ -403,3 +403,110 @@ GENRE_MAP = {
     10764: "Reality", 10765: "Sci-Fi & Fantasy", 10766: "Soap", 10767: "Talk",
     10768: "War & Politics",
 }
+
+
+async def get_recommendations(media_type: str, tmdb_id: str, limit: int = 10) -> list[MediaResult]:
+    """Get TMDB's 'recommendations' for a specific movie or TV show.
+    These are editorially curated similar items — high quality candidates."""
+    if not settings.tmdb_api_key:
+        return []
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.get(
+            f"{BASE_URL}/{media_type}/{tmdb_id}/recommendations",
+            headers=_headers(), params={"page": 1},
+        )
+        if resp.status_code != 200:
+            return []
+        data = resp.json()
+
+    results = []
+    for item in data.get("results", [])[:limit]:
+        mt = item.get("media_type", media_type)
+        if mt not in ("movie", "tv"):
+            continue
+        title = item.get("title") or item.get("name", "")
+        date = item.get("release_date") or item.get("first_air_date", "")
+        year = int(date[:4]) if date and len(date) >= 4 else None
+        poster = f"{IMAGE_BASE}{item['poster_path']}" if item.get("poster_path") else None
+        genre_ids = item.get("genre_ids", [])
+        genres = [GENRE_MAP.get(gid, "") for gid in genre_ids]
+        genres = [g for g in genres if g]
+        results.append(MediaResult(
+            external_id=str(item["id"]), source="tmdb", media_type=mt,
+            title=title, image_url=poster, year=year, creator=None,
+            genres=genres, description=item.get("overview"),
+            external_url=f"https://www.themoviedb.org/{mt}/{item['id']}",
+            audience_score=item.get("vote_average"),
+            audience_count=item.get("vote_count"),
+            popularity=item.get("popularity"),
+        ))
+    return results
+
+
+async def discover(
+    media_type: str = "tv",
+    with_genres: str = "",
+    with_watch_providers: str = "",
+    vote_average_gte: float = 6.0,
+    sort_by: str = "popularity.desc",
+    limit: int = 20,
+) -> list[MediaResult]:
+    """Use TMDB's /discover endpoint to find items by genre, provider, rating, etc."""
+    if not settings.tmdb_api_key:
+        return []
+
+    params: dict = {
+        "sort_by": sort_by,
+        "vote_average.gte": vote_average_gte,
+        "vote_count.gte": 50,
+        "watch_region": "US",
+        "page": 1,
+    }
+    if with_genres:
+        params["with_genres"] = with_genres
+    if with_watch_providers:
+        params["with_watch_providers"] = with_watch_providers
+        params["watch_region"] = "US"
+
+    pages_needed = min((limit + 19) // 20, 3)
+    all_raw: list[dict] = []
+    async with httpx.AsyncClient(timeout=15) as client:
+        for page in range(1, pages_needed + 1):
+            params["page"] = page
+            resp = await client.get(
+                f"{BASE_URL}/discover/{media_type}",
+                headers=_headers(), params=params,
+            )
+            if resp.status_code != 200:
+                break
+            data = resp.json()
+            all_raw.extend(data.get("results", []))
+            if page >= data.get("total_pages", 1):
+                break
+
+    seen: set[str] = set()
+    results = []
+    for item in all_raw:
+        eid = str(item["id"])
+        if eid in seen:
+            continue
+        seen.add(eid)
+        title = item.get("title") or item.get("name", "")
+        date = item.get("release_date") or item.get("first_air_date", "")
+        year = int(date[:4]) if date and len(date) >= 4 else None
+        poster = f"{IMAGE_BASE}{item['poster_path']}" if item.get("poster_path") else None
+        genre_ids = item.get("genre_ids", [])
+        genres = [GENRE_MAP.get(gid, "") for gid in genre_ids]
+        genres = [g for g in genres if g]
+        results.append(MediaResult(
+            external_id=eid, source="tmdb", media_type=media_type,
+            title=title, image_url=poster, year=year, creator=None,
+            genres=genres, description=item.get("overview"),
+            external_url=f"https://www.themoviedb.org/{media_type}/{item['id']}",
+            audience_score=item.get("vote_average"),
+            audience_count=item.get("vote_count"),
+            popularity=item.get("popularity"),
+        ))
+        if len(results) >= limit:
+            break
+    return results

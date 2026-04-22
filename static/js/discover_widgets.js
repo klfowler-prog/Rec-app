@@ -181,12 +181,32 @@
     };
     const THEME_ORDER = ['bingeable_tv', 'movies_youll_love', 'quick_escape', 'learn_something', 'get_lost'];
 
+    // Lanes that use the hybrid endpoint (real API candidates + AI scoring)
+    const HYBRID_LANES = new Set(['bingeable_tv', 'movies_youll_love', 'quick_escape']);
+
     async function loadThemes(retried) {
         const wrap = document.getElementById('themes-wrap');
         if (!wrap) return;
         try {
-            const bundle = await ensureHomeBundle();
+            // Load hybrid lanes and home-bundle lanes in parallel
+            const [bundle, ...hybridResults] = await Promise.all([
+                ensureHomeBundle(),
+                ...Array.from(HYBRID_LANES).map(slug =>
+                    fetch(`/api/media/discover-lane/${slug}`)
+                        .then(r => r.ok ? r.json() : [])
+                        .catch(() => [])
+                ),
+            ]);
             const themes = bundle.themes || {};
+
+            // Merge hybrid results into themes
+            const hybridSlugs = Array.from(HYBRID_LANES);
+            hybridSlugs.forEach((slug, i) => {
+                if (hybridResults[i] && hybridResults[i].length > 0) {
+                    themes[slug] = hybridResults[i];
+                }
+            });
+
             const rendered = [];
             for (const slug of THEME_ORDER) {
                 const items = themes[slug];
@@ -195,7 +215,6 @@
             }
             if (rendered.length === 0) {
                 if (!retried || retried < 3) {
-                    // Bundle may still be generating — bust the cached promise and retry
                     _homeBundle = null;
                     _homeBundlePromise = null;
                     wrap.innerHTML = `<div class="text-center py-10 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-2xl"><div class="inline-block w-6 h-6 border-2 border-sage/30 border-t-sage rounded-full animate-spin"></div><p class="text-xs text-txt-muted mt-3">Building your picks&hellip; this can take a moment.</p></div>`;

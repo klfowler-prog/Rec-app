@@ -5136,6 +5136,208 @@ Return ONLY valid JSON array:
         return []
 
 
+@router.get("/discover-lane/{lane_slug}")
+async def discover_lane(
+    lane_slug: str,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Hybrid recommendation lane: real API candidates + AI scoring.
+    Pulls candidates from TMDB (recommendations, discover, trending),
+    then asks the AI to score the pool against the user's taste.
+    Returns up to 12 items with posters guaranteed."""
+    import asyncio
+
+    from app import cache
+    from app.config import settings
+    from app.models import MediaEntry
+    from app.services.gemini import generate
+    from app.services.taste_quiz_scoring import build_quiz_signals_block, load_streaming_services
+    from app.services.tmdb import TIER1_PROVIDERS, discover, get_recommendations, get_trending
+
+    LANE_CONFIG = {
+        "bingeable_tv": {"media_type": "tv", "label": "Bingeable TV"},
+        "movies_youll_love": {"media_type": "movie", "label": "Movies you'll love"},
+        "quick_escape": {"media_type": "mixed", "label": "Quick escape"},
+    }
+    config = LANE_CONFIG.get(lane_slug)
+    if not config:
+        return []
+
+    cache_key = f"discover_lane:{lane_slug}:{user.id}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    if not settings.gemini_api_key:
+        return []
+
+    # Build user context
+    consumed = db.query(MediaEntry).filter(
+        MediaEntry.user_id == user.id, MediaEntry.status == "consumed"
+    ).all()
+    if not consumed:
+        return []
+
+    consumed_titles = {_normalize_title(e.title) for e in consumed if e.title}
+
+    # Get user's top-rated items for this media type to seed recommendations
+    mt = config["media_type"]
+    if mt == "mixed":
+        seed_types = ["movie", "tv"]
+    else:
+        seed_types = [mt]
+
+    top_rated = [
+        e for e in consumed
+        if e.rating and e.rating >= 4 and e.media_type in seed_types
+    ]
+    top_rated.sort(key=lambda x: x.rating or 0, reverse=True)
+    seeds = top_rated[:10]
+
+    # Build candidate pool from multiple TMDB sources in parallel
+    tasks = []
+
+    # Source 1: TMDB recommendations for each seed item (up to 5 seeds)
+    for seed in seeds[:5]:
+        if seed.source == "tmdb" and seed.external_id:
+            tasks.append(get_recommendations(seed.media_type, seed.external_id, limit=10))
+
+    # Source 2: TMDB discover filtered by user's genres and services
+    user_services = load_streaming_services(db, user.id)
+    provider_str = "|".join(str(pid) for pid in user_services) if user_services else ""
+
+    # Get top genres from user's highly-rated items
+    from collections import Counter
+    genre_counts = Counter()
+    for e in top_rated[:20]:
+        if e.genres:
+            for g in e.genres.split(","):
+                g = g.strip()
+                if g:
+                    genre_counts[g] += 1
+    top_genres = [g for g, _ in genre_counts.most_common(3)]
+
+    # Map genre names back to TMDB IDs
+    from app.services.tmdb import GENRE_MAP
+    genre_name_to_id = {v: k for k, v in GENRE_MAP.items()}
+    genre_ids = [str(genre_name_to_id[g]) for g in top_genres if g in genre_name_to_id]
+
+    for target_mt in seed_types:
+        if genre_ids:
+            tasks.append(discover(
+                media_type=target_mt,
+                with_genres="|".join(genre_ids[:2]),
+                with_watch_providers=provider_str,
+                vote_average_gte=7.0,
+                limit=20,
+            ))
+        # Source 3: Trending
+        tasks.append(get_trending(media_type=target_mt, time_window="week", limit=15))
+
+    all_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Flatten and deduplicate
+    seen_ids: set[str] = set()
+    candidates = []
+    for result in all_results:
+        if isinstance(result, Exception):
+            continue
+        for item in result:
+            if item.external_id in seen_ids:
+                continue
+            if _normalize_title(item.title) in consumed_titles:
+                continue
+            seen_ids.add(item.external_id)
+            candidates.append(item)
+
+    if not candidates:
+        return []
+
+    # Build taste summary for AI scoring
+    by_type: dict[str, list] = {}
+    for e in consumed:
+        if e.rating and e.rating >= 4:
+            by_type.setdefault(e.media_type, []).append(e)
+    for k in by_type:
+        by_type[k].sort(key=lambda x: x.rating or 0, reverse=True)
+
+    taste_lines = []
+    for e_mt in seed_types:
+        items = by_type.get(e_mt, [])[:8]
+        for e in items:
+            taste_lines.append(f"- {e.title} ({e.rating}/5) [{e.genres or ''}]")
+
+    quiz_signals = build_quiz_signals_block(db, user.id)
+
+    # Build candidate list for AI
+    candidate_lines = []
+    for i, c in enumerate(candidates[:40]):
+        genre_str = ", ".join(c.genres) if c.genres else "unknown"
+        candidate_lines.append(
+            f"{i+1}. {c.title} ({c.year or '?'}) [{genre_str}] — {(c.description or '')[:80]}"
+        )
+
+    lane_instruction = ""
+    if lane_slug == "quick_escape":
+        lane_instruction = "\nLANE CONTEXT: This is the 'Quick escape' lane — light, comforting, easy. Prefer items under 90 minutes or single-episode TV. Penalize heavy/dark/demanding content.\n"
+    elif lane_slug == "bingeable_tv":
+        lane_instruction = "\nLANE CONTEXT: This is 'Bingeable TV' — propulsive series with momentum. Prefer shows with cliffhangers, compelling arcs, binge-worthy pacing.\n"
+
+    prompt = f"""{quiz_signals}
+USER'S TASTE ({config['label']}):
+{chr(10).join(taste_lines) if taste_lines else 'No rated items yet.'}
+{lane_instruction}
+CANDIDATES (numbered list — these are real items, pick from this list ONLY):
+{chr(10).join(candidate_lines)}
+
+Score each candidate 1-5 for how much this user would enjoy it. Return the TOP 12 by score.
+
+RULES:
+- Only return items from the numbered list above. Use the exact number.
+- Be honest — most items should be 3-3.5. Only genuine taste matches get 4+.
+- Consider genre preferences, tone, and the user's rating patterns.
+- Return ONLY a JSON array of objects, sorted by score descending:
+[{{"n": 1, "score": 4.2}}, {{"n": 5, "score": 4.0}}, ...]
+"""
+
+    try:
+        text = (await generate(prompt, temperature=0)).strip()
+        parsed = _parse_ai_json(text, f"discover_lane_{lane_slug}")
+        if not isinstance(parsed, list):
+            return []
+
+        # Map back to candidates and build response
+        results = []
+        for entry in parsed[:12]:
+            idx = entry.get("n")
+            score = entry.get("score")
+            if not isinstance(idx, int) or idx < 1 or idx > len(candidates):
+                continue
+            item = candidates[idx - 1]
+            results.append({
+                "title": item.title,
+                "media_type": item.media_type,
+                "year": item.year,
+                "image_url": item.image_url,
+                "external_id": item.external_id,
+                "source": item.source,
+                "description": item.description or "",
+                "genres": ", ".join(item.genres) if item.genres else "",
+                "predicted_rating": score,
+                "watch_providers": item.watch_providers or [],
+            })
+            # Persist score for detail page consistency
+            if score is not None:
+                cache.set_predicted_rating(user.id, item.media_type, item.external_id, score)
+
+        cache.set(cache_key, results, ttl_seconds=21600)  # 6 hours
+        return results
+    except Exception as e:
+        log.error("discover_lane %s failed: %s", lane_slug, str(e))
+        return []
+
+
 @router.get("/taste-fit/{media_type}/{external_id}")
 async def taste_fit(
     media_type: str, external_id: str,
