@@ -113,9 +113,12 @@ function mediaCard(item) {
     }
 
     return `
-        <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm transition-base card-hover" data-rec-card style="${cardStyle}">
-            <div class="poster-frame relative">
-                <a href="${detailLink}" class="block">${imageInner}</a>
+        <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm transition-base card-hover" data-rec-card style="${cardStyle}">
+            <div class="relative">
+                <div class="poster-frame relative">
+                    <a href="${detailLink}" class="block">${imageInner}</a>
+                </div>
+                ${!profileEntry ? actionArea : ''}
             </div>
             <div class="p-2">
                 <a href="${detailLink}" class="block hover:text-sage transition-base">
@@ -128,7 +131,6 @@ function mediaCard(item) {
                 ${item.creator ? `<p class="text-[10px] text-txt-muted mb-1 truncate">${escapeHtml(item.creator)}</p>` : ''}
                 ${profileEntry ? `<div>${actionArea}</div>` : ''}
             </div>
-            ${!profileEntry ? actionArea : ''}
         </div>
     `;
 }

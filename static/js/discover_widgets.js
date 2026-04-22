@@ -150,10 +150,13 @@
             : `<p class="text-[11px] text-txt-muted uppercase tracking-wide mt-2">${label}</p>`;
         const providerIds = (pick.watch_providers || []).map(p => p.provider_id).filter(Boolean).join(',');
         return `
-            <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm relative" data-rec-card data-provider-ids="${providerIds}">
-                <div class="poster-frame relative">
-                    <a href="${link}" class="block">${imageInner}</a>
-                    ${pr}
+            <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm" data-rec-card data-provider-ids="${providerIds}">
+                <div class="relative">
+                    <div class="poster-frame relative">
+                        <a href="${link}" class="block">${imageInner}</a>
+                        ${pr}
+                    </div>
+                    ${posterAction}
                 </div>
                 <div class="p-2.5">
                     <div class="flex items-center gap-1.5 mb-1">
@@ -165,7 +168,6 @@
                     ${pick.description ? `<p class="text-xs text-txt-muted leading-relaxed mt-1 line-clamp-4">${escapeHtml(pick.description)}</p>` : ''}
                     ${anchorLine}
                 </div>
-                ${posterAction}
             </div>`;
     }
 
@@ -251,10 +253,13 @@
         const themeProviderIds = (item.watch_providers || []).map(p => p.provider_id).filter(Boolean).join(',');
         const posterAction = typeof buildPosterAction === 'function' ? buildPosterAction(item) : '';
         return `
-            <div class="flex-shrink-0 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm card-hover transition-base relative" style="width: 130px; scroll-snap-align: start;" data-rec-card data-provider-ids="${themeProviderIds}">
-                <div class="poster-frame relative">
-                    <a href="${link}" class="block">${imageInner}</a>
-                    ${pr}
+            <div class="flex-shrink-0 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm card-hover transition-base" style="width: 130px; scroll-snap-align: start;" data-rec-card data-provider-ids="${themeProviderIds}">
+                <div class="relative">
+                    <div class="poster-frame relative">
+                        <a href="${link}" class="block">${imageInner}</a>
+                        ${pr}
+                    </div>
+                    ${posterAction}
                 </div>
                 <div class="p-2">
                     <div class="flex items-center gap-1 mb-0.5">
@@ -262,7 +267,6 @@
                     </div>
                     <a href="${link}" class="text-[11px] font-semibold leading-tight line-clamp-2 hover:text-sage transition-base block">${escapeHtml(item.title)}</a>
                 </div>
-                ${posterAction}
             </div>`;
     }
 

@@ -332,8 +332,11 @@ function chatRecCard(item) {
 
     return `
         <div class="bg-bg-light dark:bg-bg-dark border border-border-light dark:border-border-dark rounded-lg p-2.5 flex gap-2.5" data-rec-card>
-            <div class="poster-frame relative flex-shrink-0">
-                <a href="${link}" class="block">${imageInner}</a>
+            <div class="relative flex-shrink-0">
+                <div class="poster-frame relative">
+                    <a href="${link}" class="block">${imageInner}</a>
+                </div>
+                ${actions}
             </div>
             <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-1.5 mb-0.5">
@@ -344,7 +347,6 @@ function chatRecCard(item) {
                 <div class="provider-lazy"></div>
                 <p class="text-[10px] text-txt-muted line-clamp-2 leading-tight mt-0.5">${escapeHtml(item.reason || '')}</p>
             </div>
-            ${actions}
         </div>
     `;
 }

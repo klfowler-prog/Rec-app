@@ -570,9 +570,12 @@
                 const serviceName = item.available_on || 'another service';
                 const posterAction = typeof buildPosterAction === 'function' ? buildPosterAction(item) : '';
                 return `
-                    <div class="flex-shrink-0 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm relative" style="width: 130px; scroll-snap-align: start;" data-rec-card>
-                        <div class="poster-frame relative">
-                            <a href="${link}" class="block">${imgInner}</a>
+                    <div class="flex-shrink-0 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm" style="width: 130px; scroll-snap-align: start;" data-rec-card>
+                        <div class="relative">
+                            <div class="poster-frame relative">
+                                <a href="${link}" class="block">${imgInner}</a>
+                            </div>
+                            ${posterAction}
                         </div>
                         <div class="p-2">
                             <div class="flex items-center gap-1 mb-0.5">
@@ -581,7 +584,6 @@
                             <a href="${link}" class="text-[11px] font-semibold leading-tight hover:text-sage transition-base block line-clamp-2">${escapeHtml(item.title)}</a>
                             <p class="text-[10px] text-coral-light mt-0.5">On ${escapeHtml(serviceName)}</p>
                         </div>
-                        ${posterAction}
                     </div>`;
             }).join('');
             section.classList.remove('hidden');
@@ -633,10 +635,13 @@
                        : item.friend_name ? `<p class="text-[10px] text-coral mt-0.5">${escapeHtml(item.friend_name)} rated this ${item.rating || ''}/5</p>`
                        : '';
         return `
-            <div class="flex-shrink-0 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm card-hover transition-base relative" style="width: 130px; scroll-snap-align: start;" data-rec-card>
-                <div class="poster-frame relative">
-                    <a href="${link}" class="block">${imageInner}</a>
-                    ${pr}
+            <div class="flex-shrink-0 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm card-hover transition-base" style="width: 130px; scroll-snap-align: start;" data-rec-card>
+                <div class="relative">
+                    <div class="poster-frame relative">
+                        <a href="${link}" class="block">${imageInner}</a>
+                        ${pr}
+                    </div>
+                    ${posterAction}
                 </div>
                 <div class="p-2">
                     <div class="flex items-center gap-1 mb-0.5">
@@ -645,7 +650,6 @@
                     <a href="${link}" class="text-[11px] font-semibold leading-tight line-clamp-2 hover:text-sage transition-base block">${escapeHtml(item.title)}</a>
                     ${subtitle}
                 </div>
-                ${posterAction}
             </div>`;
     }
 
