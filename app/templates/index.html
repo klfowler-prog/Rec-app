@@ -382,7 +382,7 @@
     <div>
         <div class="flex items-center justify-between mb-2">
             <p class="text-[11px] text-navy dark:text-txt-light uppercase tracking-[0.18em] font-bold">Up next: {{ mt_label }}</p>
-            <a href="/profile/{{ mt }}s" class="text-[10px] text-sage hover:underline">See all &rarr;</a>
+            <a href="/profile/{{ 'tv' if mt == 'tv' else mt ~ 's' }}" class="text-[10px] text-sage hover:underline">See all &rarr;</a>
         </div>
         <div class="swim-lane flex gap-3 overflow-x-auto pb-2 -mx-4 px-4" style="scroll-snap-type: x mandatory; flex-wrap: nowrap;">
             {% for item in type_items %}
