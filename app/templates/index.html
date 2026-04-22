@@ -1095,20 +1095,27 @@ async function loadBoxOffice() {
             const asColor = asPct >= 70 ? 'text-sage' : asPct >= 50 ? 'text-gold' : 'text-coral';
             const asBadge = (asPct && item.audience_count >= 10) ? `<span class="${asColor} text-[9px] font-bold">${asPct}% audience</span>` : '';
             const image = item.image_url
-                ? `<div class="poster-frame"><img src="${item.image_url}" alt="" class="poster-cover"></div>`
-                : `<div class="poster-frame"><div class="poster-fallback bg-white/10"><span class="text-white/60 text-2xl font-bold">${escapeHtml((item.title||'?')[0])}</span></div></div>`;
+                ? `<img src="${item.image_url}" alt="" class="poster-cover">`
+                : `<div class="poster-fallback bg-white/10"><span class="text-white/60 text-2xl font-bold">${escapeHtml((item.title||'?')[0])}</span></div>`;
             const link = item.external_id ? `/media/movie/${item.external_id}?source=${item.source}` : '#';
+            const posterAction = typeof buildPosterAction === 'function' ? buildPosterAction(item) : '';
             return `
-                <a href="${link}" class="flex-shrink-0 rounded-xl overflow-hidden shadow-md card-hover transition-base block" style="width: 130px; scroll-snap-align: start;">
-                    <div class="relative">${image}${prBadge}</div>
+                <div class="flex-shrink-0 rounded-xl shadow-md card-hover transition-base" style="width: 130px; scroll-snap-align: start;" data-rec-card>
+                    <div class="relative">
+                        <div class="poster-frame relative">
+                            <a href="${link}" class="block">${image}</a>
+                            ${prBadge}
+                        </div>
+                        ${posterAction}
+                    </div>
                     <div class="p-1.5">
-                        <p class="text-[11px] font-semibold leading-tight line-clamp-2 text-white">${escapeHtml(item.title)}</p>
+                        <a href="${link}" class="block"><p class="text-[11px] font-semibold leading-tight line-clamp-2 text-white">${escapeHtml(item.title)}</p></a>
                         <div class="flex items-center gap-1.5 mt-0.5">
                             ${item.year ? `<span class="text-[9px] text-white/50">${item.year}</span>` : ''}
                             ${asBadge}
                         </div>
                     </div>
-                </a>`;
+                </div>`;
         }).join('');
     } catch {
         container.innerHTML = '';
@@ -1133,18 +1140,24 @@ async function loadWindDown() {
         container.innerHTML = picks.map(item => {
             const fit = item.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
             const image = item.image_url
-                ? `<div class="poster-frame"><img src="${item.image_url}" alt="" class="${fit}"></div>`
-                : `<div class="poster-frame"><div class="poster-fallback bg-white/10"><span class="text-white/60 text-2xl font-bold">${escapeHtml((item.title||'?')[0])}</span></div></div>`;
+                ? `<img src="${item.image_url}" alt="" class="${fit}">`
+                : `<div class="poster-fallback bg-white/10"><span class="text-white/60 text-2xl font-bold">${escapeHtml((item.title||'?')[0])}</span></div>`;
             const link = item.external_id ? `/media/${item.media_type}/${item.external_id}?source=${item.source}` : '#';
             const typeLabel = {movie:'Movie',tv:'TV',book:'Book',podcast:'Podcast'}[item.media_type] || '';
+            const posterAction = typeof buildPosterAction === 'function' ? buildPosterAction(item) : '';
             return `
-                <a href="${link}" class="flex-shrink-0 rounded-xl overflow-hidden shadow-md card-hover transition-base block" style="width: 130px; scroll-snap-align: start;">
-                    ${image}
+                <div class="flex-shrink-0 rounded-xl shadow-md card-hover transition-base" style="width: 130px; scroll-snap-align: start;" data-rec-card>
+                    <div class="relative">
+                        <div class="poster-frame relative">
+                            <a href="${link}" class="block">${image}</a>
+                        </div>
+                        ${posterAction}
+                    </div>
                     <div class="p-1.5">
-                        <p class="text-[11px] font-semibold leading-tight line-clamp-2 text-white">${escapeHtml(item.title)}</p>
+                        <a href="${link}" class="block"><p class="text-[11px] font-semibold leading-tight line-clamp-2 text-white">${escapeHtml(item.title)}</p></a>
                         <span class="text-[9px] text-white/50">${typeLabel}</span>
                     </div>
-                </a>`;
+                </div>`;
         }).join('');
     } catch {
         container.innerHTML = '';
@@ -1164,18 +1177,24 @@ async function loadWeekdayPick() {
         container.innerHTML = picks.map(item => {
             const fit = item.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
             const image = item.image_url
-                ? `<div class="poster-frame"><img src="${item.image_url}" alt="" class="${fit}"></div>`
-                : `<div class="poster-frame"><div class="poster-fallback bg-white/10"><span class="text-white/60 text-2xl font-bold">${escapeHtml((item.title||'?')[0])}</span></div></div>`;
+                ? `<img src="${item.image_url}" alt="" class="${fit}">`
+                : `<div class="poster-fallback bg-white/10"><span class="text-white/60 text-2xl font-bold">${escapeHtml((item.title||'?')[0])}</span></div>`;
             const link = item.external_id ? `/media/${item.media_type}/${item.external_id}?source=${item.source}` : '#';
             const typeLabel = {movie:'Movie',tv:'TV',book:'Book',podcast:'Podcast'}[item.media_type] || '';
+            const posterAction = typeof buildPosterAction === 'function' ? buildPosterAction(item) : '';
             return `
-                <a href="${link}" class="flex-shrink-0 rounded-xl overflow-hidden shadow-md card-hover transition-base block" style="width: 130px; scroll-snap-align: start;">
-                    ${image}
+                <div class="flex-shrink-0 rounded-xl shadow-md card-hover transition-base" style="width: 130px; scroll-snap-align: start;" data-rec-card>
+                    <div class="relative">
+                        <div class="poster-frame relative">
+                            <a href="${link}" class="block">${image}</a>
+                        </div>
+                        ${posterAction}
+                    </div>
                     <div class="p-1.5">
-                        <p class="text-[11px] font-semibold leading-tight line-clamp-2 text-white">${escapeHtml(item.title)}</p>
+                        <a href="${link}" class="block"><p class="text-[11px] font-semibold leading-tight line-clamp-2 text-white">${escapeHtml(item.title)}</p></a>
                         <span class="text-[9px] text-white/50">${typeLabel}</span>
                     </div>
-                </a>`;
+                </div>`;
         }).join('');
     } catch {
         container.innerHTML = '';

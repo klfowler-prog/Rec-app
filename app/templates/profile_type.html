@@ -175,17 +175,19 @@ function newReleaseCard(item) {
     const posterAction = typeof buildPosterAction === 'function' ? buildPosterAction(cardItem) : '';
     return `
         <div class="swim-lane-item flex-shrink-0 w-40" data-rec-card>
-            <div class="rounded-lg overflow-hidden shadow-sm border border-border-light dark:border-border-dark">
-                <div class="poster-frame relative">
-                    <a href="${link}" class="block">${imageInner}</a>
-                    ${prBadge}
+            <div class="rounded-lg shadow-sm border border-border-light dark:border-border-dark">
+                <div class="relative">
+                    <div class="poster-frame relative">
+                        <a href="${link}" class="block">${imageInner}</a>
+                        ${prBadge}
+                    </div>
+                    ${posterAction}
                 </div>
                 <div class="bg-surface-light dark:bg-surface-dark p-2.5">
                     <p class="text-xs font-medium truncate">${escapeHtml(item.title)}</p>
                     ${item.year ? `<p class="text-[10px] text-txt-muted">${item.year}</p>` : ''}
                     <div class="provider-slot" data-mt="${item.media_type || MEDIA_TYPE}" data-eid="${item.external_id || ''}" data-src="${item.source || ''}"></div>
                 </div>
-                ${posterAction}
             </div>
         </div>
     `;
@@ -337,8 +339,11 @@ async function loadBestBet() {
 
         card.innerHTML = `
             <div class="flex flex-col sm:flex-row gap-5 p-5 md:p-6" data-rec-card>
-                <div class="poster-frame relative w-32 md:w-40 flex-shrink-0 self-center sm:self-start">
-                    <a href="${link}" class="block">${imageInner}</a>
+                <div class="relative w-32 md:w-40 flex-shrink-0 self-center sm:self-start">
+                    <div class="poster-frame relative">
+                        <a href="${link}" class="block">${imageInner}</a>
+                    </div>
+                    ${bbPosterAction}
                 </div>
                 <div class="flex-1 min-w-0">
                     <p class="text-[10px] text-txt-muted uppercase tracking-widest font-semibold mb-1">Because you loved <span class="text-txt font-bold">${escapeHtml(anchor.title)}</span></p>
@@ -346,7 +351,6 @@ async function loadBestBet() {
                     ${pick.year || pick.creator ? `<p class="text-xs text-txt-muted mb-3">${[pick.year, pick.creator].filter(Boolean).join(' · ')}</p>` : ''}
                     <p class="text-sm text-txt leading-relaxed mb-4">${escapeHtml(pick.reason || '')}</p>
                 </div>
-                ${bbPosterAction}
             </div>
         `;
         section.classList.remove('hidden');
