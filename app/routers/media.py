@@ -5171,218 +5171,179 @@ async def discover_lane(
     if not settings.gemini_api_key:
         return []
 
-    # Build user context
+    # Build user context — same rich profile as home-bundle
     consumed = db.query(MediaEntry).filter(
         MediaEntry.user_id == user.id, MediaEntry.status == "consumed"
     ).all()
     if not consumed:
         return []
 
-    consumed_titles = {_normalize_title(e.title) for e in consumed if e.title}
+    known_normalized, known_display = _build_known_titles(db, user.id)
 
-    # Get user's top-rated items for this media type to seed recommendations
     mt = config["media_type"]
     if mt == "mixed":
         seed_types = ["movie", "tv"]
     else:
         seed_types = [mt]
 
-    top_rated = [
-        e for e in consumed
-        if e.rating and e.rating >= 4 and e.media_type in seed_types
-    ]
-    top_rated.sort(key=lambda x: x.rating or 0, reverse=True)
-
-    # Diversify seeds: pick up to 8, but max 2 per primary genre so one
-    # genre cluster doesn't dominate the recommendation calls.
-    from collections import Counter
-    genre_seed_count: dict[str, int] = {}
-    seeds = []
-    for e in top_rated:
-        primary_genre = (e.genres or "").split(",")[0].strip().lower()
-        if genre_seed_count.get(primary_genre, 0) >= 2:
-            continue
-        seeds.append(e)
-        genre_seed_count[primary_genre] = genre_seed_count.get(primary_genre, 0) + 1
-        if len(seeds) >= 8:
-            break
-
-    # Build candidate pool — prioritize TMDB discover (popular, well-known
-    # films on user's services) over per-seed recommendations (which skew
-    # obscure). Seeds provide niche depth, discover provides quality breadth.
-    tasks = []
-
-    user_services = load_streaming_services(db, user.id)
-    provider_str = "|".join(str(pid) for pid in user_services) if user_services else ""
-
-    genre_counts = Counter()
-    for e in top_rated[:30]:
-        if e.genres:
-            for g in e.genres.split(","):
-                g = g.strip()
-                if g:
-                    genre_counts[g] += 1
-
-    from app.services.tmdb import GENRE_MAP
-    genre_name_to_id = {v: k for k, v in GENRE_MAP.items()}
-
-    # Source 1 (primary): TMDB discover — popular, well-reviewed films
-    # on user's services, one call per top genre for diversity
-    top_genres = [g for g, _ in genre_counts.most_common(6) if g in genre_name_to_id]
-    for target_mt in seed_types:
-        for genre_name in top_genres[:5]:
-            gid = str(genre_name_to_id[genre_name])
-            tasks.append(discover(
-                media_type=target_mt,
-                with_genres=gid,
-                with_watch_providers=provider_str,
-                vote_average_gte=7.0,
-                sort_by="popularity.desc",
-                limit=15,
-            ))
-        # Also a general popular call without genre filter
-        tasks.append(discover(
-            media_type=target_mt,
-            with_watch_providers=provider_str,
-            vote_average_gte=7.5,
-            sort_by="popularity.desc",
-            limit=15,
-        ))
-        # Source 2: Trending — what's hot right now
-        tasks.append(get_trending(media_type=target_mt, time_window="week", limit=15))
-
-    # Source 3 (secondary): Per-seed recommendations — only top 3 seeds
-    # to add some depth without flooding with obscure picks
-    for seed in seeds[:3]:
-        if seed.source == "tmdb" and seed.external_id:
-            tasks.append(get_recommendations(seed.media_type, seed.external_id, limit=5))
-
-    all_results = await asyncio.gather(*tasks, return_exceptions=True)
-
-    # Build genre exclusion set from onboarding (same logic as home-bundle)
-    from app.services.taste_quiz_scoring import load_onboarding
-    _dl_onb = load_onboarding(db, user.id)
-    _dl_scenes = set((_dl_onb or {}).get("scenes", []))
-    excluded_genres: set[str] = set()
-    _dl_deal = {"anime": {"animation"}, "k_content": set()}
-    _dl_keywords = {"anime": {"anime", "animation"}, "k_content": {"k-pop", "kpop", "k-drama", "kdrama", "korean"}}
-    for key in ("anime", "k_content"):
-        if key not in _dl_scenes:
-            has = db.query(MediaEntry).filter(
-                MediaEntry.user_id == user.id,
-                MediaEntry.genres.ilike(f"%{'anime' if key == 'anime' else 'k-drama'}%"),
-                MediaEntry.rating >= 3,
-            ).limit(1).first()
-            if not has:
-                excluded_genres.update(_dl_keywords[key])
-
-    # Flatten and deduplicate
-    seen_ids: set[str] = set()
-    candidates = []
-    for result in all_results:
-        if isinstance(result, Exception):
-            continue
-        for item in result:
-            if item.external_id in seen_ids:
-                continue
-            if _normalize_title(item.title) in consumed_titles:
-                continue
-            # Filter excluded genres (anime, K-content, etc.)
-            item_genres_lower = {g.lower() for g in (item.genres or [])}
-            if item_genres_lower & excluded_genres:
-                continue
-            seen_ids.add(item.external_id)
-            candidates.append(item)
-
-    if not candidates:
-        return []
-
-    # Build taste summary for AI scoring
-    by_type: dict[str, list] = {}
+    # Build taste summary
+    by_type: dict[str, list] = {"movie": [], "tv": [], "book": [], "podcast": []}
     for e in consumed:
         if e.rating and e.rating >= 4:
             by_type.setdefault(e.media_type, []).append(e)
     for k in by_type:
         by_type[k].sort(key=lambda x: x.rating or 0, reverse=True)
 
-    taste_lines = []
-    for e_mt in seed_types:
+    taste_sections = []
+    label_map = {"movie": "MOVIES", "tv": "TV SHOWS", "book": "BOOKS", "podcast": "PODCASTS"}
+    for e_mt, label in label_map.items():
         items = by_type.get(e_mt, [])[:8]
-        for e in items:
-            taste_lines.append(f"- {e.title} ({e.rating}/5) [{e.genres or ''}]")
+        if items:
+            lines = [f"  - {e.title} ({e.year or '?'}) — {e.rating}/5 [{e.genres or ''}]" for e in items]
+            taste_sections.append(f"{label}:\n" + "\n".join(lines))
+    taste_summary = "\n\n".join(taste_sections) if taste_sections else "No rated items yet."
 
+    genre_breakdown = _build_genre_breakdown(consumed)
     quiz_signals = build_quiz_signals_block(db, user.id)
+    resonance_signals = build_resonance_block(db, user.id)
 
-    # Build candidate list for AI
-    candidate_lines = []
-    for i, c in enumerate(candidates[:40]):
-        genre_str = ", ".join(c.genres) if c.genres else "unknown"
-        candidate_lines.append(
-            f"{i+1}. {c.title} ({c.year or '?'}) [{genre_str}] — {(c.description or '')[:80]}"
-        )
+    # Streaming context
+    user_services = load_streaming_services(db, user.id)
+    streaming_ctx = ""
+    if user_services:
+        from app.services.tmdb import TIER1_PROVIDERS
+        svc_names = [TIER1_PROVIDERS.get(pid, f"Service {pid}") for pid in user_services]
+        streaming_ctx = f"\nSTREAMING SERVICES: {', '.join(svc_names)}. Strongly prefer items on these services."
 
-    lane_instruction = ""
-    if lane_slug == "quick_escape":
-        lane_instruction = "\nLANE CONTEXT: This is the 'Quick escape' lane — light, comforting, easy. Prefer items under 90 minutes or single-episode TV. Penalize heavy/dark/demanding content.\n"
-    elif lane_slug == "bingeable_tv":
-        lane_instruction = "\nLANE CONTEXT: This is 'Bingeable TV' — propulsive series with momentum. Prefer shows with cliffhangers, compelling arcs, binge-worthy pacing.\n"
+    # Genre exclusions
+    from app.services.taste_quiz_scoring import load_onboarding
+    _dl_onb = load_onboarding(db, user.id)
+    _dl_scenes = set((_dl_onb or {}).get("scenes", []))
+    _dl_excl = []
+    for key, label in {"anime": "anime or manga", "k_content": "K-drama or K-pop"}.items():
+        if key not in _dl_scenes:
+            gs = "anime" if key == "anime" else "k-drama"
+            has = db.query(MediaEntry).filter(MediaEntry.user_id == user.id, MediaEntry.genres.ilike(f"%{gs}%"), MediaEntry.rating >= 3).limit(1).first()
+            if not has:
+                _dl_excl.append(label)
+    genre_exclusion_ctx = f"\nGENRE EXCLUSIONS: Do NOT recommend {', '.join(_dl_excl)}." if _dl_excl else ""
+
+    # Avoid list
+    avoid_titles: list[str] = []
+    for t in known_display[:200]:
+        avoid_titles.append(t)
+    avoid_str = ", ".join(avoid_titles[:100]) if avoid_titles else "none"
+
+    # Lane-specific instructions
+    LANE_PROMPTS = {
+        "bingeable_tv": "Recommend 20 TV SHOWS the user will binge. Propulsive series with momentum — cliffhangers, compelling arcs, shows that earn the next episode. All must be media_type 'tv'.",
+        "movies_youll_love": "Recommend 20 MOVIES the user will love. Strong taste matches — films that connect to their profile through theme, tone, or storytelling. All must be media_type 'movie'.",
+        "quick_escape": "Recommend 20 items (mix TV and movies) for a quick escape. Light, comforting, easy — 90 minutes or less. The kind of thing you put on when you want to relax. Mix TV and movies.",
+    }
+    lane_prompt = LANE_PROMPTS.get(lane_slug, f"Recommend 20 items for {config['label']}.")
 
     prompt = f"""{quiz_signals}
-USER'S TASTE ({config['label']}):
-{chr(10).join(taste_lines) if taste_lines else 'No rated items yet.'}
-{lane_instruction}
-CANDIDATES (numbered list — these are real items, pick from this list ONLY):
-{chr(10).join(candidate_lines)}
+{resonance_signals}
+USER'S TASTE PROFILE:
+{taste_summary}
+{genre_breakdown if genre_breakdown else ''}
+{streaming_ctx}{genre_exclusion_ctx}
 
-Score each candidate 1-5 for how much this user would enjoy it. Return the TOP 20 by score (we'll filter for diversity after).
+{lane_prompt}
 
-RULES:
-- Only return items from the numbered list above. Use the exact number.
-- Be honest — most items should be 3-3.5. Only genuine taste matches get 4+.
-- Consider genre preferences, tone, and the user's rating patterns.
-- GENRE DIVERSITY IS CRITICAL: The final 12 must spread across at least 3-4 different genres. Do NOT return more than 3 items from any single genre (e.g. no more than 3 documentaries, no more than 3 comedies). If the top scores cluster in one genre, skip some and pick the next-best item from a DIFFERENT genre. A diverse set of good recommendations is always better than a narrow set of great ones.
-- Return ONLY a JSON array of objects, sorted by score descending:
-[{{"n": 1, "score": 4.2}}, {{"n": 5, "score": 4.0}}, ...]
+These should be items the user has NOT already seen/consumed. Do NOT recommend any of these: {avoid_str}
+
+For each recommendation include: title, creator (director or showrunner), media_type, year.
+Focus on QUALITY over quantity — only recommend items you're confident this specific user would rate 4+.
+
+CRITICAL:
+- EVERY recommendation must be a REAL, well-known title. No made-up items.
+- Include creator (director/showrunner) for search accuracy.
+- Do NOT recommend scholarly, academic, or niche content unless the profile clearly shows that taste.
+- Spread across genres — don't cluster in one genre.
+
+Return ONLY valid JSON array:
+[{{"title": "...", "creator": "director or showrunner", "media_type": "movie|tv", "year": 2020, "predicted_rating": 4.5}}, ...]
 """
 
     try:
-        text = (await generate(prompt, temperature=0)).strip()
+        text = (await generate(prompt)).strip()
         parsed = _parse_ai_json(text, f"discover_lane_{lane_slug}")
         if not isinstance(parsed, list):
-            return []
+            parsed = []
 
-        # Map back to candidates and build response with genre cap
-        results = []
-        genre_count: dict[str, int] = {}
-        MAX_PER_GENRE = 3
-        for entry in parsed[:20]:  # check up to 20 to fill 12 after genre cap
-            idx = entry.get("n")
-            score = entry.get("score")
-            if not isinstance(idx, int) or idx < 1 or idx > len(candidates):
-                continue
-            item = candidates[idx - 1]
-            # Enforce genre diversity: max 2 per primary genre
-            primary_genre = (item.genres[0] if item.genres else "other").lower()
-            if genre_count.get(primary_genre, 0) >= MAX_PER_GENRE:
-                continue
-            genre_count[primary_genre] = genre_count.get(primary_genre, 0) + 1
-            results.append({
-                "title": item.title,
-                "media_type": item.media_type,
-                "year": item.year,
-                "image_url": item.image_url,
-                "external_id": item.external_id,
-                "source": item.source,
-                "description": item.description or "",
-                "genres": ", ".join(item.genres) if item.genres else "",
-                "predicted_rating": score,
-                "watch_providers": item.watch_providers or [],
-            })
-            # Persist score for detail page consistency
-            if score is not None:
-                cache.set_predicted_rating(user.id, item.media_type, item.external_id, score)
-            if len(results) >= 12:
-                break
+        # Filter out known titles
+        parsed = [p for p in parsed if not _is_known(p.get("title", ""), known_normalized)]
+
+        # Enrich AI picks via TMDB search
+        async def _enrich_lane_pick(pick: dict):
+            title = pick.get("title", "")
+            e_mt = pick.get("media_type")
+            creator = pick.get("creator") or ""
+            pick_year = pick.get("year")
+            pr = pick.get("predicted_rating")
+            try:
+                matches = await _smart_search(title, e_mt, creator, year=pick_year)
+            except Exception:
+                matches = []
+            if matches:
+                best = matches[0]
+                if _is_known(best.title, known_normalized):
+                    return None
+                return {
+                    "title": best.title, "media_type": best.media_type,
+                    "year": best.year, "image_url": best.image_url,
+                    "external_id": best.external_id, "source": best.source,
+                    "description": best.description or "",
+                    "genres": ", ".join(best.genres) if best.genres else "",
+                    "predicted_rating": pr,
+                }
+            return None  # enrichment failed
+
+        enrich_results = await asyncio.gather(*[_enrich_lane_pick(p) for p in parsed[:20]])
+        results = [r for r in enrich_results if r is not None]
+
+        # Persist scores
+        for item in results:
+            pr = item.get("predicted_rating")
+            if pr is not None and item.get("external_id"):
+                cache.set_predicted_rating(user.id, item["media_type"], item["external_id"], pr)
+
+        # If AI picks didn't fill 8 slots, backfill with TMDB discover
+        if len(results) < 8:
+            provider_str = "|".join(str(pid) for pid in user_services) if user_services else ""
+            from app.services.tmdb import discover as tmdb_discover
+            backfill_tasks = []
+            for target_mt in seed_types:
+                backfill_tasks.append(tmdb_discover(
+                    media_type=target_mt,
+                    with_watch_providers=provider_str,
+                    vote_average_gte=7.5,
+                    sort_by="popularity.desc",
+                    limit=20,
+                ))
+            backfill_results = await asyncio.gather(*backfill_tasks, return_exceptions=True)
+            filled_ids = {r["external_id"] for r in results if r.get("external_id")}
+            consumed_normalized = {_normalize_title(e.title) for e in consumed if e.title}
+            for br in backfill_results:
+                if isinstance(br, Exception):
+                    continue
+                for item in br:
+                    if len(results) >= 12:
+                        break
+                    if item.external_id in filled_ids:
+                        continue
+                    if _normalize_title(item.title) in consumed_normalized:
+                        continue
+                    filled_ids.add(item.external_id)
+                    results.append({
+                        "title": item.title, "media_type": item.media_type,
+                        "year": item.year, "image_url": item.image_url,
+                        "external_id": item.external_id, "source": item.source,
+                        "description": item.description or "",
+                        "genres": ", ".join(item.genres) if item.genres else "",
+                        "predicted_rating": None,
+                    })
 
         cache.set(cache_key, results, ttl_seconds=21600)  # 6 hours
         return results
