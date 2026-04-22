@@ -195,22 +195,31 @@ function newReleaseCard(item) {
 
 function simpleEntryCard(entry) {
     const fit = entry.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
-    const image = entry.image_url
-        ? `<div class="poster-frame"><img src="${entry.image_url}" alt="" class="${fit}" loading="lazy"></div>`
-        : `<div class="poster-frame"><div class="poster-fallback bg-sage/10"><span class="text-sage text-xl">${escapeHtml((entry.title || '?')[0])}</span></div></div>`;
+    const imageInner = entry.image_url
+        ? `<img src="${entry.image_url}" alt="" class="${fit}" loading="lazy">`
+        : `<div class="poster-fallback bg-sage/10"><span class="text-sage text-xl">${escapeHtml((entry.title || '?')[0])}</span></div>`;
     const rating = entry.rating
         ? `<span class="text-[10px] font-semibold text-sage cursor-pointer hover:underline" onclick="event.preventDefault(); event.stopPropagation(); toggleInlineRate(this, ${entry.id}, ${entry.rating})">${entry.rating}/5</span>`
         : (entry.predicted_rating ? `<span class="text-[10px] text-txt-muted">~${entry.predicted_rating}</span>` : '');
+    const link = `/media/${entry.media_type}/${entry.external_id}?source=${entry.source}`;
+    const posterAction = typeof buildPosterAction === 'function' ? buildPosterAction({
+        external_id: entry.external_id, source: entry.source, title: entry.title,
+        media_type: entry.media_type, image_url: entry.image_url, year: entry.year,
+        creator: entry.creator, genres: entry.genres, description: entry.description,
+    }) : '';
     return `
-        <a href="/media/${entry.media_type}/${entry.external_id}?source=${entry.source}" class="group">
-            <div class="rounded-lg overflow-hidden border border-border-light dark:border-border-dark transition-base card-hover">
-                ${image}
-                <div class="bg-surface-light dark:bg-surface-dark p-2">
-                    <p class="text-xs font-medium truncate">${escapeHtml(entry.title)}</p>
-                    ${rating}
+        <div class="rounded-lg border border-border-light dark:border-border-dark transition-base card-hover" data-rec-card>
+            <div class="relative">
+                <div class="poster-frame relative">
+                    <a href="${link}" class="block">${imageInner}</a>
                 </div>
+                ${posterAction}
             </div>
-        </a>
+            <div class="bg-surface-light dark:bg-surface-dark p-2">
+                <a href="${link}" class="block"><p class="text-xs font-medium truncate">${escapeHtml(entry.title)}</p></a>
+                ${rating}
+            </div>
+        </div>
     `;
 }
 
@@ -277,17 +286,27 @@ async function loadCurrentlyConsuming() {
 
 function currentlyCard(entry) {
     const fit = entry.media_type === 'podcast' ? 'poster-contain' : 'poster-cover';
-    const image = entry.image_url
-        ? `<div class="poster-frame"><img src="${entry.image_url}" alt="" class="${fit}" loading="lazy"></div>`
-        : `<div class="poster-frame"><div class="poster-fallback bg-sage/10"><span class="text-sage text-xl">${escapeHtml((entry.title || '?')[0])}</span></div></div>`;
+    const imageInner = entry.image_url
+        ? `<img src="${entry.image_url}" alt="" class="${fit}" loading="lazy">`
+        : `<div class="poster-fallback bg-sage/10"><span class="text-sage text-xl">${escapeHtml((entry.title || '?')[0])}</span></div>`;
     const switcher = typeof buildStatusSwitcher === 'function'
         ? buildStatusSwitcher(entry.id, entry.status, entry.media_type)
         : '';
+    const link = `/media/${entry.media_type}/${entry.external_id}?source=${entry.source}`;
+    const posterAction = typeof buildPosterAction === 'function' ? buildPosterAction({
+        external_id: entry.external_id, source: entry.source, title: entry.title,
+        media_type: entry.media_type, image_url: entry.image_url, year: entry.year,
+    }) : '';
     return `
-        <div class="rounded-lg overflow-hidden border border-border-light dark:border-border-dark card-hover">
-            <a href="/media/${entry.media_type}/${entry.external_id}?source=${entry.source}">${image}</a>
+        <div class="rounded-lg border border-border-light dark:border-border-dark card-hover" data-rec-card>
+            <div class="relative">
+                <div class="poster-frame relative">
+                    <a href="${link}" class="block">${imageInner}</a>
+                </div>
+                ${posterAction}
+            </div>
             <div class="bg-surface-light dark:bg-surface-dark p-2 space-y-1.5">
-                <p class="text-xs font-medium truncate">${escapeHtml(entry.title)}</p>
+                <a href="${link}" class="block"><p class="text-xs font-medium truncate">${escapeHtml(entry.title)}</p></a>
                 ${switcher}
             </div>
         </div>

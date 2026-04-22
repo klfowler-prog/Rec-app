@@ -386,7 +386,8 @@
         </div>
         <div class="swim-lane flex gap-3 overflow-x-auto pb-2 -mx-4 px-4" style="scroll-snap-type: x mandatory; flex-wrap: nowrap;">
             {% for item in type_items %}
-            <div class="flex-shrink-0 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm transition-base" style="width: 130px; scroll-snap-align: start;" data-rec-card>
+            {% set item_data = '{"external_id":"' ~ (item.external_id or '') ~ '","source":"' ~ (item.source or '') ~ '","title":"' ~ (item.title|replace('"','\\"')) ~ '","media_type":"' ~ item.media_type ~ '","image_url":' ~ ('"' ~ item.image_url ~ '"' if item.image_url else 'null') ~ ',"year":' ~ (item.year or 'null') ~ ',"status":"want_to_consume"}' %}
+            <div class="flex-shrink-0 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm transition-base" style="width: 130px; scroll-snap-align: start;" data-rec-card>
                 <div class="relative">
                     <a href="{% if item.external_id %}/media/{{ item.media_type }}/{{ item.external_id }}?source={{ item.source }}{% else %}/profile{% endif %}" class="block">
                         <div class="poster-frame relative">
@@ -404,6 +405,14 @@
                             {% endif %}
                         </div>
                     </a>
+                    <button class="poster-action-trigger" onclick="event.preventDefault();event.stopPropagation();togglePosterMenu('upnext-{{ item.id }}')">
+                        <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                    </button>
+                    <div class="poster-action-menu" id="upnext-{{ item.id }}">
+                        <button onclick="quickAdd(this.closest('[data-rec-card]').querySelector('.poster-action-trigger'), {{ item_data|e }});closePosterMenus()">{{ {'movie':'Seen it','tv':'Seen it','book':'Read it','podcast':'Heard it'}.get(item.media_type, 'Done') }}</button>
+                        <button onclick="startConsuming(this.closest('[data-rec-card]').querySelector('.poster-action-trigger'), {{ item_data|e }});closePosterMenus()">{{ {'movie':'Watch','tv':'Watch','book':'Read now','podcast':'Listen'}.get(item.media_type, 'Start') }}</button>
+                        <button onclick="dismissItem(this.closest('[data-rec-card]').querySelector('.poster-action-trigger'), {{ item_data|e }});closePosterMenus()">Skip</button>
+                    </div>
                 </div>
                 <div class="p-2">
                     <p class="text-[11px] font-semibold leading-tight line-clamp-2">{{ item.title }}</p>
