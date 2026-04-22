@@ -2491,12 +2491,11 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
         # Six life-context themes — each resolves to a specific mode of
         # consumption the user might actually be in. These replace the
         # old "Patterns in your taste" insights block on the home page.
+        # Only generate themes for lanes NOT served by the hybrid endpoint.
+        # bingeable_tv, movies_youll_love, quick_escape use /discover-lane/.
         theme_catalog = [
-            ("bingeable_tv",      "Bingeable TV",            "tv",      "TV ONLY. Propulsive series the user won't be able to stop watching. Shows with momentum — cliffhangers, compelling arcs, binge-worthy pacing. All 8 picks must be media_type 'tv'."),
-            ("movies_youll_love", "Movies you'll love",      "movie",   "MOVIES ONLY. Strong taste-matched films the user will love. Mix genres that match their profile — don't cluster in one genre. All 8 picks must be media_type 'movie'."),
-            ("quick_escape",      "Quick escape",            "any",     "TV and MOVIES only (no books, no podcasts). Light, comforting, easy — the kind of thing you put on when you want to relax without thinking too hard. 90 minutes or less. Comfort rewatches are welcome. Mix TV and movies roughly evenly."),
-            ("learn_something",   "Learn something new",     "any",     "PODCASTS and NONFICTION BOOKS only (no fiction, no TV, no movies). Idea-driven, educational, mind-expanding content that matches the user's interests. Narrative nonfiction, science, history, essays, interview podcasts, explainer pods. Mix podcasts and books roughly evenly."),
-            ("get_lost",          "Get lost in a story",     "book",    "BOOKS ONLY. Fiction or narrative nonfiction — immersive, involved, the kind of book you lose a weekend to. Literary fiction, page-turners, epic narratives, compelling memoirs. All 8 picks must be media_type 'book'."),
+            ("learn_something",   "Learn something new",     "any",     "PODCASTS and NONFICTION BOOKS only (no fiction, no TV, no movies). Idea-driven, educational, mind-expanding content that matches the user's interests. Narrative nonfiction, science, history, essays, interview podcasts, explainer pods. Mix podcasts and books roughly evenly. Return 8 items."),
+            ("get_lost",          "Get lost in a story",     "book",    "BOOKS ONLY. Fiction or narrative nonfiction — immersive, involved, the kind of book you lose a weekend to. Literary fiction, page-turners, epic narratives, compelling memoirs. All 8 picks must be media_type 'book'. Return 8 items."),
         ]
         theme_schema_lines = [
             f'    "{slug}": [{{"title": "...", "creator": "...", "media_type": "movie|tv|book|podcast", "year": 2020, "reason": "What it is + why", "predicted_rating": 4.5}}, ... 8 items]'
@@ -5322,7 +5321,7 @@ RULES:
         # Map back to candidates and build response with genre cap
         results = []
         genre_count: dict[str, int] = {}
-        MAX_PER_GENRE = 2
+        MAX_PER_GENRE = 3
         for entry in parsed[:20]:  # check up to 20 to fill 12 after genre cap
             idx = entry.get("n")
             score = entry.get("score")

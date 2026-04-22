@@ -559,70 +559,10 @@ async def profile_page(request: Request, user: User = Depends(require_user)):
 
 
 @router.get("/profile/{media_type}")
-async def profile_type_page(request: Request, media_type: str, user: User = Depends(require_user)):
-    """Per-media-type library page. Top to bottom:
-      1. Currently [watching/reading/listening]
-      2. Your best bet (anchor-based hero rec)
-      3. New you might like (new releases — skipped for podcasts)
-      4. Your queue (You saved + We suggest)
-      5. Your library (seen / followed / read / listened to)
-    """
-    if media_type not in ("movies", "tv", "books", "podcasts"):
-        raise HTTPException(status_code=404, detail="Unknown media type")
-    internal_type = {"movies": "movie", "tv": "tv", "books": "book", "podcasts": "podcast"}[media_type]
-    type_label = {"movies": "Movies", "tv": "TV Shows", "books": "Books", "podcasts": "Podcasts"}[media_type]
-
-    # Per-type copy — the library label matters because you don't
-    # really "finish" a TV show or a podcast the way you finish a
-    # movie or a book, but the user has still engaged with it.
-    LABELS = {
-        "movie": {
-            "currently_heading": "Now watching",
-            "currently_blurb": "Movies you're in the middle of.",
-            "library_heading": "Movies you've seen",
-            "library_blurb": "Everything you've watched in this category.",
-            "currently_verb": "watching",
-            "show_new_releases": True,
-        },
-        "tv": {
-            "currently_heading": "Currently watching",
-            "currently_blurb": "Shows you're actively in the middle of.",
-            "library_heading": "Shows you follow",
-            "library_blurb": "Shows you know and engage with — finished or ongoing.",
-            "currently_verb": "watching",
-            "show_new_releases": True,
-        },
-        "book": {
-            "currently_heading": "Currently reading",
-            "currently_blurb": "Books you're in the middle of.",
-            "library_heading": "Books you've read",
-            "library_blurb": "Everything you've read in this category.",
-            "currently_verb": "reading",
-            "show_new_releases": True,
-        },
-        "podcast": {
-            "currently_heading": "Currently listening",
-            "currently_blurb": "Podcasts you're actively listening to.",
-            "library_heading": "Podcasts you listen to",
-            "library_blurb": "Shows you know and engage with — ongoing or completed.",
-            "currently_verb": "listening to",
-            # iTunes top-podcasts feed isn't really a "new" signal —
-            # skip the new-releases section on the podcast page.
-            "show_new_releases": False,
-        },
-    }[internal_type]
-
-    return templates.TemplateResponse(
-        "profile_type.html",
-        {
-            "request": request,
-            "user": user,
-            "media_type": internal_type,
-            "media_type_slug": media_type,
-            "type_label": type_label,
-            **LABELS,
-        },
-    )
+async def profile_type_redirect(media_type: str, user: User = Depends(require_user)):
+    """Per-media-type pages removed — redirect to unified library."""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/profile", status_code=302)
 
 
 @router.get("/taste")
