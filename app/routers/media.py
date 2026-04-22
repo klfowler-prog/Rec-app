@@ -5207,15 +5207,11 @@ async def discover_lane(
         if len(seeds) >= 8:
             break
 
-    # Build candidate pool from multiple TMDB sources in parallel
+    # Build candidate pool — prioritize TMDB discover (popular, well-known
+    # films on user's services) over per-seed recommendations (which skew
+    # obscure). Seeds provide niche depth, discover provides quality breadth.
     tasks = []
 
-    # Source 1: TMDB recommendations for each seed item
-    for seed in seeds[:8]:
-        if seed.source == "tmdb" and seed.external_id:
-            tasks.append(get_recommendations(seed.media_type, seed.external_id, limit=8))
-
-    # Source 2: TMDB discover — one call per top genre for breadth
     user_services = load_streaming_services(db, user.id)
     provider_str = "|".join(str(pid) for pid in user_services) if user_services else ""
 
@@ -5230,20 +5226,36 @@ async def discover_lane(
     from app.services.tmdb import GENRE_MAP
     genre_name_to_id = {v: k for k, v in GENRE_MAP.items()}
 
-    # Run separate discover calls for top 4 genres (not combined) for diversity
+    # Source 1 (primary): TMDB discover — popular, well-reviewed films
+    # on user's services, one call per top genre for diversity
     top_genres = [g for g, _ in genre_counts.most_common(6) if g in genre_name_to_id]
     for target_mt in seed_types:
-        for genre_name in top_genres[:4]:
+        for genre_name in top_genres[:5]:
             gid = str(genre_name_to_id[genre_name])
             tasks.append(discover(
                 media_type=target_mt,
                 with_genres=gid,
                 with_watch_providers=provider_str,
-                vote_average_gte=6.5,
-                limit=10,
+                vote_average_gte=7.0,
+                sort_by="popularity.desc",
+                limit=15,
             ))
-        # Source 3: Trending — broad discovery
+        # Also a general popular call without genre filter
+        tasks.append(discover(
+            media_type=target_mt,
+            with_watch_providers=provider_str,
+            vote_average_gte=7.5,
+            sort_by="popularity.desc",
+            limit=15,
+        ))
+        # Source 2: Trending — what's hot right now
         tasks.append(get_trending(media_type=target_mt, time_window="week", limit=15))
+
+    # Source 3 (secondary): Per-seed recommendations — only top 3 seeds
+    # to add some depth without flooding with obscure picks
+    for seed in seeds[:3]:
+        if seed.source == "tmdb" and seed.external_id:
+            tasks.append(get_recommendations(seed.media_type, seed.external_id, limit=5))
 
     all_results = await asyncio.gather(*tasks, return_exceptions=True)
 
