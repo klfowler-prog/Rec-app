@@ -150,7 +150,7 @@
             : `<p class="text-[11px] text-txt-muted uppercase tracking-wide mt-2">${label}</p>`;
         const providerIds = (pick.watch_providers || []).map(p => p.provider_id).filter(Boolean).join(',');
         return `
-            <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm" data-rec-card data-provider-ids="${providerIds}">
+            <div class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm relative" data-rec-card data-provider-ids="${providerIds}">
                 <div class="poster-frame relative">
                     <a href="${link}" class="block">${imageInner}</a>
                     ${pr}
@@ -251,7 +251,7 @@
         const themeProviderIds = (item.watch_providers || []).map(p => p.provider_id).filter(Boolean).join(',');
         const posterAction = typeof buildPosterAction === 'function' ? buildPosterAction(item) : '';
         return `
-            <div class="flex-shrink-0 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm card-hover transition-base" style="width: 130px; scroll-snap-align: start;" data-rec-card data-provider-ids="${themeProviderIds}">
+            <div class="flex-shrink-0 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm card-hover transition-base relative" style="width: 130px; scroll-snap-align: start;" data-rec-card data-provider-ids="${themeProviderIds}">
                 <div class="poster-frame relative">
                     <a href="${link}" class="block">${imageInner}</a>
                     ${pr}

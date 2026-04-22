@@ -570,7 +570,7 @@
                 const serviceName = item.available_on || 'another service';
                 const posterAction = typeof buildPosterAction === 'function' ? buildPosterAction(item) : '';
                 return `
-                    <div class="flex-shrink-0 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm" style="width: 130px; scroll-snap-align: start;" data-rec-card>
+                    <div class="flex-shrink-0 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm relative" style="width: 130px; scroll-snap-align: start;" data-rec-card>
                         <div class="poster-frame relative">
                             <a href="${link}" class="block">${imgInner}</a>
                         </div>
@@ -633,7 +633,7 @@
                        : item.friend_name ? `<p class="text-[10px] text-coral mt-0.5">${escapeHtml(item.friend_name)} rated this ${item.rating || ''}/5</p>`
                        : '';
         return `
-            <div class="flex-shrink-0 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark overflow-hidden shadow-sm card-hover transition-base" style="width: 130px; scroll-snap-align: start;" data-rec-card>
+            <div class="flex-shrink-0 bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm card-hover transition-base relative" style="width: 130px; scroll-snap-align: start;" data-rec-card>
                 <div class="poster-frame relative">
                     <a href="${link}" class="block">${imageInner}</a>
                     ${pr}
