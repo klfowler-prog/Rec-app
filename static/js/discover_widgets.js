@@ -182,7 +182,7 @@
     const THEME_ORDER = ['bingeable_tv', 'movies_youll_love', 'quick_escape', 'learn_something', 'get_lost'];
 
     // Lanes that use the hybrid endpoint (real API candidates + AI scoring)
-    const HYBRID_LANES = new Set(['bingeable_tv', 'movies_youll_love', 'quick_escape']);
+    const HYBRID_LANES = new Set(['bingeable_tv', 'movies_youll_love', 'quick_escape', 'get_lost', 'learn_something']);
 
     async function loadThemes(retried) {
         const wrap = document.getElementById('themes-wrap');

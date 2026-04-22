@@ -2488,15 +2488,9 @@ async def home_bundle(user: User = Depends(require_user), db: Session = Depends(
         else:
             streaming_context = ""
 
-        # Six life-context themes — each resolves to a specific mode of
-        # consumption the user might actually be in. These replace the
-        # old "Patterns in your taste" insights block on the home page.
-        # Only generate themes for lanes NOT served by the hybrid endpoint.
-        # bingeable_tv, movies_youll_love, quick_escape use /discover-lane/.
-        theme_catalog = [
-            ("learn_something",   "Learn something new",     "any",     "PODCASTS and NONFICTION BOOKS only (no fiction, no TV, no movies). Idea-driven, educational, mind-expanding content that matches the user's interests. Narrative nonfiction, science, history, essays, interview podcasts, explainer pods. Mix podcasts and books roughly evenly. Return 8 items."),
-            ("get_lost",          "Get lost in a story",     "book",    "BOOKS ONLY. Fiction or narrative nonfiction — immersive, involved, the kind of book you lose a weekend to. Literary fiction, page-turners, epic narratives, compelling memoirs. All 8 picks must be media_type 'book'. Return 8 items."),
-        ]
+        # All discover lanes are now served by /discover-lane/ endpoint.
+        # Home-bundle no longer generates themes — only top_picks, suggestions, insights.
+        theme_catalog = []
         theme_schema_lines = [
             f'    "{slug}": [{{"title": "...", "creator": "...", "media_type": "movie|tv|book|podcast", "year": 2020, "reason": "What it is + why", "predicted_rating": 4.5}}, ... 8 items]'
             for (slug, _label, _primary, _guide) in theme_catalog
@@ -5158,6 +5152,8 @@ async def discover_lane(
         "bingeable_tv": {"media_type": "tv", "label": "Bingeable TV"},
         "movies_youll_love": {"media_type": "movie", "label": "Movies you'll love"},
         "quick_escape": {"media_type": "mixed", "label": "Quick escape"},
+        "get_lost": {"media_type": "book", "label": "Get lost in a story"},
+        "learn_something": {"media_type": "mixed_bp", "label": "Learn something new"},
     }
     config = LANE_CONFIG.get(lane_slug)
     if not config:
@@ -5239,6 +5235,8 @@ async def discover_lane(
         "bingeable_tv": "Recommend 20 TV SHOWS the user will binge. Propulsive series with momentum — cliffhangers, compelling arcs, shows that earn the next episode. All must be media_type 'tv'.",
         "movies_youll_love": "Recommend 20 MOVIES the user will love. Strong taste matches — films that connect to their profile through theme, tone, or storytelling. All must be media_type 'movie'.",
         "quick_escape": "Recommend 20 items (mix TV and movies) for a quick escape. Light, comforting, easy — 90 minutes or less. The kind of thing you put on when you want to relax. Mix TV and movies.",
+        "get_lost": "Recommend 20 BOOKS the user will get lost in. Fiction or narrative nonfiction — immersive, involved, page-turners. Include a mix of recent bestsellers and modern classics. Think NYT bestseller list quality — books people are talking about, book club picks, award winners. NOT obscure literary fiction unless the user's profile clearly skews that way. All must be media_type 'book'.",
+        "learn_something": "Recommend 20 items (mix PODCASTS and NONFICTION BOOKS) to learn something new. Idea-driven, mind-expanding — narrative nonfiction, popular science, history, essays, interview podcasts, explainer pods. Match the user's interests. Mix podcasts and books roughly evenly.",
     }
     lane_prompt = LANE_PROMPTS.get(lane_slug, f"Recommend 20 items for {config['label']}.")
 
@@ -5309,41 +5307,59 @@ Return ONLY valid JSON array:
             if pr is not None and item.get("external_id"):
                 cache.set_predicted_rating(user.id, item["media_type"], item["external_id"], pr)
 
-        # If AI picks didn't fill 8 slots, backfill with TMDB discover
+        # Backfill if AI picks didn't fill 8 slots
         if len(results) < 8:
-            provider_str = "|".join(str(pid) for pid in user_services) if user_services else ""
-            from app.services.tmdb import discover as tmdb_discover
-            backfill_tasks = []
-            for target_mt in seed_types:
-                backfill_tasks.append(tmdb_discover(
-                    media_type=target_mt,
-                    with_watch_providers=provider_str,
-                    vote_average_gte=7.5,
-                    sort_by="popularity.desc",
-                    limit=20,
-                ))
-            backfill_results = await asyncio.gather(*backfill_tasks, return_exceptions=True)
             filled_ids = {r["external_id"] for r in results if r.get("external_id")}
+            filled_titles = {_normalize_title(r["title"]) for r in results}
             consumed_normalized = {_normalize_title(e.title) for e in consumed if e.title}
-            for br in backfill_results:
-                if isinstance(br, Exception):
+
+            backfill_items = []
+            if lane_slug in ("get_lost", "learn_something"):
+                # Backfill with NYT bestsellers for book lanes
+                from app.services.nyt_books import get_bestsellers
+                nyt_sections = await get_bestsellers(limit_per_list=15)
+                for _label, books in nyt_sections:
+                    for item in books:
+                        if lane_slug == "learn_something" and _label.lower().find("fiction") >= 0 and _label.lower().find("nonfiction") < 0:
+                            continue  # learn_something wants nonfiction
+                        backfill_items.append(item)
+            else:
+                # Backfill with TMDB discover for movie/TV lanes
+                provider_str = "|".join(str(pid) for pid in user_services) if user_services else ""
+                from app.services.tmdb import discover as tmdb_discover
+                backfill_tasks = []
+                for target_mt in seed_types:
+                    backfill_tasks.append(tmdb_discover(
+                        media_type=target_mt,
+                        with_watch_providers=provider_str,
+                        vote_average_gte=7.5,
+                        sort_by="popularity.desc",
+                        limit=20,
+                    ))
+                backfill_results = await asyncio.gather(*backfill_tasks, return_exceptions=True)
+                for br in backfill_results:
+                    if not isinstance(br, Exception):
+                        backfill_items.extend(br)
+
+            for item in backfill_items:
+                if len(results) >= 12:
+                    break
+                if item.external_id in filled_ids:
                     continue
-                for item in br:
-                    if len(results) >= 12:
-                        break
-                    if item.external_id in filled_ids:
-                        continue
-                    if _normalize_title(item.title) in consumed_normalized:
-                        continue
-                    filled_ids.add(item.external_id)
-                    results.append({
-                        "title": item.title, "media_type": item.media_type,
-                        "year": item.year, "image_url": item.image_url,
-                        "external_id": item.external_id, "source": item.source,
-                        "description": item.description or "",
-                        "genres": ", ".join(item.genres) if item.genres else "",
-                        "predicted_rating": None,
-                    })
+                if _normalize_title(item.title) in consumed_normalized:
+                    continue
+                if _normalize_title(item.title) in filled_titles:
+                    continue
+                filled_ids.add(item.external_id)
+                filled_titles.add(_normalize_title(item.title))
+                results.append({
+                    "title": item.title, "media_type": item.media_type,
+                    "year": item.year, "image_url": item.image_url,
+                    "external_id": item.external_id, "source": item.source,
+                    "description": item.description or "",
+                    "genres": ", ".join(item.genres) if item.genres else "",
+                    "predicted_rating": None,
+                })
 
         cache.set(cache_key, results, ttl_seconds=21600)  # 6 hours
         return results
