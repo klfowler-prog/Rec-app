@@ -5193,46 +5193,57 @@ async def discover_lane(
         if e.rating and e.rating >= 4 and e.media_type in seed_types
     ]
     top_rated.sort(key=lambda x: x.rating or 0, reverse=True)
-    seeds = top_rated[:10]
+
+    # Diversify seeds: pick up to 8, but max 2 per primary genre so one
+    # genre cluster doesn't dominate the recommendation calls.
+    from collections import Counter
+    genre_seed_count: dict[str, int] = {}
+    seeds = []
+    for e in top_rated:
+        primary_genre = (e.genres or "").split(",")[0].strip().lower()
+        if genre_seed_count.get(primary_genre, 0) >= 2:
+            continue
+        seeds.append(e)
+        genre_seed_count[primary_genre] = genre_seed_count.get(primary_genre, 0) + 1
+        if len(seeds) >= 8:
+            break
 
     # Build candidate pool from multiple TMDB sources in parallel
     tasks = []
 
-    # Source 1: TMDB recommendations for each seed item (up to 5 seeds)
-    for seed in seeds[:5]:
+    # Source 1: TMDB recommendations for each seed item
+    for seed in seeds[:8]:
         if seed.source == "tmdb" and seed.external_id:
-            tasks.append(get_recommendations(seed.media_type, seed.external_id, limit=10))
+            tasks.append(get_recommendations(seed.media_type, seed.external_id, limit=8))
 
-    # Source 2: TMDB discover filtered by user's genres and services
+    # Source 2: TMDB discover — one call per top genre for breadth
     user_services = load_streaming_services(db, user.id)
     provider_str = "|".join(str(pid) for pid in user_services) if user_services else ""
 
-    # Get top genres from user's highly-rated items
-    from collections import Counter
     genre_counts = Counter()
-    for e in top_rated[:20]:
+    for e in top_rated[:30]:
         if e.genres:
             for g in e.genres.split(","):
                 g = g.strip()
                 if g:
                     genre_counts[g] += 1
-    top_genres = [g for g, _ in genre_counts.most_common(3)]
 
-    # Map genre names back to TMDB IDs
     from app.services.tmdb import GENRE_MAP
     genre_name_to_id = {v: k for k, v in GENRE_MAP.items()}
-    genre_ids = [str(genre_name_to_id[g]) for g in top_genres if g in genre_name_to_id]
 
+    # Run separate discover calls for top 4 genres (not combined) for diversity
+    top_genres = [g for g, _ in genre_counts.most_common(6) if g in genre_name_to_id]
     for target_mt in seed_types:
-        if genre_ids:
+        for genre_name in top_genres[:4]:
+            gid = str(genre_name_to_id[genre_name])
             tasks.append(discover(
                 media_type=target_mt,
-                with_genres="|".join(genre_ids[:2]),
+                with_genres=gid,
                 with_watch_providers=provider_str,
-                vote_average_gte=7.0,
-                limit=20,
+                vote_average_gte=6.5,
+                limit=10,
             ))
-        # Source 3: Trending
+        # Source 3: Trending — broad discovery
         tasks.append(get_trending(media_type=target_mt, time_window="week", limit=15))
 
     all_results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -5291,12 +5302,13 @@ USER'S TASTE ({config['label']}):
 CANDIDATES (numbered list — these are real items, pick from this list ONLY):
 {chr(10).join(candidate_lines)}
 
-Score each candidate 1-5 for how much this user would enjoy it. Return the TOP 12 by score.
+Score each candidate 1-5 for how much this user would enjoy it. Return the TOP 20 by score (we'll filter for diversity after).
 
 RULES:
 - Only return items from the numbered list above. Use the exact number.
 - Be honest — most items should be 3-3.5. Only genuine taste matches get 4+.
 - Consider genre preferences, tone, and the user's rating patterns.
+- GENRE DIVERSITY IS CRITICAL: The final 12 must spread across at least 3-4 different genres. Do NOT return more than 3 items from any single genre (e.g. no more than 3 documentaries, no more than 3 comedies). If the top scores cluster in one genre, skip some and pick the next-best item from a DIFFERENT genre. A diverse set of good recommendations is always better than a narrow set of great ones.
 - Return ONLY a JSON array of objects, sorted by score descending:
 [{{"n": 1, "score": 4.2}}, {{"n": 5, "score": 4.0}}, ...]
 """
@@ -5307,14 +5319,21 @@ RULES:
         if not isinstance(parsed, list):
             return []
 
-        # Map back to candidates and build response
+        # Map back to candidates and build response with genre cap
         results = []
-        for entry in parsed[:12]:
+        genre_count: dict[str, int] = {}
+        MAX_PER_GENRE = 2
+        for entry in parsed[:20]:  # check up to 20 to fill 12 after genre cap
             idx = entry.get("n")
             score = entry.get("score")
             if not isinstance(idx, int) or idx < 1 or idx > len(candidates):
                 continue
             item = candidates[idx - 1]
+            # Enforce genre diversity: max 2 per primary genre
+            primary_genre = (item.genres[0] if item.genres else "other").lower()
+            if genre_count.get(primary_genre, 0) >= MAX_PER_GENRE:
+                continue
+            genre_count[primary_genre] = genre_count.get(primary_genre, 0) + 1
             results.append({
                 "title": item.title,
                 "media_type": item.media_type,
@@ -5330,6 +5349,8 @@ RULES:
             # Persist score for detail page consistency
             if score is not None:
                 cache.set_predicted_rating(user.id, item.media_type, item.external_id, score)
+            if len(results) >= 12:
+                break
 
         cache.set(cache_key, results, ttl_seconds=21600)  # 6 hours
         return results
