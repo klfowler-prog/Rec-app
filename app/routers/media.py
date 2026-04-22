@@ -5259,6 +5259,23 @@ async def discover_lane(
 
     all_results = await asyncio.gather(*tasks, return_exceptions=True)
 
+    # Build genre exclusion set from onboarding (same logic as home-bundle)
+    from app.services.taste_quiz_scoring import load_onboarding
+    _dl_onb = load_onboarding(db, user.id)
+    _dl_scenes = set((_dl_onb or {}).get("scenes", []))
+    excluded_genres: set[str] = set()
+    _dl_deal = {"anime": {"animation"}, "k_content": set()}
+    _dl_keywords = {"anime": {"anime", "animation"}, "k_content": {"k-pop", "kpop", "k-drama", "kdrama", "korean"}}
+    for key in ("anime", "k_content"):
+        if key not in _dl_scenes:
+            has = db.query(MediaEntry).filter(
+                MediaEntry.user_id == user.id,
+                MediaEntry.genres.ilike(f"%{'anime' if key == 'anime' else 'k-drama'}%"),
+                MediaEntry.rating >= 3,
+            ).limit(1).first()
+            if not has:
+                excluded_genres.update(_dl_keywords[key])
+
     # Flatten and deduplicate
     seen_ids: set[str] = set()
     candidates = []
@@ -5269,6 +5286,10 @@ async def discover_lane(
             if item.external_id in seen_ids:
                 continue
             if _normalize_title(item.title) in consumed_titles:
+                continue
+            # Filter excluded genres (anime, K-content, etc.)
+            item_genres_lower = {g.lower() for g in (item.genres or [])}
+            if item_genres_lower & excluded_genres:
                 continue
             seen_ids.add(item.external_id)
             candidates.append(item)

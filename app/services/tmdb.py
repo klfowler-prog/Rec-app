@@ -450,6 +450,7 @@ async def discover(
     vote_average_gte: float = 6.0,
     sort_by: str = "popularity.desc",
     limit: int = 20,
+    language: str = "en",
 ) -> list[MediaResult]:
     """Use TMDB's /discover endpoint to find items by genre, provider, rating, etc."""
     if not settings.tmdb_api_key:
@@ -462,6 +463,8 @@ async def discover(
         "watch_region": "US",
         "page": 1,
     }
+    if language:
+        params["with_original_language"] = language
     if with_genres:
         params["with_genres"] = with_genres
     if with_watch_providers:
