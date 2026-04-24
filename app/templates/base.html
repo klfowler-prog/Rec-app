@@ -331,6 +331,7 @@
                         const img = item.image_url
                             ? `<img src="${item.image_url}" alt="" class="w-8 h-11 object-cover rounded flex-shrink-0">`
                             : `<div class="w-8 h-11 bg-sage/10 rounded flex items-center justify-center flex-shrink-0"><span class="text-sage text-xs font-bold">${_escapeHtml((item.title||'?')[0])}</span></div>`;
+                        const detailLink = item.external_id ? `/media/${item.media_type}/${item.external_id}?source=${item.source || ''}` : '#';
                         const baseData = {
                             external_id: item.external_id || '', source: item.source || '', title: item.title,
                             media_type: item.media_type, image_url: item.image_url || null, year: item.year || null,
@@ -343,12 +344,14 @@
                         const doneData = _escapeAttr(JSON.stringify({...baseData, status: 'consumed'}));
                         return `
                             <div class="flex items-center gap-3 px-3 py-2.5 hover:bg-sage/5 transition-base" data-gs-row>
-                                ${img}
-                                <div class="flex-1 min-w-0">
-                                    <p class="text-sm font-medium truncate">${_escapeHtml(item.title)}</p>
-                                    <p class="text-[10px] text-txt-muted">${item.year || ''} ${item.creator ? '· ' + _escapeHtml(item.creator) : ''}</p>
-                                </div>
-                                <span class="px-1.5 py-0.5 ${badge} text-[9px] font-medium rounded capitalize flex-shrink-0">${item.media_type}</span>
+                                <a href="${detailLink}" class="flex items-center gap-3 flex-1 min-w-0">
+                                    ${img}
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium truncate">${_escapeHtml(item.title)}</p>
+                                        <p class="text-[10px] text-txt-muted">${item.year || ''} ${item.creator ? '· ' + _escapeHtml(item.creator) : ''}</p>
+                                    </div>
+                                    <span class="px-1.5 py-0.5 ${badge} text-[9px] font-medium rounded capitalize flex-shrink-0">${item.media_type}</span>
+                                </a>
                                 <div class="flex gap-1 flex-shrink-0">
                                     <button onclick="globalAddSave(this, ${laterData})" class="px-2 py-1 text-[10px] font-medium bg-sage/10 hover:bg-sage hover:text-white text-sage rounded transition-base" title="Save for later">Later</button>
                                     <button onclick="globalAddSave(this, ${nowData})" class="px-2 py-1 text-[10px] font-medium bg-coral/10 hover:bg-coral hover:text-white text-coral rounded transition-base" title="Start now">Now</button>
