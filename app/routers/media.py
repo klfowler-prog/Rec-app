@@ -5469,11 +5469,11 @@ async def taste_fit(
 
     from app.services.gemini import generate
 
-    prompt = f"""Predict how much this user would enjoy a specific item on a 1-5 scale, and explain why in one sentence.
+    prompt = f"""Predict how much this person would enjoy a specific item on a 1-5 scale, and explain why in one sentence.
 
 {quiz_signals}
 {resonance_signals}
-USER'S TASTE PROFILE (items they rated 4-5):
+TASTE PROFILE (items rated 4-5):
 {taste_summary}
 {f'{genre_breakdown}' if genre_breakdown else ''}
 
@@ -5488,23 +5488,24 @@ Type: {media_type}
 {f'Description: {description}' if description else ''}
 
 SCORING RULES:
-- Be honest, not generous. Most items are a 3-3.5 for any given person. Only give 4+ for genuine taste matches where the item's themes, tone, and storytelling approach connect to multiple things they love.
-- A 5.0 means near-perfect match to their absolute favorites. Extremely rare.
+- Be honest, not generous. Most items are a 3-3.5 for any given person. Only give 4+ for genuine taste matches where the item's themes, tone, and storytelling approach connect to multiple things in the profile.
+- A 5.0 means near-perfect match. Extremely rare.
 - If you don't recognize the item or can't tell, return null.
 
 DISLIKED ITEMS — CRITICAL:
-- A low rating means the user didn't enjoy THAT SPECIFIC ITEM. It does NOT mean they dislike the entire genre.
-- Someone who rated a kids show 1/5 dislikes kids content, NOT comedy or animation as a whole.
-- Someone who rated a bad thriller 1/5 dislikes THAT thriller, not the thriller genre.
-- Look at WHAT KIND of item was disliked (kids content, reality TV, self-help, etc.) and only penalize the item being evaluated if it's genuinely the same kind of content — not just the same genre label.
-- NEVER cite a disliked item as a reason unless the item being evaluated is truly the same kind of content in terms of audience, tone, and intent.
+- A low rating means that specific item wasn't enjoyed. It does NOT mean the entire genre is disliked.
+- A kids show rated 1/5 means kids content isn't wanted, NOT that comedy or animation is disliked.
+- Only penalize if the item being evaluated is genuinely the same kind of content in terms of audience, tone, and intent.
+- NEVER cite a disliked item unless the connection is truly substantive, not just a shared genre label.
 
-REASON FORMAT:
-- Mention something specific from their loved items that connects to this item.
-- If you're scoring low, explain what about the item doesn't match — not just "similar to disliked items."
+REASON FORMAT — CRITICAL:
+- Write as if speaking directly to the person. Use "you" and "your", NEVER "the user", "they", or "this user".
+- Good: "You loved Mare of Easttown's slow-burn suspense — this has a similar feel."
+- Bad: "The user's preference for prestige drama suggests they would enjoy this."
+- Mention something specific from their loved items that connects.
 
 Return ONLY a JSON object:
-{{"predicted_rating": 3.5, "reason": "One sentence connecting to their taste profile."}}
+{{"predicted_rating": 3.5, "reason": "One sentence using 'you/your' connecting to taste profile."}}
 """
     try:
         text = (await generate(prompt, temperature=0)).strip()
