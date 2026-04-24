@@ -891,8 +891,10 @@ async def quick_start_books_nonfiction_page(request: Request, user: User = Depen
 
 
 @router.get("/media/{media_type}/{external_id}")
-async def media_detail_page(request: Request, media_type: str, external_id: str, user: User = Depends(require_user)):
+async def media_detail_page(request: Request, media_type: str, external_id: str, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    from app.services.taste_quiz_scoring import load_streaming_services
+    user_services = load_streaming_services(db, user.id)
     return templates.TemplateResponse(
         "media_detail.html",
-        {"request": request, "user": user, "media_type": media_type, "external_id": external_id},
+        {"request": request, "user": user, "media_type": media_type, "external_id": external_id, "user_services": user_services},
     )
